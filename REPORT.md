@@ -397,7 +397,7 @@ INIT_MAIN (0x4002)
     ↓
 ┌─────────────────────────────────┐
 │ 5. CHECKSUM VERIFICATION        │
-│    JSR checksum_ram (0x415F)    │
+│    JSR checksum_region (0x415F)    │
 │    ↓                            │
 │    Called 3x with:              │
 │    - LDX #0x40, LDA #0x80       │
@@ -541,13 +541,13 @@ ok2:
 LDX #0xFF / TXS         ; Reset stack
 LDX #0x40               ; Region 1
 LDA #0x80
-JSR checksum_ram        ; Verify ROM/RAM
+JSR checksum_region        ; Verify ROM/RAM
 
 LDA #0x40
-JSR checksum_ram        ; Region 2
+JSR checksum_region        ; Region 2
 
 ; Load from data table 0x5F20
-JSR checksum_ram        ; Region 3
+JSR checksum_region        ; Region 3
 ```
 
 **Hardware Register Init (0x40A7):**
@@ -672,7 +672,7 @@ STA (0x08),Y            ; Write 0 to YM2151 reg 8
 
 Called before entering main loop (0x4100).
 
-#### 6. checksum_ram (0x415F)
+#### 6. checksum_region (0x415F)
 **Purpose**: Verify memory integrity via checksum
 
 ```assembly
@@ -2682,7 +2682,7 @@ Using RTS (0x60) cluster analysis:
 - `init_hardware_regs` (0x5A0B) - Hardware control register setup
 - `init_sound_state` (0x5833) - Sound system state initialization
 - `clear_sound_buffers` (0x41E6) - Zero all sound buffers
-- `checksum_ram` (0x415F) - Memory integrity verification
+- `checksum_region` (0x415F) - Memory integrity verification
 - `ram_error_handler` (0x4142) - RAM test failure handler
 
 #### Interrupt Handlers (3 functions)
@@ -2745,7 +2745,7 @@ reset_handler
   ↓
 init_main
   ├─→ tms5220_write
-  ├─→ checksum_ram (3×)
+  ├─→ checksum_region (3×)
   ├─→ ram_error_handler (on error)
   └─→ main_loop
         ├─→ init_hardware_regs
@@ -5446,3 +5446,417 @@ Uses RAM at $0832 (read index), $0833 (write index), $0834-$083B (8-entry circul
 | Inline data table | 0x83A4-0x83AB (8 bytes: coin LED bit masks) |
 
 **Status**: Phase 21 complete. ✅
+
+---
+
+## Phase 22 — Validation Pass and Major Corrections (2026-05-01)
+
+A comprehensive review pass against the actual ROM disassembly identified
+~50 documentation issues across REPORT.md, REPORT_SUMMARY.md, MEMMAP.md, and
+gauntlet_disasm.py. This phase documents the corrections.
+
+### 22.1 Methodology
+
+For every documented function, jump table entry, and data table:
+
+1. Re-disassembled the bytes directly with radare2.
+2. Cross-referenced against operation.txt (the original schematic-derived spec
+   that was provided to Claude as input — many original "unknown" hardware
+   registers turn out to be defined there but were missed).
+3. Traced reads/writes of zero-page state bytes to confirm semantics.
+4. Verified table sizes by inspecting end-of-table boundaries (next code/data).
+
+### 22.2 Critical correction: Opcode jump table
+
+Reading the table at $507B byte-by-byte shows the following actual mapping
+(verified for all 59 opcodes 0x80-0xBA):
+
+| Opcode | Address | Operation | Old name in REPORT |
+|--------|---------|-----------|---------------------|
+| 0x84 | $51AE | SET_TRANSPOSE (`STA $05E8,X`) | "ADD_TRANSPOSE" — wrong, the ADD is at 0x85 |
+| 0x85 | $51AA | ADD_TRANSPOSE (`CLC; ADC $05E8,X; STA`) | "NOP_FE_CHECK" — does not exist as separate opcode |
+| 0x8C | $51E2 | **SET_VIBRATO** (`STA $0660,X`) | "CLR_CTRL_BITS at $51CB" — WRONG ADDRESS |
+| 0x8D | $51E6 | **PUSH_SEQ** | "SET_VIBRATO at $51E2" — WRONG OPCODE NUMBER |
+| 0x8E | $5214 | **PUSH_SEQ_EXT** | "PUSH_SEQ at $51E6" — WRONG |
+| 0x8F | $523F | **POP_SEQ** | "PUSH_SEQ_EXT at $5214" — WRONG |
+| 0x9B | $51CB | **CLR_CTRL_BITS** | "SET_VAR_NAMED at $51CB" — WRONG NAME (the address is right) |
+
+The `SET_VAR_NAMED` opcode never existed; the original analysis confused the
+operation at $51CB (clearing bits in chan_ctrl_mask, with a YM2151 path that
+masks bits 0/4 of chan_ctrl_bits) with a "set named variable" operation that
+isn't actually in the opcode set.
+
+The bytes 0x8C and 0x9B both occur in real music sequences (~50 each in the
+music data region 0x873D-0xACFF), so this misnaming directly affected the
+output of `gauntlet_disasm.py`.
+
+The disassembler has been corrected. The mid-frame timing math wasn't affected
+because the byte counts per opcode (1 arg byte each in this region) were
+already right — only the labels were wrong.
+
+### 22.3 Critical correction: error_flags ($02) bit assignments
+
+Original claim:
+> 0x02 = error_flags: bit 0=RAM error, bit 1=YM2151 timeout, bit 2=general error
+
+Tracing all reads and writes of $02 throughout the ROM yields a different
+picture:
+
+| Bit | Set by | Cleared by | Meaning |
+|-----|--------|------------|---------|
+| 0 | NMI handler 2 ($44AD) | main_loop ($4104) | "main_loop alive" heartbeat |
+| 1 | `ym2151_wait_ready` ($5005) | `clear_sound_buffers` ($4284) | YM2151 timeout (unchanged) |
+| 2 | init_main timeout ($40C2) + NMI 2 ($44AD) | IRQ handler ($418E) | "IRQ alive" heartbeat |
+| 3 | `ram_error_handler` X≥8 path ($4151) | (sticky) | RAM walking-bit failed for page 8+ |
+| 4 | `ram_error_handler` X<8 path ($414B-$4153) | (sticky) | RAM walking-bit failed for pages 2-7 (this path **overwrites** $02 with 0x10!) |
+| 5 | `checksum_region` ($417C) with mask 0x20 | (sticky) | ROM checksum failed, region 0xC000-0xFFFF |
+| 6 | `checksum_region` ($417C) with mask 0x40 | (sticky) | ROM checksum failed, region 0x8000-0xBFFF |
+| 7 | `checksum_region` ($417C) with mask 0x80 | (sticky) | ROM checksum failed, region 0x4000-0x7FFF |
+
+`checksum_region` checksums ROM regions (0x4000-0xFFFF in three 16KB
+chunks). The mask in A (0x80, 0x40, 0x20) selects which error bit to set
+on failure. Each call sums 16K bytes and checks the total against 0xFF.
+
+NMI command 7 reads $02, sends it to the main CPU via $1000, then re-arms
+bits 0 and 2 (`LDA $02 / ORA #$04 / ORA #$01 / STA $02`). On the next IRQ,
+bit 2 is cleared. On the next main_loop iteration, bit 0 is cleared. So if
+the main CPU polls again and sees bit 2 still set, it can detect that the
+sound CPU's IRQ has stopped firing. Bit 0 detects main_loop hangs.
+
+This is a **watchdog mechanism** with the main CPU as the watchdog timer.
+
+### 22.4 Critical correction: NMI commands 3, 6, 7 are status queries
+
+Original claim:
+> Commands 0x03, 0x06, 0x07: Map to handler type 0xFF (no handler, silently
+> ignored). Whether these are reserved placeholders, development artifacts,
+> or intercepted by the main CPU before reaching the sound board is unknown.
+
+Reading `nmi_validation_table` ($5D0F):
+
+```
+$5D0F: FF FF FF 00 FF FF 01 02 FF FF FF FF FF FF FF FF ...
+                ^cmd 3   ^cmd 6 ^cmd 7
+```
+
+The non-0xFF entries trigger immediate dispatch via $5FA2 + (val * 2) in the
+NMI handler, rather than buffering for main-loop dispatch. Tracing the targets:
+
+- **Cmd 3** → NMI dispatch handler 0 ($843F): `LDA $44 / JSR $44C8 / JMP $581E`.
+  Sends the cached coin/LED state byte to the main CPU via $1000.
+- **Cmd 6** → NMI dispatch handler 1 ($44B8): `LDA #$DB / JSR $44C8 / ...`.
+  Echoes back the maximum valid command count (0xDB = 219) — an "alive and
+  accepting commands" status reply.
+- **Cmd 7** → NMI dispatch handler 2 ($44A8): `LDA $02 / JSR $44C8 / LDA $02
+  / ORA #$04 / ORA #$01 / STA $02 / ...`. Sends error_flags to main CPU AND
+  re-arms watchdog bits 0/2.
+
+These are **status queries** the main CPU can use to poll the sound CPU. The
+old "purpose unknown" label was incorrect. Cmds 0x03/0x06/0x07 ARE meaningful
+and are dispatched directly from the NMI handler, never reaching the
+main-loop dispatcher.
+
+### 22.5 Critical correction: hardware register $1031
+
+`$1031` was not mentioned in the original analysis at all. Per operation.txt
+(the original spec) and the schematic:
+
+> 0x1031 bit D7 is a "speech write" signal (active low).
+
+Confirmed by inspecting all six $1031 accesses in the ROM:
+
+- `init_sound_state` ($5846/$584B): `LDA $1031 / ORA #$80 / STA $1031` —
+  drive the strobe high (de-assert).
+- `sound_status_update` when TMS5220 not ready ($58CD/$58D3): same de-assert.
+- `sound_status_update` after writing speech data ($5929/$592A): `LDA $1031
+  / AND #$7F / STA $1031` — drive the strobe low (assert), latching the data
+  byte previously written to $1820 into the TMS5220.
+
+This pattern matches the standard TMS5220 hardware interface protocol.
+
+While inspecting the schematic-defined registers, several other fixes:
+
+- **$1020 R**: returns coin slot status (bits 0-3, active low). The original
+  doc placed coins in `$1030 R bits 0-3`, which is wrong — those bits of
+  $1030 are unused.
+- **$1030 R bit 7**: "data available at $1010" (i.e., main CPU has output a
+  command for the sound CPU to read). Original doc called this "main CPU
+  output buffer full" — same meaning, different framing.
+- **$1034 / $1035**: mechanical coin counter solenoid outputs (bit 7 active
+  high), NOT "coin counter LED outputs" as Phase 21 named them.
+- **$1032**: TMS5220 reset strobe (bit 7, active low). Used not just at boot
+  but also mid-operation by `sound_status_update`'s reset countdown via $33.
+
+### 22.6 Critical correction: hw_channel_types value for YM2151
+
+The 4 bytes at $57AC are `00 02 1E 22`. So:
+
+- Channel 0: type 0x00 = POKEY
+- Channel 1: type **0x02 = YM2151** (not 0x03 as old doc claimed)
+- Channel 2: type 0x1E = RAM workspace
+- Channel 3: type 0x22 = RAM buffer
+
+Confirmed by the test in `seq_var_classifier` ($5444) and other places:
+`LDY $081D / CPY #$02 / BEQ ...`. The check is against 2, not 3.
+
+The dispatcher at `channel_dispatcher` ($500D) has a peculiarity:
+`BEQ POKEY` (type 0) and `CMP #3 / BNE YM2151` (anything not 3 → YM2151) and
+fall-through to POKEY for type 3. Since no entry has type 3, this fall-through
+is dead code — possibly vestigial from a development build where YM2151 was
+encoded as type 3.
+
+### 22.7 Data table sizes (2-3x off)
+
+Many "1 byte per command" tables are actually "1 byte per parameter":
+
+| Table | Old size | True size | Indexed by |
+|-------|----------|-----------|-----------|
+| `sfx_priority` | ~62B | **182B** | `sfx_data_offset` (0..181) |
+| `sfx_channel_map` | ~62B | **182B** | offset |
+| `sfx_data_ptrs_a` | ~200B | 256B | raw byte offset 0x00-0x7F |
+| `sfx_data_ptrs_b` | ~200B | 108B | raw byte offset 0x80-0xB5 |
+| `music_seq_index` | 219B | **141B** | parameter (0..140) |
+| `music_flags` | 219B | **141B** | parameter |
+| `music_tempo` | 219B | **141B** | parameter |
+| `music_seq_ptrs` | ~184B | **378B** (189 entries × 2) | seq_idx*2 |
+| `music_seq_lengths` | ~184B | **378B** | seq_idx*2 |
+| `handler_addr_table` | 32B | **30B** (15 entries) | handler_type * 2 |
+| `hw_channel_types` | 8B | **4B** | channel index |
+
+The "primary/alternate" framing of `sfx_data_ptrs_a`/`sfx_data_ptrs_b` is
+incorrect — they're a single conceptual 182-entry pointer table split at the
+high bit of `sfx_data_offset`:
+
+```
+TXA                    ; X = sfx_data_offset
+ASL A                  ; bit 7 -> carry
+TAX
+BCS use_b              ; if offset >= 0x80 (high bit set): use _b table
+LDA $6190,X            ; else use _a table
+```
+
+Both halves cover sequential offsets; the split is purely for 8-bit register
+addressing.
+
+### 22.8 Music sequence data starts at 0x873D, not 0x8700
+
+The original "music data 0x8700-0xACFF" claim conflicts with the size of
+`music_seq_lengths`. Reading all 189 entries of `music_seq_ptrs` at $8449 and
+finding the minimum value:
+
+- min(`music_seq_ptrs`) = 0x873D
+- `music_seq_lengths` ($85C3) extends through 0x873C (378 bytes = 189 × 2)
+
+So the bytes at 0x8700-0x873C are still part of the lengths table, and music
+sequence data actually begins at 0x873D.
+
+### 22.9 `pokey_update_registers` is one function, not two
+
+Old: two separate functions at $4DFC (77B) and $4E1B (77B).
+
+True: one function from $4DFC to $4E67 (108 bytes total). Verified by:
+
+1. No JSR or branch instruction targets $4E1B as an entry point.
+2. The only call site for $4DFC is the `JMP $4DFC` at $5023 in `channel_dispatcher`.
+3. Disassembling from $4DFC shows continuous control flow through $4E1B onward.
+
+The function's structure:
+
+1. Save X
+2. Process channel pair 3-4 via `pokey_channel_mix` ($4D02)
+3. Write computed values to AUDF3/AUDF4/AUDC3/AUDC4 ($1804-$1807) via `(0x08),Y`
+4. Process channel pair 1-2 via `pokey_channel_mix`
+5. Combine AUDCTL bits and write to AUDCTL ($1808)
+6. Write AUDF1/AUDF2/AUDC1/AUDC2 ($1800-$1803)
+7. RTS
+
+### 22.10 `clear_sound_buffers` does much more than its name
+
+Original: "Zero all sound channel buffers and build free-channel list."
+
+The function (0x41E6) actually performs full hardware re-init:
+
+1. PHP/SEI to disable interrupts during init
+2. JSR `channel_list_init` (rebuild free-record pool)
+3. Zero output buffer pointers ($0224, $0225, $0226)
+4. Zero speech queue pointers ($0832, $0833)
+5. Zero linked-next array $07E6 for X=0..0x29 (42 entries — issue 22.13)
+6. Zero five channel state arrays ($0390, $0282, $02A0, $0408, $0642) for X=0..29
+7. **Initialize POKEY hardware**: writes 0 to AUDCTL/AUDFx/AUDCx, plus 0 then 3 to SKCTL ($180F) — undocumented init pattern
+8. **Initialize YM2151 hardware**: turns off all 8 YM2151 channels by writing key-off codes to register 0x08
+9. Clears YM2151 timeout flag (bit 1 of $02)
+
+It's effectively a "soft reset all sound hardware + clear state" routine.
+
+### 22.11 `channel_list_init` builds a 199-record pool
+
+The function (0x4295) iterates a counter from 2 to 200 (CPX #$C8 limit),
+writing each "next" link to a 4-byte record at $093D + (n-1)*4. Result:
+a free list of 199 channel state records, used for `PUSH_SEQ` / `PUSH_SEQ_EXT`
+sequence chaining.
+
+The original "30 logical channels" framing is incomplete — there are 30
+logical channels in the channel state arrays at $0228+X, but a separate 199-
+record pool at $093D for sequence segment management.
+
+### 22.12 NMI bulk-data path (PATH A) is dead code
+
+The NMI handler at $57B0 reads `$0213` (nmi_mode_flag) and branches based on it:
+
+- $0213 == 0: PATH A — write $1010 to `(nmi_buffer_ptr + state),Y` via $04-$05.
+- $0213 != 0: PATH B — validate via $5D0F and dispatch.
+
+`$0213` is **only ever set to 0xFF** (at boot via `init_main` and after every
+NMI dispatch via `nmi_handler` exit). It is never set to 0. So PATH A is
+dead code. The zero-page slots `$04-$05` (`nmi_buffer_ptr`) and `$0212`
+(`nmi_buf_state`) are similarly never used in practice.
+
+This is likely vestigial from a planned bulk-data-upload mode.
+
+### 22.13 `$07E6` array is 42 entries, not 30
+
+`clear_sound_buffers` zeros `$07E6,X` for X=0..0x29 (42 entries). The first 30
+entries are channel "next" pointers per the existing doc. Entries 30..41
+($0804..$080F) are list HEADS, one per hardware sub-channel:
+
+- $0804..$0807 = POKEY channels 1-4 list heads
+- $0808..$080F = YM2151 channels 1-8 list heads
+
+Used by the SFX preemption logic: `handler_type_7` computes `X = sfx_channel_map +
+30` and reads `$07E6,X` to traverse the list of currently-active sounds on
+that hardware channel.
+
+### 22.14 Music filter threshold ($13) silences POKEY too
+
+Old: "$13 (music_filter_threshold)" only affects YM2151 music in
+`handler_type_11`.
+
+True: it ALSO affects POKEY in `pokey_channel_mix` ($4D02). The mix routine
+runs `channel_state_machine` for each channel in the active list and then
+does `LDA $0811 / CMP $13`; channels whose status (priority * 4 + 1) is below
+$13 are skipped during output. So:
+
+- Cmd 0x01 (silent mode, sets $13 = 0xF0): silences ALL POKEY SFX since their
+  status maxes out at 15*4+1 = 61, well below 0xF0.
+- Cmd 0x02 (noisy mode, sets $13 = 0): allows everything.
+
+### 22.15 `sound_status_update` state machine
+
+The function ($5894) is far more complex than the original "Stream speech data
+to TMS5220, manage speech queue" description. It implements a state machine
+on `$2F` (the music_active_flag):
+
+- `$2F == 0`: idle — check speech queue ($0832/$0833). If non-empty, dequeue
+  command and JMP `music_speech_handler` ($5939) to start it.
+- `$2F == $80`: kickoff requested (set by `music_speech_handler`). On next
+  call, INY makes Y=$81; the special path writes `$60` (TMS5220 "Speak
+  External" command) to $1820 and transitions $2F to $FF.
+- `$2F == $FF`: streaming. Read next byte from `($2B),Y` (Y=0 after INY
+  wraps), advance pointer, decrement length. When length expires, set timer
+  $2A=$19 and $2F=$11.
+- `$2F` in `0x01..0x7E`: countdown. Each call: DEC $2F, write 0 to $1820.
+  When $2F reaches 0, idle path resumes.
+
+Plus three additional sub-mechanisms:
+
+- TMS5220 reset countdown via `$33`: when `($33 - frame_counter) == 8`, write
+  to $1032 (TMS5220 reset strobe).
+- TMS5220 ready watchdog via `$30`: every other frame, XOR `frame_counter >> 1`
+  with $30; if equal, JMP back into `init_sound_state` (re-init).
+- Not-ready recovery (when bit 5 of $1030 is clear): set $30=$FF, set bit 7
+  of $1031.
+
+`init_sound_state` itself ends with `STA $2F` (A=$80), priming the kickoff
+state. The fake "sequence" it points to ($2B-$2C = $5874, length $0020) is
+the 32-byte 0xFF block at $5874-$5893 that previous analysis labeled as
+"unused padding" — it's actually intentionally addressed as a silent
+priming block to put the TMS5220 in a known state.
+
+### 22.16 `speech_queue_enqueue` priority pre-emption flushes the queue
+
+Already documented in Phase 21.6, but the FLUSH behavior was not noted:
+when X (new priority) > $35 (current priority), the entire queue is FLUSHED
+(read pointer = write pointer) before inserting. Currently-streaming speech
+keeps playing, but everything queued behind it is discarded.
+
+### 22.17 `handler_type_3` has 4 sub-targets, not 1
+
+The dispatcher at $4369 jumps via `$5FA0 + (param * 2)`. The 4 entries at
+$5FA0:
+
+- $5FA0: $41E5 → $41E6 = `clear_sound_buffers`
+- $5FA2: $843E → $843F = NMI handler 0 (read $44)
+- $5FA4: $44B7 → $44B8 = NMI handler 1 (echo $DB)
+- $5FA6: $44A7 → $44A8 = NMI handler 2 (read $02 + arm watchdog)
+
+The last 3 entries OVERLAP `nmi_dispatch_table` at $5FA2 — handler_type_3's
+table is the NMI dispatch table prepended with one extra entry (handler 0 at
+$5FA0). Only param 0 is used in practice (cmd 0 → clear_sound_buffers).
+
+### 22.18 Bit 7 of music_flags swaps TMS5220 oscillator pitch
+
+`music_speech_handler` ($5932) reads `music_flags[param]` ($643F) and:
+
+```
+LDA $643F,Y
+BPL set_low      ; bit 7 clear: low pitch
+LDA $34
+ORA #$80         ; bit 7 set: high pitch
+BNE write
+set_low:
+LDA $34
+AND #$7F
+write:
+STA $34
+STA $1033        ; TMS5220 oscillator clock control
+```
+
+So bit 7 of music_flags toggles the TMS5220 clock between two rates (per
+operation.txt: bit 7 low = 650kHz, bit 7 high = standard). This produces
+audible voice-pitch shifts — some characters' speech samples are stored at
+half rate and rely on this bit being set to play at correct pitch.
+
+### 22.19 `seq_var_classifier` index 5 reads POKEY's hardware RNG
+
+The classifier ($5444) maps "variable index 5" specifically to:
+
+```
+LDY #$0A
+LDA $1800,Y     ; LDA $180A
+PHA
+LDY $11
+PLA
+RTS
+```
+
+`$180A` is POKEY's RANDOM register. Reading it returns a hardware-generated
+random byte. Sequences can use index 5 to inject genuine randomness (via the
+COND_JUMP / classify-branch opcodes).
+
+### 22.20 Other small corrections
+
+- `handler_type_0` ($4347) shifts the parameter by 4 (ASL ASL), not 2, then stores to $13.
+- `handler_addr_table` is 30 bytes (15 entries), not 32. The bytes at $4651 are the start of `channel_state_machine`, not a sentinel entry.
+- `handler_match_table` base is $6559 (3-byte records), not $655C as old doc claimed.
+- `handler_stop_sound` does double-indirection: parameter is interpreted as a command number, looks up that command's handler type and parameter, and only then stops channels playing the resolved sound ID.
+- The "32 zero bytes at $5874" is referenced data (`init_sound_state` uses it as a fake silent sequence), not unused padding.
+- `init_hardware_regs` writes the magic byte sequence `FF 33 00 22 0F` to $1003/$1002/$100B/$100C/$1000 — purpose opaque without main-CPU side context.
+- POKEY init in `clear_sound_buffers` writes 0 then 3 to SKCTL at $180F (standard POKEY init pattern).
+- TMS5220 byte $60 = "Speak External" command, sent at the start of every music/speech sequence.
+
+### 22.21 Status
+
+**Phase 22 complete**. ✅ All findings have been propagated into:
+
+- `REPORT_SUMMARY.md` (executive summary + corrections section)
+- `MEMMAP.md` (table sizes, opcode mapping, hardware register layout)
+- `gauntlet_disasm.py` (opcode mapping fix, table size constants, command descriptions)
+- `docs/soundcmds.csv` (cmd 3/6/7 descriptions)
+
+The disassembler's MIDI export and score view continue to work; bytes 0x8C
+and 0x9B in real music sequences are now correctly labeled.
+
+The full set of findings (with disassembly evidence for each) is captured in
+`REVIEW_FINDINGS.md`.
+
+

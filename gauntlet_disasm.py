@@ -47,28 +47,75 @@ ROM_END  = 0xFFFF
 ROM_SIZE = 0xC000   # 48KB
 
 # ── Dispatch Tables ───────────────────────────────────────────────────────────
+#
+# Sizes verified against the ROM (May 2026 review):
+#   nmi_validation_table at $5D0F: 219 bytes (cmd -> NMI behavior)
+#     0xFF (or any byte with bit 7 set) -> store in cmd buffer for dispatch
+#     0x00..0x02 -> immediate NMI dispatch via $5FA2 + (val * 2)
+#   handler_addr_table at $4633: 30 bytes = 15 entries × 2, NO 16th sentinel
+#     (the bytes immediately after the last entry are the start of
+#     channel_state_machine at $4651)
+#   nmi_dispatch_table at $5FA2: 6 bytes = 3 × 16-bit (addr-1)
+#     Index 0 -> $843F (read $44 to main CPU - coin/LED state for cmd 3)
+#     Index 1 -> $44B8 (echo $DB to main CPU = max valid cmd count, for cmd 6)
+#     Index 2 -> $44A8 (read error flags $02 + arm watchdog bits, for cmd 7)
+#   handler_type_3 dispatch at $5FA0: 8 bytes = 4 × 16-bit, OVERLAPS $5FA2
+#     Index 0 -> $41E6 (clear_sound_buffers, for cmd 0)
+#     Indexes 1..3 share the NMI dispatch entries above (unreachable in practice)
 
-DISPATCH_TYPE_TABLE  = 0x5DEA   # 219 bytes: cmd -> handler type
+DISPATCH_TYPE_TABLE  = 0x5DEA   # 219 bytes: cmd -> handler type (0xFF = invalid)
 DISPATCH_PARAM_TABLE = 0x5EC5   # 219 bytes: cmd -> parameter
 
-# ── Type 7 (POKEY SFX) Tables ────────────────────────────────────────────────
+# ── Type 7 (POKEY/YM2151 SFX) Tables ─────────────────────────────────────────
+#
+# Two-level indirection: command -> sfx_data_offset[cmd] -> all other tables.
+# The "_a" / "_b" pointer tables are split by the high bit of the offset:
+#   offset 0x00..0x7F -> $6190 + offset (low byte of pair) and $6191 + offset
+#   offset 0x80..0xB5 -> $6290 + (offset - 0x80) and $6291 + (offset - 0x80)
+# Both halves form a single conceptual 182-entry pointer table.
 
-SFX_OFFSET_TABLE   = 0x5FA8    # param -> data offset
-SFX_FLAGS_TABLE    = 0x5FE6    # param -> flags (0xFF = immediate)
-SFX_PRIORITY_TABLE = 0x6024    # offset -> priority
-SFX_CHANNEL_TABLE  = 0x60DA    # offset -> channel
-SFX_SEQ_PTR_TABLE  = 0x6190    # offset*2 -> 16-bit seq pointer (primary+alt)
-SFX_NEXT_TABLE     = 0x62FC    # offset -> next offset (0 = end of chain)
+SFX_OFFSET_TABLE   = 0x5FA8    # 62 bytes: param -> data offset (0..181)
+SFX_FLAGS_TABLE    = 0x5FE6    # 62 bytes: param -> flags (0xFF = immediate, 0 = dup-check)
+SFX_PRIORITY_TABLE = 0x6024    # 182 bytes: offset -> priority (NOT 62B as old doc claimed)
+SFX_CHANNEL_TABLE  = 0x60DA    # 182 bytes: offset -> hardware channel (0..11)
+SFX_SEQ_PTR_TABLE  = 0x6190    # 256 bytes: offset (low half) -> 16-bit seq pointer
+SFX_SEQ_PTR_TABLE_B = 0x6290   # 108 bytes: offset (high half) -> 16-bit seq pointer
+SFX_NEXT_TABLE     = 0x62FC    # 182 bytes: offset -> next offset (0 = end of chain)
 
 # ── Type 11 (Music/Speech) Tables ────────────────────────────────────────────
+#
+# All three command tables below are 141 BYTES (one per parameter, 0..140),
+# NOT 219 bytes (one per command) as old documentation claimed. Music/speech
+# commands span 141 distinct values (cmd 0x08, plus 0x4A..0xD5).
 
-MUSIC_INDEX_TABLE   = 0x63B2   # param -> sequence index
-MUSIC_SEQ_PTR_TABLE = 0x8449   # index*2 -> 16-bit seq pointer
-MUSIC_SEQ_LEN_TABLE = 0x85C3   # index*2 -> 16-bit length parameter
+MUSIC_INDEX_TABLE   = 0x63B2   # 141 bytes: param -> sequence index (0..188)
+MUSIC_FLAGS_TABLE   = 0x643F   # 141 bytes: param -> music flags (bit 7 = TMS5220 squeak,
+                               #            bits 0-3 = volume reduction params)
+MUSIC_TEMPO_TABLE   = 0x64CC   # 141 bytes: param -> tempo (also used as filter
+                               #            threshold, see music_filter_threshold)
+MUSIC_SEQ_PTR_TABLE = 0x8449   # 378 bytes: seq_idx*2 -> 16-bit seq pointer (189 entries)
+MUSIC_SEQ_LEN_TABLE = 0x85C3   # 378 bytes: seq_idx*2 -> 16-bit length (189 entries)
+                               # NB: extends to $873C; music_seq_data starts at $873D
+                               # (NOT $8700 as old docs claimed).
 
-# ── Duration Table ────────────────────────────────────────────────────────────
+# ── Sequence Engine Tables ───────────────────────────────────────────────────
 
-DURATION_TABLE_ADDR = 0x5C5F   # 16 entries, 16-bit LE each
+OPCODE_JUMP_TABLE   = 0x507B   # 118 bytes: 59 × 16-bit LE (addr-1) for opcodes 0x80-0xBA
+DURATION_TABLE_ADDR = 0x5C5F   # 32 bytes: 16 × 16-bit LE durations
+FREQ_ENV_SHAPE_TABLE = 0x5C7F  # ~16 bytes: frequency envelope shape multipliers
+VOL_ENV_SHAPE_TABLE  = 0x5C8F  # ~16 bytes: volume envelope distortion shapes
+YM2151_FREQ_TABLE   = 0x5A35   # 256 bytes: 128 × 16-bit LE chromatic freqs
+                               #            (note 0x46 = MIDI 69 = A4 440Hz)
+
+# ── Hardware Configuration Tables ────────────────────────────────────────────
+#
+# These are 4 BYTES each (NOT 8 as old doc claimed). $57B0 is nmi_handler.
+
+HW_PTR_LO_TABLE     = 0x57A8   # 4 bytes: ch -> base addr lo (00 10 18 18)
+HW_PTR_HI_TABLE     = 0x57AA   # overlaps: 4 bytes ch -> base addr hi (18 18 00 02)
+HW_TYPE_TABLE       = 0x57AC   # 4 bytes: ch -> chip type (00=POKEY, 02=YM2151,
+                               #          1E/22 = RAM workspace types)
+                               # NOTE: YM2151 type is 0x02, NOT 0x03 as old doc said.
 
 # ── Limits ────────────────────────────────────────────────────────────────────
 
@@ -1936,6 +1983,7 @@ class SequenceInterpreter:
         repeat_count = 0
         freq_env_ptr = 0
         vol_env_ptr = 0
+        vibrato_depth = 0     # chan_vibrato_depth ($0660,X) — set by 0x8C
         variables = [0] * 8
         var_reg = 0
 
@@ -2106,7 +2154,11 @@ class SequenceInterpreter:
                 volume = args[0]
             elif byte0 == 0x83 and args:     # SET_VOLUME_CHK
                 volume = args[0]
-            elif byte0 == 0x84 and args:     # ADD_TRANSPOSE
+            elif byte0 == 0x84 and args:     # SET_TRANSPOSE
+                # Opcode 0x84 → $51AE: STA $05E8,X — replaces transpose
+                transpose = args[0] & 0x7F
+            elif byte0 == 0x85 and args:     # ADD_TRANSPOSE
+                # Opcode 0x85 → $51AA: CLC; ADC $05E8,X; STA $05E8,X
                 val = args[0]
                 if val >= 128:
                     val -= 256
@@ -2139,7 +2191,13 @@ class SequenceInterpreter:
                     time_secs = cumulative_frames / 120.0
                     events.append((time_secs, 'pokey_audctl',
                                    (ctrl_bits & 0xFF,)))
-            elif byte0 == 0x8C and args:     # CLR_CTRL_BITS
+            elif byte0 == 0x8C and args:     # SET_VIBRATO
+                # Opcode 0x8C → $51E2: STA $0660,X (chan_vibrato_depth)
+                # Vibrato has no MIDI equivalent; we just record it.
+                vibrato_depth = args[0]
+            elif byte0 == 0x9B and args:     # CLR_CTRL_BITS
+                # Opcode 0x9B → $51CB: clears bits in ctrl_mask (POKEY) or
+                # ctrl_bits (YM2151, with bit 1/2/3/5/6/7 forced).
                 ctrl_bits &= ~args[0]
                 if hw_mode == "POKEY":
                     time_secs = cumulative_frames / 120.0
@@ -2491,66 +2549,74 @@ def note_name(note_value):
     return f"{name}{octave}"
 
 
+# Opcode mapping verified against the actual jump table at $507B (May 2026 review).
+# Each entry: (NAME, total_arg_bytes, description, arg_format).
+# Many handlers branch on $081D (channel hardware type — 0=POKEY, 2=YM2151) and
+# perform different operations for each chip; comments call this out where it
+# matters.
 OPCODES = {
-    0x80: ("SET_TEMPO",       1, "Set tempo (A>>2)",               "b"),
-    0x81: ("ADD_TEMPO",       1, "Add to tempo",                   "b"),
-    0x82: ("SET_VOLUME",      1, "Set base volume",                "b"),
-    0x83: ("SET_VOLUME_CHK",  1, "Set volume (w/ $FE check)",      "b"),
-    0x84: ("ADD_TRANSPOSE",   1, "Add to transpose offset",        "b"),
-    0x85: ("NOP_FE_CHECK",    1, "No-op ($FE check)",              "b"),
-    0x86: ("SET_FREQ_ENV",    2, "Set freq envelope ptr",          "w"),
-    0x87: ("SET_VOL_ENV",     2, "Set vol envelope ptr",           "w"),
-    0x88: ("RESET_TIMER",     1, "Reset timers/counters",          "b"),
-    0x89: ("SET_REPEAT",      1, "Set repeat counter",             "b"),
-    0x8A: ("SET_DISTORTION",  1, "Set distortion mask",            "b"),
-    0x8B: ("SET_CTRL_BITS",   1, "Set control bits",               "b"),
-    0x8C: ("CLR_CTRL_BITS",   1, "Clear control bits",             "b"),
-    0x8D: ("PUSH_SEQ",        2, "Push & load segment ptr",        "w"),
-    0x8E: ("PUSH_SEQ_EXT",    1, "Push extended chain state",      "b"),
-    0x8F: ("POP_SEQ",         1, "Pop sequence from chain",        "b"),
-    0x90: ("SWITCH_POKEY",    1, "Switch to POKEY mode",           "b"),
-    0x91: ("SWITCH_YM2151",   1, "Switch to YM2151 mode",          "b"),
-    0x92: ("NOP_92",          1, "No-op (consumed)",               "b"),
-    0x93: ("NOP_93",          1, "No-op (consumed)",               "b"),
-    0x94: ("NOP_94",          1, "No-op (consumed)",               "b"),
-    0x95: ("NOP_95",          1, "No-op (consumed)",               "b"),
-    0x96: ("QUEUE_OUTPUT",    1, "Queue byte to main CPU",         "b"),
-    0x97: ("RESET_ENVELOPE",  1, "Reset envelope to defaults",     "b"),
-    0x98: ("NOP_98",          1, "No-op (consumed)",               "b"),
-    0x99: ("SET_SEQ_PTR",     2, "Set sequence pointer (jump)",    "w"),
-    0x9A: ("PLAY_MUSIC_CMD",  1, "Trigger music command",          "b"),
-    0x9B: ("SET_VAR_NAMED",   1, "Set named variable",             "b"),
-    0x9C: ("FORCE_POKEY",     1, "Force POKEY mode",               "b"),
-    0x9D: ("SET_VOICE",       2, "Load YM2151 voice definition",   "w"),
-    0x9E: ("YM_LOAD_ENV",     2, "Load YM envelope table",         "bb"),
-    0x9F: ("YM_LOAD_REG",     2, "Load YM register block",         "bb"),
-    0xA0: ("FREQ_OFFSET",     1, "Add signed frequency offset",    "b"),
-    0xA1: ("YM_DETUNE_NEG",   1, "Negate + apply YM detune",       "b"),
-    0xA2: ("REG_OR",          1, "OR register",                    "b"),
-    0xA3: ("REG_XOR",         1, "XOR register",                   "b"),
-    0xA4: ("VAR_LOAD",        2, "Load pair to seq variables",     "bb"),
-    0xA5: ("NOP_A5",          1, "No-op (consumed)",               "b"),
-    0xA6: ("SHIFT_LEFT",      1, "Shift register left N",          "b"),
-    0xA7: ("FREQ_ADD",        1, "Add signed value to frequency",  "b"),
-    0xA8: ("SET_RELEASE",     1, "Set release rate",               "b"),
-    0xA9: ("VAR_ADD",         1, "Add to sequence variable",       "b"),
-    0xAA: ("VAR_SUB",         1, "Subtract from variable",         "b"),
-    0xAB: ("VAR_AND",         1, "AND mask variable",              "b"),
-    0xAC: ("VAR_OR",          1, "OR mask variable",               "b"),
-    0xAD: ("VAR_XOR",         1, "XOR mask variable",              "b"),
-    0xAE: ("COND_JUMP",       2, "Conditional jump (if var=0)",    "w"),
-    0xAF: ("COND_JUMP_INC",   2, "Cond jump + inc var",            "w"),
-    0xB0: ("VAR_TO_REG",      1, "Store var to selected register", "b"),
-    0xB1: ("VAR_APPLY",       1, "Apply var to subsystem",         "b"),
-    0xB2: ("VAR_CLASSIFY",    1, "Classify var + jump to shared",  "b"),
-    0xB3: ("SHIFT_VAR_RIGHT", 1, "Shift variable right by N",     "b"),
-    0xB4: ("SHIFT_VAR_LEFT",  1, "Shift variable left by N",      "b"),
-    0xB5: ("COND_JUMP_EQ",    3, "Jump if var == 0",               "bw"),
-    0xB6: ("COND_JUMP_NE",    3, "Jump if var != 0",               "bw"),
-    0xB7: ("COND_JUMP_PL",    3, "Jump if var >= 0",               "bw"),
-    0xB8: ("COND_JUMP_MI",    3, "Jump if var < 0",                "bw"),
-    0xB9: ("VAR_CLASSIFY_SUB",1, "Classify var + subtract",        "b"),
-    0xBA: ("VAR_SUB_STORE",   1, "Subtract from var + store",      "b"),
+    0x80: ("SET_TEMPO",        1, "Set tempo: $05CA,X = arg >> 2",                  "b"),
+    0x81: ("ADD_TEMPO",        1, "Add to tempo: $05CA,X += arg",                   "b"),
+    0x82: ("SET_VOLUME",       1, "POKEY: set base_volume; YM2151: reload vol env", "b"),
+    0x83: ("ADD_VOLUME",       1, "POKEY: add to base_volume; YM2151: apply detune", "b"),
+    0x84: ("SET_TRANSPOSE",    1, "Set chan_transpose ($05E8,X) = arg",             "b"),
+    0x85: ("ADD_TRANSPOSE",    1, "Add to chan_transpose: $05E8,X += arg",          "b"),
+    0x86: ("SET_FREQ_ENV",     2, "Set freq envelope pointer ($0462/$0480,X)",      "w"),
+    0x87: ("SET_VOL_ENV",      2, "Set vol envelope pointer ($0426/$0444,X)",       "w"),
+    0x88: ("RESET_TIMER",      1, "Reset primary timer + handle repeat counter",    "b"),
+    0x89: ("SET_REPEAT",       1, "Set chan_repeat_counter ($0624,X) = arg",        "b"),
+    0x8A: ("SET_DISTORTION",   1, "Set chan_dist_mask ($0642,X) = arg",             "b"),
+    0x8B: ("SET_CTRL_BITS",    1, "POKEY: OR ctrl_mask; YM2151: OR ctrl_bits w/twist", "b"),
+    0x8C: ("SET_VIBRATO",      1, "Set chan_vibrato_depth ($0660,X) = arg",         "b"),
+    0x8D: ("PUSH_SEQ",         2, "Push current seq_ptr to channel record, jump",   "w"),
+    0x8E: ("PUSH_SEQ_EXT",     1, "Start repeat loop: save state, count = arg",     "b"),
+    # 0x8F: dispatcher reads 1 dummy byte (advanced past as part of standard
+    # 2-byte opcode framing) but POP_SEQ ignores it.
+    0x8F: ("POP_SEQ",          1, "End/iterate repeat loop (arg ignored)",          "b"),
+    0x90: ("SWITCH_POKEY",     1, "Clear bit 0 of chan_status, set $0811[0]=0",     "b"),
+    0x91: ("SWITCH_YM2151",    1, "Set bit 0 of chan_status, $0813=1, $0811[1]=A",  "b"),
+    0x92: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
+    0x93: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
+    0x94: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
+    0x95: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
+    0x96: ("QUEUE_OUTPUT",     1, "Queue arg to main-CPU output buffer ($0214+)",   "b"),
+    # 0x97: handler ignores its arg byte (still consumed by 2-byte framing)
+    0x97: ("FADEOUT_ENV",      1, "Reset envelope, mark active_cmd=$FE (arg ignored)", "b"),
+    0x98: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
+    0x99: ("SET_SEQ_PTR",      2, "Unconditional jump: load seq_ptr_lo/hi",         "w"),
+    0x9A: ("PLAY_MUSIC_CMD",   1, "Trigger music_speech_handler from sequence",     "b"),
+    0x9B: ("CLR_CTRL_BITS",    1, "POKEY: AND ctrl_mask; YM2151: AND ctrl_bits w/twist", "b"),
+    0x9C: ("FORCE_POKEY",      1, "Force POKEY mode (clear $0813, sync $0811)",     "b"),
+    0x9D: ("SET_VOICE",        2, "Load YM2151 voice/instrument (FM patch)",        "w"),
+    0x9E: ("YM_LOAD_ENV",      2, "Load YM2151 envelope table from arg+$24",        "bb"),
+    0x9F: ("YM_LOAD_REG",      2, "Load YM2151 register block from arg+$29",        "bb"),
+    0xA0: ("YM_FREQ_OFFSET",   1, "YM2151 only, skipped if chain_present: freq off","b"),
+    0xA1: ("YM_DETUNE_NEG",    1, "Negate + apply YM2151 detune",                   "b"),
+    0xA2: ("YM_VOL_ENV_NEG",   1, "YM2151: $049E,X = -arg (else no-op)",            "b"),
+    0xA3: ("YM_VOL_ENV_SUB",   1, "YM2151: $049E,X -= arg w/clamp (else no-op)",    "b"),
+    0xA4: ("VAR_LOAD",         2, "Load pair: $11=arg1, env_rate_hi=arg2",          "bb"),
+    0xA5: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
+    0xA6: ("YM_SHIFT_LEFT",    1, "YM2151 only: shift A left, store",               "b"),
+    0xA7: ("FREQ_ADD",         1, "YM2151 only: signed add to chan_base_freq",      "b"),
+    0xA8: ("SET_FREQ_ENV_LOOP", 1, "Set chan_freq_env_loop ($05AC,X) = arg",        "b"),
+    0xA9: ("REG_ADD",          1, "gp_reg ($07AA,X) += arg, mirror to $07C8,X",     "b"),
+    0xAA: ("REG_SUB",          1, "gp_reg -= arg, mirror to $07C8,X",               "b"),
+    0xAB: ("REG_AND",          1, "gp_reg &= arg, mirror to $07C8,X",               "b"),
+    0xAC: ("REG_OR",           1, "gp_reg |= arg, mirror to $07C8,X",               "b"),
+    0xAD: ("REG_XOR",          1, "gp_reg ^= arg, mirror to $07C8,X",               "b"),
+    0xAE: ("COND_JUMP_REG_Z",  2, "If gp_reg==0 jump; else skip arg-1 frames + arg2","w"),
+    0xAF: ("COND_JUMP_INC",    2, "Like 0xAE + INC gp_reg (one-shot decay loop)",   "w"),
+    0xB0: ("VAR_STORE",        1, "Store gp_reg into named variable (idx 6+ = workspace)", "b"),
+    0xB1: ("VAR_APPLY_YM",     1, "YM2151 only: apply gp_reg to selected register", "b"),
+    0xB2: ("VAR_CLASSIFY_LOAD",1, "Classify var idx, load result into gp_reg",      "b"),
+    0xB3: ("SHIFT_REG_RIGHT",  1, "Shift gp_reg right by N (controlled by arg)",    "b"),
+    0xB4: ("SHIFT_REG_LEFT",   1, "Shift gp_reg left by N (controlled by arg)",     "b"),
+    0xB5: ("COND_JUMP_EQ",     3, "Classify var, jump if == 0 (var idx + 16-bit addr)","bw"),
+    0xB6: ("COND_JUMP_NE",     3, "Classify var, jump if != 0",                     "bw"),
+    0xB7: ("COND_JUMP_PL",     3, "Classify var, jump if positive (bit 7 clear)",   "bw"),
+    0xB8: ("COND_JUMP_MI",     3, "Classify var, jump if negative (bit 7 set)",     "bw"),
+    0xB9: ("REG_CLASSIFY_SUB", 1, "$07C8,X = gp_reg - classify(arg) [reg shadow]",  "b"),
+    0xBA: ("REG_SUB_STORE",    1, "$07C8,X = gp_reg - arg [reg shadow]",            "b"),
 }
 
 

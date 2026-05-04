@@ -2,11 +2,11 @@
 0x0,UNK,Unknown (Used in self-test) (Stops sound)
 "0x1	",UNK,"Silent     					"
 "0x2	",UNK,"Noisy     					"
-"0x3	",UNK,Stop playing? (used during idle)
+"0x3	",UNK,Status query: read coin/LED state ($44) -> main CPU [NMI handler 0]
 "0x4	",MUSIC,Music Chip Test
 "0x5	",SFX,Effects Chip Test
-"0x6	",UNK,Unknown (Used in self-test)
-"0x7	",UNK,Unknown (Used in self-test)
+"0x6	",UNK,Status query: echo $DB sentinel -> main CPU [NMI handler 1]
+"0x7	",UNK,Status query: read error_flags ($02) -> main CPU + arm watchdog [NMI handler 2]
 "0x8	",SPEECH,Speech Chip Test
 "0x9	",SFX,"Warrior Joins In   				"
 "0xa	",SFX,"Valkyrie Joins In   				"

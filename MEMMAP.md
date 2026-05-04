@@ -14,7 +14,7 @@
 |---------|------|---------|
 | 0x00 | irq_frame_counter | IRQ frame counter, incremented each IRQ; bit 0 selects POKEY (odd) vs YM2151 (even) |
 | 0x01 | init_complete_flag | Initialization complete flag (0=not ready, nonzero=ready) |
-| 0x02 | error_flags | Error flags: bit 0=RAM error, bit 1=YM2151 timeout, bit 2=general error |
+| 0x02 | error_flags | Error flags (see table below). Bits 0/2 are heartbeat watchdogs; bits 3-7 are sticky error indicators. |
 | 0x03 | cmd_param_temp | Temporary storage for command parameter |
 | 0x04-0x05 | nmi_buffer_ptr | NMI buffer pointer (16-bit) |
 | 0x06-0x07 | seq_data_ptr | Sequence data base pointer (used by `LDA ($06),Y`) |
@@ -43,6 +43,24 @@
 | 0x42 | coin_led_frame_ctr | Coin counter LED frame counter (incremented each call; LSB selects normalization pass) |
 | 0x44 | coin_led_output | Coin counter/LED combined output byte (bit-mapped to 4 channels via masks at 0x83A4) |
 
+**Error flags ($02) bit assignments** (verified by tracing all reads/writes):
+
+| Bit | Mask | Meaning | Set by | Cleared by |
+|-----|------|---------|--------|------------|
+| 0 | 0x01 | Heartbeat: "main_loop alive" — set when NMI cmd 7 reports flags, cleared each main_loop iteration | NMI handler 2 ($44AD) | main_loop ($4104) |
+| 1 | 0x02 | YM2151 timeout — set after `ym2151_wait_ready` exhausts 255 polls | `ym2151_wait_ready` ($5005) | `clear_sound_buffers` ($4284) |
+| 2 | 0x04 | Heartbeat: "IRQ alive" — also set during init while waiting for first IRQ | init_main timeout ($40C2), NMI 2 ($44AD) | IRQ handler ($418E) |
+| 3 | 0x08 | Walking-bit RAM test failed for page 8+ | `ram_error_handler` X≥8 path ($4151) | (sticky) |
+| 4 | 0x10 | Walking-bit RAM test failed for pages 2-7 (this path **overwrites** $02) | `ram_error_handler` X<8 path ($414B) | (sticky) |
+| 5 | 0x20 | ROM checksum failed for region 0xC000-0xFFFF | `checksum_region` ($417C) | (sticky) |
+| 6 | 0x40 | ROM checksum failed for region 0x8000-0xBFFF | `checksum_region` ($417C) | (sticky) |
+| 7 | 0x80 | ROM checksum failed for region 0x4000-0x7FFF | `checksum_region` ($417C) | (sticky) |
+
+NMI command 7 (status query) reads $02, sends it to the main CPU, then re-arms
+bits 0 and 2. The next IRQ clears bit 2; the next main_loop iteration clears
+bit 0. So if the main CPU polls again and sees bit 2 still set, the IRQ is
+not running (sound CPU dead-IRQ). If bit 0 is still set, main_loop is stuck.
+
 ### 1.2 Stack (0x0100-0x01FF)
 
 Standard 6502 stack. Initialized to 0x01FF on reset.
@@ -54,17 +72,21 @@ Standard 6502 stack. Initialized to 0x01FF on reset.
 | 0x0200-0x020F | cmd_circular_buf | Circular command queue (16 entries, 1 byte each) |
 | 0x0210 | cmd_read_ptr | Command buffer read pointer |
 | 0x0211 | cmd_write_ptr | Command buffer write pointer |
-| 0x0212 | nmi_buf_state | NMI buffer state counter |
-| 0x0213 | nmi_mode_flag | NMI mode flag (0=normal, nonzero=alternate path) |
+| 0x0212 | nmi_buf_state | **Dead** — used only by the unreachable PATH A in the NMI handler (bulk-write to ($04),Y). |
+| 0x0213 | nmi_mode_flag | Selects NMI behavior: 0xFF (normal validate-and-buffer), 0 (PATH A, dead). Always set to 0xFF in practice. |
 | 0x0214-0x0223 | output_buf | Output buffer to main CPU (16 entries) |
 | 0x0224 | output_read_ptr | Output buffer read pointer |
 | 0x0225 | output_write_ptr | Output buffer write pointer |
 | 0x0226 | output_overflow_flag | Output buffer overflow flag (0x80=overflow) |
 | 0x0227 | sfx_data_offset_save | Saved SFX data offset during channel allocation |
 
-### 1.4 Sound Channel State (0x0228-0x0809)
+### 1.4 Sound Channel State (0x0228-0x080F)
 
 30 logical channels, each with 48 state arrays. Arrays are indexed by channel number X (0-29).
+Note that the linked-next array at $07E6 actually has **42 entries** (X=0..41) — the
+first 30 are channel "next" pointers; entries 30-41 ($0804-$080F) are list HEADS,
+one for each of the 12 hardware sub-channels (4 POKEY + 8 YM2151), used by the
+SFX preemption logic in handler_type_7.
 
 | Array Base | Name | Purpose |
 |-----------|------|---------|
@@ -115,7 +137,7 @@ Standard 6502 stack. Initialized to 0x01FF on reset.
 | 0x078C+X | chan_env_frac | Envelope fractional accumulator |
 | 0x07AA+X | chan_gp_register | General-purpose register (used by opcodes) |
 | 0x07C8+X | chan_reg_shadow | Register shadow |
-| 0x07E6+X | chan_linked_next | Linked list next pointer (0=end of list) |
+| 0x07E6+X | chan_linked_next | Linked list next pointer (0=end of list); X=0..29 channels, X=30..41 hardware-channel list heads (POKEY 1-4, YM2151 1-8) |
 
 ### 1.5 Work Area (0x0810-0x083B)
 
@@ -172,33 +194,34 @@ Computed by `channel_state_ptr_calc`: `address = 0x093D + (channel - 1) * 4`
 | Address | R/W | Name | Purpose |
 |---------|-----|------|---------|
 | 0x1000 | W | data_output | Data output to main CPU. Write triggers IRQ to main CPU + latches data byte. |
-| 0x1002 | W | data_output_alias_1 | Alias of 0x1000 (low 4 address bits not decoded) |
-| 0x1003 | W | data_output_alias_2 | Alias of 0x1000 |
-| 0x100B | W | data_output_alias_3 | Alias of 0x1000 |
-| 0x100C | W | data_output_alias_4 | Alias of 0x1000 |
+| 0x1002 | W | init_byte_2 | Init handshake byte (value 0x33 written once during `init_hardware_regs`). Possibly aliased to $1000. Unverified. |
+| 0x1003 | W | init_byte_1 | Init handshake byte (value 0xFF written once). Possibly aliased to $1000. Unverified. |
+| 0x100B | W | init_byte_3 | Init handshake byte (value 0x00 written once). Possibly aliased to $1000. Unverified. |
+| 0x100C | W | init_byte_4 | Init handshake byte (value 0x22 written once). Possibly aliased to $1000. Unverified. |
 | 0x1010 | R | cmd_input | Command input from main CPU. Hardware-latched simultaneously with NMI trigger. |
+| 0x1020 | R | coin_status | Coin slot status. Bits 0-3: coin slots 1-4 (active low). |
 | 0x1020 | W | volume_mixer | Volume mixer. Bits 7-5: speech (TMS5220, 8 levels). Bits 4-3: effects (POKEY, 4 levels). Bits 2-0: music (YM2151, 8 levels). |
 
 ### 2.2 Status/Control Register (0x1030)
 
 | Address | R/W | Name | Bit Map |
 |---------|-----|------|---------|
-| 0x1030 | R | status_read | Bit 0-3: coin slots 1-4. Bit 4: self-test enable. Bit 5: TMS5220 ready. Bit 6: sound buffer full. Bit 7: main CPU (68010) output buffer full. |
-| 0x1030 | W | ym2151_reset | Write triggers YM2151 reset (value is don't-care). Also used for boot handshake sequence. |
+| 0x1030 | R | status_read | Bit 4: self-test enable (active low). Bit 5: TMS5220 ready (active low). Bit 6: sound output buffer full ($1000 has data waiting for main CPU). Bit 7: main CPU output buffer full (data waiting at $1010). Bits 0-3 unused (coins are at $1020 R, not here). |
+| 0x1030 | W | ym2151_reset | Bit 7 = music (YM2151) reset, active low. Other bits don't-care. Used during boot handshake (FF/00/FF) to synchronize with main CPU. |
 
-### 2.3 Coin Counter / LED Outputs
+### 2.3 Hardware Output Registers ($1031-$1035)
 
-| Address | R/W | Name | Purpose |
-|---------|-----|------|---------|
-| 0x1034 | W | coin_led_out_hi | Coin counter LED output, channels 2-3 combined (`$38 OR $39`). Written by `control_register_update`. |
-| 0x1035 | W | coin_led_out_lo | Coin counter LED output, channels 0-1 combined (`$36 OR $37`). Written by `control_register_update`. |
-
-### 2.4 TMS5220 Control
+Per the system schematic, all five registers are STROBE outputs where bit 7
+carries the actual signal. The sound CPU reads back $1031 to preserve other
+bits during read-modify-write sequences.
 
 | Address | R/W | Name | Purpose |
 |---------|-----|------|---------|
-| 0x1032 | W | tms5220_reset | TMS5220 chip reset (value is don't-care) |
-| 0x1033 | W | speech_squeak | Changes TMS5220 oscillator frequency (voice pitch effect) |
+| 0x1031 | R/W | tms5220_write | TMS5220 "Speech Write" strobe (bit 7, active low). Set high before writing data to $1820, then driven low to latch. Manipulated by `init_sound_state` and `sound_status_update`. |
+| 0x1032 | W | tms5220_reset | TMS5220 chip reset strobe (bit 7, active low). Used during boot init AND mid-operation by `sound_status_update`'s reset countdown ($33). |
+| 0x1033 | W | speech_squeak | TMS5220 oscillator clock control (bit 7: low = 650kHz clock, high = standard). Bit 7 of `music_flags[cmd]` ($643F) selects pitch on a per-command basis (audible voice-pitch shift). |
+| 0x1034 | W | coin_counter_right | Right coin counter solenoid (bit 7, active high). Drives the cabinet's mechanical coin counter. Written only in `control_register_update` PATH 2 (self-test mode). |
+| 0x1035 | W | coin_counter_left | Left coin counter solenoid (bit 7, active high). Same as $1034 but for left counter. |
 
 ### 2.5 POKEY (0x1800-0x180F)
 
@@ -228,7 +251,7 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 
 | Address | R/W | Name | Purpose |
 |---------|-----|------|---------|
-| 0x1820 | W | tms5220_data | Speech data input. LPC bytes streamed by `sound_status_update`. |
+| 0x1820 | W | tms5220_data | Speech data input. LPC bytes streamed by `sound_status_update`. The "Speak External" command byte ($60) is written to put the chip in FIFO mode at the start of every music/speech sequence. |
 
 ### 2.8 IRQ Acknowledge (0x1830)
 
@@ -261,7 +284,7 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 |---------|------|---------|
 | 0x4002 | init_main | Main initialization: stack setup, RAM test, hardware init, enable IRQ |
 | 0x4142 | ram_error_handler | Handle RAM test failures |
-| 0x415F | checksum_ram | Verify memory integrity via multi-page checksum |
+| 0x415F | checksum_region | Verify memory integrity via multi-page checksum |
 | 0x41E6 | clear_sound_buffers | Zero all sound channel buffers and build free-channel list |
 | 0x5833 | init_sound_state | Initialize sound system state variables and pointers |
 | 0x5A0B | init_hardware_regs | Initialize hardware control registers (0x1000-0x100C) |
@@ -377,33 +400,43 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 
 | Address | Name | Size | Format | Purpose |
 |---------|------|------|--------|---------|
-| 0x4633 | handler_addr_table | 32B | 16-bit LE addr-1 pairs (15 entries + sentinel) | Handler type -> function address (RTS dispatch trick: stored value = target - 1) |
-| 0x5D0F | nmi_validation_table | 219B | 1 byte/cmd | NMI command validation (0xFF=store in buffer, 0x00-0x02=immediate NMI dispatch) |
-| 0x5DEA | cmd_type_map | 219B | 1 byte/cmd | Command number -> handler type (0x00-0x0E valid, 0xFF=no handler) |
+| 0x4633 | handler_addr_table | **30B** | 16-bit LE addr-1 pairs (15 entries, no sentinel) | Handler type -> function address (RTS dispatch trick: stored value = target - 1). The 16th entry would overlap the start of `channel_state_machine` at $4651. |
+| 0x5D0F | nmi_validation_table | 219B | 1 byte/cmd | NMI behavior. Bit 7 set (e.g., 0xFF) = store in `cmd_circular_buf`. 0x00..0x02 = immediate NMI dispatch via `nmi_dispatch_table`. Other low values = silently dropped (writes 0xDB sentinel to buffer). Only entries [3]=0, [6]=1, [7]=2 are non-0xFF. |
+| 0x5DEA | cmd_type_map | 219B | 1 byte/cmd | Command number -> handler type (0x00-0x0E valid, 0xFF=no handler). Commands 3, 6, 7 map to 0xFF here but are handled by NMI directly (see nmi_validation_table). |
 | 0x5EC5 | cmd_param_table | 219B | 1 byte/cmd | Command parameter loaded into A before handler call |
-| 0x5FA2 | nmi_dispatch_table | 6B | 3 x 16-bit LE addr-1 | NMI immediate dispatch handlers for validation types 0-2 |
+| 0x5FA0 | handler3_dispatch_table | 8B | 4 x 16-bit LE addr-1 | Handler type 3 sub-targets: $41E6, $843F, $44B8, $44A8. The last 3 entries OVERLAP `nmi_dispatch_table` at $5FA2. Only param 0 ($41E6 = `clear_sound_buffers`) is reachable in practice (cmd 0). |
+| 0x5FA2 | nmi_dispatch_table | 6B | 3 x 16-bit LE addr-1 | NMI immediate dispatch: $843F (cmd 3 = read $44 to main CPU), $44B8 (cmd 6 = echo $DB sentinel), $44A8 (cmd 7 = read $02 + arm watchdog). |
 
-#### POKEY SFX Metadata Tables
+#### POKEY/YM2151 SFX Metadata Tables
+
+These tables use **two-level indirection**: command -> `sfx_data_offset[cmd]` -> all
+other tables. The first two are indexed by command parameter (62 entries).
+The remaining tables are indexed by the offset (up to 182 entries).
 
 | Address | Name | Size | Format | Purpose |
 |---------|------|------|--------|---------|
-| 0x5FA8 | sfx_data_offset | ~62B | 1 byte/sound | SFX command parameter -> index into data pointer and metadata tables |
-| 0x5FE6 | sfx_flags | ~62B | 1 byte/sound | Behavior flags (0xFF=immediate play/no dup check, 0x00=check for duplicates) |
-| 0x6024 | sfx_priority | ~62B | 1 byte/sound | Interrupt priority (0x00=lowest, 0x0F=highest/uninterruptible) |
-| 0x60DA | sfx_channel_map | ~62B | 1 byte/sound | Physical POKEY channel assignment (0x04-0x0B) |
-| 0x6190 | sfx_data_ptrs_a | ~200B | 16-bit LE pairs | Primary sound sequence data pointers |
-| 0x6290 | sfx_data_ptrs_b | ~200B | 16-bit LE pairs | Alternate sound sequence data pointers |
-| 0x62FC | sfx_chain_offsets | ~180B | 1 byte/entry | Multi-channel chaining table (0x00=end, nonzero=next offset for additional channels) |
+| 0x5FA8 | sfx_data_offset | 62B | 1 byte/sound | SFX command parameter -> data offset (0..181). Indirect into the priority/channel/chain/ptr tables. |
+| 0x5FE6 | sfx_flags | 62B | 1 byte/sound | Behavior flags (0xFF=immediate play/no dup check, 0x00=check for duplicates) |
+| 0x6024 | sfx_priority | **182B** | 1 byte/offset | Interrupt priority (0x00=lowest, 0x0F=highest). Some entries hold non-priority values (up to 0x3F) — purpose unclear. |
+| 0x60DA | sfx_channel_map | **182B** | 1 byte/offset | Hardware channel index (0..11): 0..3 = POKEY ch 1-4, 4..11 = YM2151 ch 1-8. |
+| 0x6190 | sfx_data_ptrs_a | 256B | 16-bit pairs (raw offset addressed) | Sound sequence data pointers for offsets 0x00-0x7F. |
+| 0x6290 | sfx_data_ptrs_b | 108B | 16-bit pairs (raw offset addressed) | Sound sequence data pointers for offsets 0x80-0xB5. The "_a" / "_b" split is by high bit of offset, NOT primary/alternate. |
+| 0x62FC | sfx_chain_offsets | 182B | 1 byte/entry | Multi-channel chaining: `chain_offsets[offset]` = next offset for additional channels (0x00=end). Allows a single command to allocate up to 8 channels. |
 
 #### YM2151 Music/Speech Metadata Tables
 
+These tables are indexed by **command parameter** (`cmd_param_table[cmd]`), not by
+command number. Music/speech commands map to parameters 0..140 (cmd 0x08 = param 0;
+cmds 0x4A..0xD5 = params 1..140). So all three command-indexed tables are 141 bytes
+each, NOT 219.
+
 | Address | Name | Size | Format | Purpose |
 |---------|------|------|--------|---------|
-| 0x63B2 | music_seq_index | 219B | 1 byte/cmd | Command -> sequence index (0x00-0x5B) into pointer tables |
-| 0x643F | music_flags | 219B | 1 byte/cmd | Bit 7: special mode (updates 0x1033); bits 0-3: volume calculation params |
-| 0x64CC | music_tempo | 219B | 1 byte/cmd | Tempo value (mostly 0x00 = default) |
-| 0x8449 | music_seq_ptrs | ~184B | 16-bit LE pairs (~92 entries) | Pointers to music/speech note sequence data |
-| 0x85C3 | music_seq_lengths | ~184B | 16-bit LE pairs (~92 entries) | Sequence length/loop parameters |
+| 0x63B2 | music_seq_index | **141B** | 1 byte/param | Parameter -> sequence index (0..188). Indirect into the seq_ptrs / seq_lengths tables. |
+| 0x643F | music_flags | **141B** | 1 byte/param | Bit 7: TMS5220 squeak/oscillator pitch (writes through to $1033 via $34); bits 0-3: per-command volume reduction (subtract from effects+music vol) |
+| 0x64CC | music_tempo | **141B** | 1 byte/param | Tempo seed value. Also serves as the filter threshold input (`handler_type_11` rejects commands whose tempo < `music_filter_threshold` ($13)). Mostly 0x00 = default. |
+| 0x8449 | music_seq_ptrs | **378B** | 16-bit LE pairs (189 entries) | Pointers to music/speech note sequence data. Indexed by `seq_idx * 2`. |
+| 0x85C3 | music_seq_lengths | **378B** | 16-bit LE pairs (189 entries) | Sequence length/loop parameters. Extends through $873C. |
 
 #### Sequence Engine Tables
 
@@ -438,12 +471,16 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 
 #### Hardware Configuration Tables
 
+Each table is **4 bytes**, not 8 (the address $57B0 is the start of `nmi_handler`,
+the target of NMI vector $FFFA — there is no room for 8-byte tables).
+The "ptr_lo" and "ptr_hi" arrays overlap by 2 bytes since they're at +0 and +2.
+
 | Address | Name | Size | Format | Purpose |
 |---------|------|------|--------|---------|
-| 0x57A8 | hw_ptr_table | 8B | Interleaved low bytes | Channel index -> hardware base address low bytes (0=0x00, 1=0x10, 2=0x18, 3=0x18) |
-| 0x57AA | hw_ptr_table_hi | 8B | Interleaved high bytes | Channel index -> hardware base address high bytes (0=0x18, 1=0x18, 2=0x00, 3=0x02) |
-| 0x57AC | hw_channel_types | 8B | 1 byte/channel | Hardware chip type (0x00=POKEY, 0x03=YM2151) |
-| 0x57AE | hw_channel_config | 8B | 1 byte/channel | Additional channel parameters (register base offsets) |
+| 0x57A8 | hw_ptr_table_lo | 4B | 1 byte/channel | Channel index -> hardware base address low byte (0=0x00, 1=0x10, 2=0x18, 3=0x18) |
+| 0x57AA | hw_ptr_table_hi | 4B | 1 byte/channel | Channel index -> hardware base address high byte (0=0x18, 1=0x18, 2=0x00, 3=0x02) |
+| 0x57AC | hw_channel_types | 4B | 1 byte/channel | Hardware chip type. Values: 0x00=POKEY, **0x02=YM2151** (NOT 0x03), 0x1E=RAM workspace, 0x22=RAM buffer. The `channel_state_machine` and `seq_var_classifier` test against `CMP #2` for YM2151 channels. |
+| 0x57AE | hw_channel_config | 4B (overlapping) | 1 byte/channel | Additional channel parameters (register base offsets), accessed as `$57AE,Y` from `handler_stop_chain` and the YM2151 pipeline. |
 
 **Hardware pointer resolution**:
 
@@ -473,7 +510,7 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 | Address | Name | Size | Format | Purpose |
 |---------|------|------|--------|---------|
 | 0x5F20 | init_data_table | ~100B | Sequential bytes | Initialization values (0x12-0x75) used during boot |
-| 0x655C | handler_match_table | ~var | 1 byte/entry | Match values for handler_stop_sound / handler_fadeout operations |
+| 0x6559 | handler_match_table | 3 bytes/record | 3-field records | Per-entry: +0/+1 are read by `handler_type_1`/`handler_type_2`, +2 is read by `handler_channel_control`. Old doc listed base as $655C, but actual base is $6559. |
 
 #### NMI Dispatch Targets
 
@@ -487,9 +524,9 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 
 | Range | Size | Contents |
 |-------|------|----------|
-| 0x6800-0x7FFF | ~6 KB | POKEY SFX sequence data (2-byte frames: freq/opcode + duration/envelope) |
-| 0x8700-0xACFF | ~10 KB | YM2151 music sequence data (same 2-byte frame format, shared bytecode engine) |
-| 0xAD00-0xFFF9 | ~21 KB | TMS5220 speech LPC data (bit-packed Linear Predictive Coding frames) |
+| 0x6800-0x83FF | ~7 KB | POKEY/YM2151 SFX sequence data (2-byte frames: freq/opcode + duration/envelope). End at $83FF inferred from `sfx_data_ptrs_a/b` values. |
+| 0x873D-0xACFF | ~10 KB | YM2151 music sequence data (starts at **0x873D**, NOT 0x8700; the bytes 0x8700-0x873C are the tail of `music_seq_lengths`). Same 2-byte frame format and shared bytecode engine as SFX. |
+| 0xAD00-0xFECD | ~21 KB | TMS5220 speech LPC data (bit-packed Linear Predictive Coding frames, terminated by 0xFx end-of-frame markers) |
 
 ### 3.5 Interrupt Vectors
 
@@ -499,11 +536,11 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 | 0xFFFC | RESET vector | 0x5A25 (reset_handler) |
 | 0xFFFE | IRQ vector | 0x4187 (irq_handler) |
 
-### 3.6 Unused ROM Space (~366 bytes total)
+### 3.6 Unused ROM Space (~334 bytes total)
 
 | Address | Size | Fill Pattern | Context |
 |---------|------|-------------|---------|
-| 0x5874-0x5893 | 32 B | 0xFF (erased EPROM) | Between `init_sound_state` (RTS at 0x5873) and `sound_status_update` (0x5894) |
+| 0x5874-0x5893 | 32 B | 0xFF (erased EPROM) | This block is **referenced** as a 32-byte fake sequence by `init_sound_state` (sets $2B-$2C = $5874, $2D-$2E = $0020). Functionally silence/idle data, but addressed by code. |
 | 0x6000-0x6023 | 36 B | 0xFF (erased EPROM) | Before `sfx_priority` table (0x6024). Unreferenced by any code. |
 | 0x8447-0x8448 | 2 B | `94 FF` | Between NMI handler 0 (ends 0x8446) and `music_seq_ptrs` table (starts 0x8449). Unreferenced. |
 | 0xFECE-0xFFF5 | 296 B | 0x00 (zero-padded) | Between end of speech LPC data and interrupt vectors. ROM build tool padding. |
@@ -539,49 +576,68 @@ Byte 1 (Duration/Envelope) -- present only when Byte 0 is a note (0x00-0x7F):
 
 ### Sequence Opcodes (59 opcodes, 0x80-0xBA)
 
+Verified against the actual jump table at $507B by reading every entry and
+disassembling each handler. Many opcodes branch on the channel hardware type
+($081D: 0=POKEY, 2=YM2151) and do completely different things on each chip.
+
 | Opcode | Handler | Name | Args | Description |
 |--------|---------|------|------|-------------|
-| 0x80 | 0x5173 | SET_TEMPO | 1 | arg>>2 -> tempo |
-| 0x81 | 0x516A | ADD_TEMPO | 1 | Add to tempo (8-bit wrapping) |
-| 0x82 | 0x5192 | SET_VOLUME | 1 | Set base volume / YM2151 detune |
-| 0x83 | 0x517A | SET_VOLUME_CHK | 1 | Set volume (with 0xFE marker check) |
-| 0x84 | 0x51AE | ADD_TRANSPOSE | 1 | Add to transpose offset |
-| 0x85 | 0x51AA | NOP_FE_CHECK | 1 | No-op if channel ended (0xFE) |
-| 0x86 | 0x515F | SET_FREQ_ENV | 2 | Set frequency envelope pointer (16-bit) |
-| 0x87 | 0x5154 | SET_VOL_ENV | 2 | Set volume envelope pointer (16-bit) |
-| 0x88 | 0x50F1 | RESET_TIMER | 1 | Reset timers and counters |
-| 0x89 | 0x514B | SET_REPEAT | 1 | Set repeat counter |
-| 0x8A | 0x51B3 | SET_DISTORTION | 1 | Set distortion mask |
-| 0x8B | 0x51B7 | SET_CTRL_BITS | 1 | Set control bits (OR) |
-| 0x8C | 0x51CB | CLR_CTRL_BITS | 1 | Clear control bits (AND/OR masks) |
-| 0x8D | 0x51E2 | SET_VIBRATO | 1 | Set vibrato depth |
-| 0x8E | 0x51E6 | PUSH_SEQ | 2 | Push current pointer, load new segment (16-bit) |
-| 0x8F | 0x5214 | PUSH_SEQ_EXT | 1 | Push to extended chain |
-| 0x90 | 0x54CC | SWITCH_POKEY | 1 | Switch channel to POKEY mode |
-| 0x91 | 0x54E5 | SWITCH_YM2151 | 1 | Switch channel to YM2151 mode |
-| 0x92-0x95 | 0x4719 | NOP | 0 | No-op (reserved) |
-| 0x96 | 0x54F4 | QUEUE_OUTPUT | 1 | Queue byte to main CPU output buffer |
-| 0x97 | 0x54F9 | RESET_ENVELOPE | 0 | Reset envelope to defaults, set 0xFE marker |
-| 0x98 | 0x4719 | NOP | 0 | No-op |
-| 0x99 | 0x5515 | SET_SEQ_PTR | 2 | Unconditional jump (set sequence pointer, 16-bit) |
-| 0x9A | 0x5524 | PLAY_MUSIC_CMD | 1 | Trigger music command from within sequence |
-| 0x9B | 0x51CB | SET_VAR_NAMED | 1 | Set named variable via classifier |
-| 0x9C | 0x54B1 | FORCE_POKEY | 1 | Force POKEY mode + clear YM status |
-| 0x9D | 0x5535 | SET_VOICE | 2+ | Load YM2151 voice/instrument definition (FM patch) |
-| 0x9E | 0x5271 | SET_ENV_PARAMS | 2 | Set envelope rate/shape parameters |
-| 0x9F | various | YM_LOAD_REG | 2 | Load YM2151 register block (pointer+0x29) |
-| 0xA0-0xA3 | various | REG_OPS | 1 | Register operations (freq offset, detune neg, OR, XOR) |
-| 0xA4 | 0x5271 | VAR_LOAD | 2 | Load pair to sequence variables |
-| 0xA5-0xA6 | various | SHIFT_OPS | 1 | NOP / shift left |
-| 0xA7 | 0x56DC | FREQ_ADD | 1 | Signed frequency detune |
-| 0xA8 | 0x5711 | SET_RELEASE | 1 | Set release rate |
-| 0xA9-0xAD | various | VAR_OPS | 1 | Variable add/sub/AND/OR/XOR |
-| 0xAE | 0x5320 | COND_JUMP | 2* | Conditional jump (if var=0: jump; variable-length) |
-| 0xAF | 0x5347 | COND_JUMP_INC | 2* | Conditional jump + increment variable |
-| 0xB0-0xB2 | various | VAR_ACCESS | 1 | var_to_reg, var_apply, var_classify |
-| 0xB3-0xB4 | various | SHIFT_VAR | 1 | Shift variable right/left |
-| 0xB5-0xB8 | various | COND_BRANCH | 3 | Classify + conditional jump (EQ/NE/PL/MI, 2-byte address) |
-| 0xB9-0xBA | various | VAR_SUB | 1 | Variable classify-subtract / sub-store |
+| 0x80 | 0x5173 | SET_TEMPO | 1 | tempo ($05CA,X) = arg >> 2 |
+| 0x81 | 0x516A | ADD_TEMPO | 1 | tempo += arg (8-bit wrapping) |
+| 0x82 | 0x5192 | SET_VOLUME | 1 | POKEY: chan_base_volume = arg. YM2151: JMP `ym2151_reload_vol_env` ($5755). Skipped if active_cmd == $FE. |
+| 0x83 | 0x517A | ADD_VOLUME | 1 | POKEY: chan_base_volume += arg. YM2151: JMP `ym2151_apply_detune` ($5715). Skipped if active_cmd == $FE. |
+| 0x84 | 0x51AE | SET_TRANSPOSE | 1 | chan_transpose ($05E8,X) = arg |
+| 0x85 | 0x51AA | ADD_TRANSPOSE | 1 | chan_transpose += arg |
+| 0x86 | 0x515F | SET_FREQ_ENV | 2 | chan_freq_env_ptr ($0462/$0480,X) = 16-bit address |
+| 0x87 | 0x5154 | SET_VOL_ENV | 2 | chan_vol_env_ptr ($0426/$0444,X) = 16-bit address |
+| 0x88 | 0x50F1 | RESET_TIMER | 1 | Clear primary timer; advance/handle repeat counter |
+| 0x89 | 0x514B | SET_REPEAT | 1 | chan_repeat_counter ($0624,X) = arg; clear repeat_state |
+| 0x8A | 0x51B3 | SET_DISTORTION | 1 | chan_dist_mask ($0642,X) = arg |
+| 0x8B | 0x51B7 | SET_CTRL_BITS | 1 | POKEY: chan_ctrl_mask OR arg. YM2151: chan_ctrl_bits OR (arg with bits 0/3 conditioned on $081E). |
+| 0x8C | 0x51E2 | **SET_VIBRATO** | 1 | chan_vibrato_depth ($0660,X) = arg |
+| 0x8D | 0x51E6 | **PUSH_SEQ** | 2 | Allocate channel record, save chan_seg_chain_a + seq_ptr, jump to 16-bit target |
+| 0x8E | 0x5214 | **PUSH_SEQ_EXT** | 1 | Start repeat loop: allocate record, save state including $06D8/$06F6, set new counter = arg |
+| 0x8F | 0x523F | **POP_SEQ** | 1 (ignored) | If inside loop: dec counter, restore seq_ptr to loop start; when counter hits 0, pop and continue. No-op if no loop. |
+| 0x90 | 0x54CC | SWITCH_POKEY | 1 | Clear bit 0 of chan_status; sync $0811[0] = 0 |
+| 0x91 | 0x54E5 | SWITCH_YM2151 | 1 | Set bit 0 of chan_status; $0813 = 1; $0811[1] = arg |
+| 0x92-0x95 | 0x4719 | NOP | 1 | Dispatcher consumes 1 byte; common return path |
+| 0x96 | 0x54F4 | QUEUE_OUTPUT | 1 | JSR `handler_type_8` ($4445) — queue arg to main-CPU output buffer |
+| 0x97 | 0x54F9 | FADEOUT_ENV | 1 (ignored) | Reset envelope state ($0714/$078C/$0750=0; $076E=$D0; $0732=$02); set active_cmd = $FE |
+| 0x98 | 0x4719 | NOP | 1 | (same as 0x92-0x95) |
+| 0x99 | 0x5515 | SET_SEQ_PTR | 2 | Unconditional jump: chan_seq_ptr = 16-bit target |
+| 0x9A | 0x5524 | PLAY_MUSIC_CMD | 1 | Trigger music: if `music_tempo[arg]` >= `$13` filter, JSR `music_speech_handler` |
+| 0x9B | 0x51CB | **CLR_CTRL_BITS** | 1 | POKEY: chan_ctrl_mask AND ~arg. YM2151: chan_ctrl_bits AND ($F6 OR ~arg) — only bits 0/4 can be cleared. |
+| 0x9C | 0x54B1 | FORCE_POKEY | 1 | Clear $0813 = 0; force-sync $0811[0] = arg |
+| 0x9D | 0x5535 | SET_VOICE | 2 | Load YM2151 voice/instrument definition (FM patch) from 16-bit pointer |
+| 0x9E | 0x5613 | YM_LOAD_ENV | 2 | Load YM2151 envelope from arg pointer + $24 |
+| 0x9F | 0x5655 | YM_LOAD_REG | 2 | Load YM2151 register block from arg pointer + $29 |
+| 0xA0 | 0x568A | YM_FREQ_OFFSET | 1 | YM2151 only, also skipped if `chain_present_flag` ($17) != 0: shift arg << 6, add to base freq |
+| 0xA1 | 0x5715 | YM_DETUNE_NEG | 1 | YM2151 only: negate arg, apply as detune via `ym2151_apply_detune` |
+| 0xA2 | 0x56CB | YM_VOL_ENV_NEG | 1 | YM2151 only: chan_vol_env_pos ($049E,X) = -arg |
+| 0xA3 | 0x56AF | YM_VOL_ENV_SUB | 1 | YM2151 only: chan_vol_env_pos -= arg, with overflow clamp to $7F |
+| 0xA4 | 0x5271 | VAR_LOAD | 2 | Load pair: $11 = arg1; chan_env_rate_hi ($076E,X) = arg2; if active_cmd == $FE, abort |
+| 0xA5 | 0x4719 | NOP | 1 | (same as 0x92-0x95) |
+| 0xA6 | 0x5703 | YM_SHIFT_LEFT | 1 | YM2151 only: ASL A on arg, store somewhere |
+| 0xA7 | 0x56DC | FREQ_ADD | 1 | YM2151 only: signed-extend arg to 16-bit, add to chan_base_freq |
+| 0xA8 | 0x5711 | SET_FREQ_ENV_LOOP | 1 | chan_freq_env_loop ($05AC,X) = arg |
+| 0xA9 | 0x529E | REG_ADD | 1 | gp_reg ($07AA,X) += arg, also stored to reg_shadow ($07C8,X) |
+| 0xAA | 0x52AA | REG_SUB | 1 | gp_reg -= arg, mirror to reg_shadow |
+| 0xAB | 0x52B4 | REG_AND | 1 | gp_reg &= arg, mirror |
+| 0xAC | 0x52BA | REG_OR | 1 | gp_reg \|= arg, mirror |
+| 0xAD | 0x52C0 | REG_XOR | 1 | gp_reg ^= arg, mirror |
+| 0xAE | 0x5320 | COND_JUMP_REG_Z | 2-2N | If gp_reg == 0: jump (16-bit). Else: skip (gp_reg-1) extra frames, then jump. |
+| 0xAF | 0x5347 | COND_JUMP_INC | 2-2N | Like 0xAE + INC gp_reg (one-shot decay loop primitive) |
+| 0xB0 | 0x5375 | VAR_STORE | 1 | If arg in 6..21: store gp_reg to seq_var_workspace[arg-6] ($0018+,Y) |
+| 0xB1 | 0x53C2 | VAR_APPLY_YM | 1 | YM2151 only: apply gp_reg to selected register based on arg (0..4) |
+| 0xB2 | 0x53FB | VAR_CLASSIFY_LOAD | 1 | JSR `seq_var_classifier`, store result in gp_reg + reg_shadow |
+| 0xB3 | 0x52C6 | SHIFT_REG_RIGHT | 1 | Shift gp_reg right by N (controlled by arg) |
+| 0xB4 | 0x52F3 | SHIFT_REG_LEFT | 1 | Shift gp_reg left by N |
+| 0xB5 | 0x5410 | COND_JUMP_EQ | 3 | classify + jump if classified == 0 (var idx + 16-bit address) |
+| 0xB6 | 0x5417 | COND_JUMP_NE | 3 | classify + jump if classified != 0 |
+| 0xB7 | 0x541E | COND_JUMP_PL | 3 | classify + jump if classified positive (bit 7 clear) |
+| 0xB8 | 0x5425 | COND_JUMP_MI | 3 | classify + jump if classified negative (bit 7 set) |
+| 0xB9 | 0x5401 | REG_CLASSIFY_SUB | 1 | reg_shadow ($07C8,X) = gp_reg - classify(arg) |
+| 0xBA | 0x5404 | REG_SUB_STORE | 1 | reg_shadow = gp_reg - arg |
 
 ### Timing Formula
 
@@ -606,9 +662,9 @@ SET_TEMPO stores `arg >> 2` as tempo. Each frame (120Hz), tempo is subtracted fr
 
 | Range | Handler Type | Category | Count |
 |-------|-------------|----------|-------|
-| 0x00 | 3 (jump dispatch) | System: stop all | 1 |
-| 0x01-0x02 | 0 (param shift) | System: silent/noisy mode | 2 |
-| 0x03, 0x06-0x07 | 0xFF (none) | Invalid/unused (silently ignored) | 3 |
+| 0x00 | 3 (jump dispatch) | System: stop all sounds (calls `clear_sound_buffers`) | 1 |
+| 0x01-0x02 | 0 (param shift) | System: silent mode ($13=0xF0) / noisy mode ($13=0x00) | 2 |
+| 0x03, 0x06-0x07 | (NMI direct) | **Status queries** — handled by NMI dispatch, not the main_loop dispatcher. Cmd 3: read $44 (coin/LED state). Cmd 6: echo $DB sentinel (max valid command count). Cmd 7: read $02 (error flags) + arm watchdog bits 0/2. | 3 |
 | 0x04-0x05 | 7 (POKEY SFX) | Self-test: music chip, effects chip | 2 |
 | 0x08 | 11 (music/speech) | Self-test: speech chip | 1 |
 | 0x09-0x20 | 7 (POKEY SFX) | Sound effects | ~24 |
