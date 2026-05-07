@@ -654,6 +654,61 @@ SET_TEMPO stores `arg >> 2` as tempo. Each frame (120Hz), tempo is subtracted fr
 - Note 0 = rest/silence
 - Chromatic scale with ratio 2^(1/12) between consecutive entries
 
+### Envelope Data Format (set by SET_VOL_ENV / SET_FREQ_ENV)
+
+Opcodes 0x86 (SET_FREQ_ENV) and 0x87 (SET_VOL_ENV) point at envelope data
+blocks consumed by the per-frame envelope steppers at $4960 (frequency) and
+$498A (volume). The blocks are sequences of small fixed-size entries:
+
+```
+Volume envelope (2-byte entries, stepped by code at $4A8C-$4B0A):
+  Byte 0: count       (frames to apply this entry)
+  Byte 1: delta (s8)  (added to vol_accum each frame; clamps to [-128, 127])
+  Terminator: count == 0  (sets vol_env_pos = 0; envelope stops stepping)
+
+Frequency envelope (3-byte entries, stepped by code at $4960-$4A37):
+  Byte 0: count       (frames to apply this entry)
+  Bytes 1-2: delta (s16 LE)  (added to freq_accum each frame, scaled << 3)
+  Terminator: count|delta_lo|delta_hi all 0
+              (sets freq_env_pos = 0; envelope stops stepping)
+
+Loop marker (either envelope): count == 0xFF
+  Byte 1: loop_count   (number of times to repeat)
+  Byte 2: back_offset  (bytes to subtract from current pos to loop start)
+```
+
+Per-frame stepping: each frame the envelope's frame_ctr is decremented; when
+it reaches 0, the next entry is loaded. The delta is added to the running
+accumulator on every frame (during the `count`-frame interval), so the entry
+`count=4, delta=+8` raises the accumulator by 32 over 4 frames. After
+termination the accumulator value freezes; subsequent frames produce no
+further envelope changes.
+
+POKEY-SFX envelopes are typically packed tightly with no slack — they often
+*lack a clean terminator entirely*, relying on the bytecode REST + CHAIN to
+kill the channel before the engine reads past the valid data. Disassemblers
+should detect this case (e.g., garbage delta values >> any musically
+plausible range) to avoid running into adjacent sequence bytes.
+
+### Sustain Bit Semantics for Envelope-Driven RESTs (POKEY SFX)
+
+When a REST has bit 7 of byte1 set (e.g. `0x83`, `0x87`), the secondary
+timer is loaded with `$7F` (max). On real hardware this prevents the
+envelope from entering its release/decay phase — the *envelope state
+freezes* and the channel rings out at whatever AUDF/AUDC the previous
+non-sustain REST left in the chip. The primary timer still ticks normally,
+so the bytecode advances at the same rate; only the envelope step is
+suppressed.
+
+Practical consequence for POKEY SFX with the canonical pattern
+`REST(non-sustain) ; SET_DISTORTION ; REST(sustain) ; CHAIN`: the second
+REST does **not** continue stepping the volume envelope past where the
+first REST left it. Sequences like Lobber Throwing Rock ($66CE) embed a
+"second peak" in the volume envelope after the first REST's audible decay,
+and that second peak is *not* meant to play — sustain freezes the envelope
+before it reaches that data. Implementations that ignore the sustain bit
+will replay the second peak as a spurious "second sound."
+
 ---
 
 ## 5. Command Map Summary

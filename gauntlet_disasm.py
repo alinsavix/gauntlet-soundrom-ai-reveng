@@ -1850,6 +1850,17 @@ class SequenceInterpreter:
                         delta = (hi << 8) | lo
                         if delta >= 0x8000:
                             delta -= 0x10000
+                        # Heuristic: SFX freq envelopes lack proper terminators
+                        # for the case where the bytecode CHAINs out before the
+                        # envelope ends. When the engine reads past valid data
+                        # into bytecode/sequence territory, the resulting delta
+                        # values are wildly out of musical range. On real
+                        # hardware the channel is killed by CHAIN before this
+                        # matters; here we approximate by terminating the
+                        # envelope when an implausible delta is encountered.
+                        if abs(delta) > 4000:
+                            fe['freq_active'] = False
+                            break
                         fe['freq_delta'] = delta << 3
                         fe['freq_frame_ctr'] = count
                         fe['freq_pos'] = pos + 3
@@ -1936,6 +1947,12 @@ class SequenceInterpreter:
                            (pokey_ch_idx, eff_audf, eff_audc)))
             actual_frames += 1
 
+            # Stop once both envelopes have terminated — the channel would
+            # naturally hold or be killed by CHAIN on real hardware, so
+            # further frames are just dead air or stuck-volume buzz.
+            if not fe['vol_active'] and not fe['freq_active']:
+                break
+
             if stop_on_silence:
                 if eff_vol == 0:
                     silent_frames += 1
@@ -1974,7 +1991,14 @@ class SequenceInterpreter:
         loop_stack = []       # for PUSH_SEQ_EXT (0x8E) repeat loops
                               # each entry: [loop_start_addr, remaining_count]
 
-        tempo = 0
+        # handler_type_7 initializes chan_tempo to 0x10 on real hardware,
+        # but at the documented 120Hz frame rate that gives REST durations
+        # shorter than the envelope content the composers wrote, suggesting
+        # the actual envelope step is sub-frame. Empirically a smaller tempo
+        # divisor reproduces the expected SFX duration: long enough that the
+        # full envelope plays out, with silence-stop / both-envelopes-done
+        # ending playback when the volume ramp finishes.
+        tempo = 2 if hw_mode == "POKEY" else 0
         volume = 0
         transpose = 0
         freq_offset = 0
@@ -2107,23 +2131,58 @@ class SequenceInterpreter:
                     if hw_mode == "POKEY" and self.pokey:
                         has_env = (pokey_env['freq_active'] or
                                    pokey_env['vol_active'])
-                        if has_env:
-                            # Envelope-driven REST: keep envelopes running
+                        if has_env and not sustain:
+                            # Envelope-driven REST: step envelopes for the
+                            # REST duration. We rely on the bytecode itself
+                            # for termination (CHAIN at end of sequence), but
+                            # also bail when both envelopes have hit their
+                            # count==0 terminator since the channel produces
+                            # no further changes after that. Silence-stop is
+                            # a final safety fallback for envelopes that lack
+                            # a clean terminator (data ends before count==0).
                             note_frames = max(1, int(dur_frames))
-                            use_silence_stop = dur_frames < 1
-                            if use_silence_stop:
-                                # No tempo / zero duration: run envelopes
-                                # until volume goes silent (max 5s safety)
-                                note_frames = 600
                             base_audf = 0
                             actual = self._step_pokey_envelopes(
                                 pokey_env, base_audf, volume,
                                 distortion, pokey_ch_idx,
                                 cumulative_frames, note_frames, events,
-                                stop_on_silence=use_silence_stop)
-                            dur_frames = max(dur_frames,
-                                             actual if use_silence_stop
-                                             else note_frames)
+                                stop_on_silence=True)
+                            dur_frames = float(actual)
+                        elif has_env and sustain:
+                            # Sustain bit (byte1 & 0x80) sets the secondary
+                            # timer to $7F on real hardware, which prevents
+                            # the volume envelope from entering its release/
+                            # decay phase — the envelope freezes and the
+                            # channel rings out at whatever level the prior
+                            # REST/note left it (until a new note overwrites
+                            # the channel or the sequence CHAINs out).
+                            #
+                            # We emit one event with the current chip state.
+                            # If the held volume is already 0, the sustain
+                            # produces no audible output, so we skip ahead
+                            # without padding the WAV with silence; otherwise
+                            # we honor the full REST duration so the audible
+                            # ring-out plays.
+                            note_frames = max(1, int(dur_frames))
+                            freq_mid = (pokey_env['freq_accum'] >> 8) & 0xFF
+                            eff_audf = freq_mid & 0xFF
+                            vol_shifted = pokey_env['vol_accum'] >> 3
+                            eff_vol = max(0, min(15,
+                                                 vol_shifted + volume))
+                            eff_audc = eff_vol | (distortion & 0xF0)
+                            events.append(
+                                (cumulative_frames / 120.0,
+                                 'pokey_note_on',
+                                 (pokey_ch_idx, eff_audf, eff_audc)))
+                            if eff_vol == 0:
+                                # Held silence — emit a note_off and skip
+                                # the sustain duration entirely.
+                                events.append(
+                                    (cumulative_frames / 120.0,
+                                     'pokey_note_off', (pokey_ch_idx,)))
+                                dur_frames = 0.0
+                            else:
+                                dur_frames = float(note_frames)
                         else:
                             events.append((time_secs, 'pokey_note_off',
                                            (pokey_ch_idx,)))
@@ -2331,6 +2390,16 @@ class SequenceInterpreter:
                             continue
 
             pc += 1 + arg_bytes
+
+        # Final note_off: on real hardware, when the sequence ends (CHAIN /
+        # end-marker / killed channel), pokey_channel_mix stops selecting
+        # this channel and pokey_update_registers writes 0 to AUDF/AUDC,
+        # silencing it. Mimic that here so the WAV doesn't leave the
+        # channel ringing during the post-roll if the envelope happened to
+        # terminate at non-zero volume (e.g. cmd 0x43 "Unable to Join In").
+        if hw_mode == "POKEY" and self.pokey:
+            events.append((cumulative_frames / 120.0, 'pokey_note_off',
+                           (pokey_ch_idx,)))
 
         return events
 
