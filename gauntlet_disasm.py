@@ -1182,14 +1182,35 @@ class YM2151Emulator:
         cls._atten_table = np.power(10.0, -atten_idx / 20.0)
         cls._atten_table = np.append(cls._atten_table, 0.0)  # sentinel for >96dB
 
-    # Note frequency table: KC (key code) to phase increment
-    # KC = (octave << 4) | note, note 0-15 (but only 0,1,2,4,5,6,8,9,10,12,13,14 valid)
-    # Base frequencies for octave 0, notes C# through C (YM2151 note order)
+    # OPM keycode-to-frequency table for block 0 (lowest octave).
+    #
+    # The OPM KC field is 4 bits wide (0-15) but represents only 12 musical
+    # notes per octave — values 3, 7, 11, 15 are "gap" positions. Per
+    # ymfm/MAME (s_phase_step in ymfm_fm.ipp:230, adjusted_code formula at
+    # line 289), the linear semitone within an octave is:
+    #     adjusted = note - (note >> 2)
+    # which gives:
+    #     note 0  -> 0 (C#)      note 8  -> 6 (G)
+    #     note 1  -> 1 (D)       note 9  -> 7 (G#)
+    #     note 2  -> 2 (D#)      note 10 -> 8 (A)
+    #     note 3  -> 3 (E*)      note 11 -> 9 (A#*)
+    #     note 4  -> 3 (E)       note 12 -> 9 (A#)
+    #     note 5  -> 4 (F)       note 13 -> 10 (B)
+    #     note 6  -> 5 (F#)      note 14 -> 11 (C, next octave's lower edge)
+    #     note 7  -> 6 (G*)      note 15 -> 12 (rolls to next octave)
+    # (* = gap positions duplicate the NEXT note, not the previous one).
+    #
+    # KC=$0A (block 0, note 10) corresponds to A4 = 440 Hz at block 4, so
+    # block-0 A is 440/16 = 27.5 Hz. Earlier table had A at 25.96 (a half
+    # step low — that's G#0), making everything sound a semitone flat AND
+    # had the duplicates at notes 3/7/11 pointing the wrong direction
+    # (duplicating the previous note instead of the next), causing notes 4,
+    # 8, 12 to play half a step too low as well.
     _NOTE_FREQ = [
-        16.35, 17.32, 18.35, 18.35,  # C#, D, D#, (D# dup)
-        19.45, 20.60, 21.83, 21.83,  # E, F, F#, (F# dup)
-        23.12, 24.50, 25.96, 25.96,  # G, G#, A, (A dup)
-        27.50, 29.14, 30.87, 30.87,  # A#, B, C, (C dup)
+        17.32, 18.35, 19.45, 20.60,  # 0:C#  1:D   2:D#  3:E (dup with 4)
+        20.60, 21.83, 23.12, 24.50,  # 4:E   5:F   6:F#  7:G (dup with 8)
+        24.50, 25.96, 27.50, 29.14,  # 8:G   9:G#  10:A  11:A# (dup with 12)
+        29.14, 30.87, 32.70, 34.65,  # 12:A# 13:B  14:C  15:C# (rolls)
     ]
 
     def __init__(self):
@@ -1327,18 +1348,33 @@ class YM2151Emulator:
             self.op_d1l[op_idx] = (data >> 4) & 0x0F
 
     def _slot_map(self, addr):
-        """Map register address to operator index.
+        """Map YM2151 operator-register address to internal operator index.
 
-        YM2151 slot order: 0x40-0x47 = OP1 (M1), 0x48-0x4F = OP3 (C1),
-        0x50-0x57 = OP2 (M2), 0x58-0x5F = OP4 (C2).
-        We store as: ops 0-7 = M1, 8-15 = M2, 16-23 = C1, 24-31 = C2.
+        Per ymfm's operator_map() and the algorithm s_algorithm_ops table
+        in ymfm_fm.ipp:1019, the YM2151 algorithm wiring uses operators in
+        the order O1, O2, O3, O4 where:
+          O1 = chip register slot 0 ($40-$47) — has feedback applied
+          O2 = chip register slot 1 ($50-$57) — first carrier in alg 4
+          O3 = chip register slot 2 ($48-$4F) — second modulator in alg 4
+          O4 = chip register slot 3 ($58-$5F) — second carrier in alg 4
+
+        So the chip's REGISTER address increments by $08 per operator,
+        but the ALGORITHM order is O1, O2, O3, O4 mapping to register
+        bases $40, $50, $48, $58 respectively.
+
+        We store internally as: ops 0-7 = M1 (=O1), 8-15 = M2 (=O3),
+        16-23 = C1 (=O2), 24-31 = C2 (=O4) — matching the labels used
+        in our render-time algorithm wiring code below. Translation
+        from chip register address (slot_group) to our internal slot:
+
+          slot_group 0 ($40-$47) -> M1 (=O1)  -> internal 0
+          slot_group 1 ($48-$4F) -> M2 (=O3)  -> internal 1
+          slot_group 2 ($50-$57) -> C1 (=O2)  -> internal 2
+          slot_group 3 ($58-$5F) -> C2 (=O4)  -> internal 3
         """
         ch = addr & 0x07
         slot_group = ((addr >> 3) & 0x03)
-        # slot_group: 0=M1(OP1), 1=C1(OP3), 2=M2(OP2), 3=C2(OP4)
-        # remap to: 0=M1, 1=M2, 2=C1, 3=C2
-        remap = [0, 2, 1, 3]
-        return ch + remap[slot_group] * 8
+        return ch + slot_group * 8
 
     def _calc_phase_incs_all(self):
         """Calculate phase increments for all 32 operators (vectorized).
@@ -1430,18 +1466,35 @@ class YM2151Emulator:
             lfo_counter += 1
 
             # --- Inlined _advance_eg_all: pure Python loop (no numpy) ---
+            #
+            # Per ymfm (ymfm_fm.ipp ~line 690): the EG step uses an
+            # "effective rate" computed as `rate + ksrval`, where
+            #   ksrval = keycode >> (ksr ^ 3)
+            # and keycode is the 5-bit OPM keycode = top 5 bits of the
+            # 13-bit block_freq value (= block * 4 + (kc >> 2)). Our
+            # ch_kc is the 7-bit KC field (block << 4 | kc bits 0-3),
+            # so:
+            #   keycode_5bit = ch_kc >> 2
+            #   ksrval = (ch_kc >> 2) >> (ks ^ 3) = ch_kc >> (5 - ks)
+            # Decay/Sustain/Release also use this ksrval, multiplied by
+            # rate appropriately:
+            #   AR cache: effective_rate(ar*2, ksrval)
+            #   D1R cache: effective_rate(d1r*2, ksrval)
+            #   D2R cache: effective_rate(d2r*2, ksrval)
+            #   RR cache:  effective_rate(rr*4 + 2, ksrval)
+            # Old code used (op_ks >> 1) for D/S/R which is just KS/2 —
+            # entirely wrong, missing the keycode-scaled term that makes
+            # rates depend on pitch.
             for i in range(32):
                 p = op_eg_phase[i]
+                ks_val = op_ks[i]
+                kc_val = ch_kc[i & 7]
+                ksrval = kc_val >> (5 - ks_val)
                 if p == 0:  # Attack
                     rate = op_ar[i]
                     if rate == 0:
                         continue
-                    ks_val = op_ks[i]
-                    kc_val = ch_kc[i & 7]
-                    if ks_val > 0:
-                        eff = rate * 2 + (kc_val >> (3 - ks_val))
-                    else:
-                        eff = rate * 2
+                    eff = rate * 2 + ksrval
                     if eff > 63:
                         eff = 63
                     if eff >= 62:
@@ -1468,7 +1521,7 @@ class YM2151Emulator:
                     rate = op_d1r[i]
                     if rate == 0:
                         continue
-                    eff = rate * 2 + (op_ks[i] >> 1)
+                    eff = rate * 2 + ksrval
                     if eff > 63:
                         eff = 63
                     shift = 8 - (eff >> 2)
@@ -1488,7 +1541,7 @@ class YM2151Emulator:
                     rate = op_d2r[i]
                     if rate == 0:
                         continue
-                    eff = rate * 2 + (op_ks[i] >> 1)
+                    eff = rate * 2 + ksrval
                     if eff > 63:
                         eff = 63
                     shift = 8 - (eff >> 2)
@@ -1502,7 +1555,7 @@ class YM2151Emulator:
                         op_eg_level[i] = lev
                 else:  # p == 3, Release
                     rate = op_rr[i]
-                    eff = rate * 4 + 2 + (op_ks[i] >> 1)
+                    eff = rate * 4 + 2 + ksrval
                     if eff > 63:
                         eff = 63
                     shift = 6 - (eff >> 2)
@@ -1526,9 +1579,21 @@ class YM2151Emulator:
                 c1 = ch + 16
                 c2 = ch + 24
 
-                # M1 with feedback
+                # M1 with feedback. Per ymfm (ymfm_fm.ipp:925-927):
+                #   opmod = (m_feedback[0] + m_feedback[1]) >> (10 - feedback)
+                # where m_feedback is the chip's 14-bit-signed compute_volume
+                # output (~±8192). Our fb_out[ch] = m1_out * 512 so it's in
+                # units 1/16 the size of ymfm's. To match ymfm's opmod (in
+                # the same 10-bit phase units we use), the multiplier is
+                # 16 / (1 << (10-fb)) = 1 << (fb - 6).
+                #   FB=7 -> mult 2.0   (sum=±1024 -> mod=±2048 = 2 cycles, chaotic)
+                #   FB=4 -> mult 0.25  (subtle)
+                #   FB=1 -> mult 1/32
+                # Old code used (1 << (fb-1)) / 8 which was 4x too strong;
+                # my prior "fix" used 1/(1 << (10-fb)) which was 16x too weak.
                 if fb > 0:
-                    fb_mod = (fb_out_0[ch] + fb_out_1[ch]) * 0.5 * ((1 << (fb - 1)) * 0.25)
+                    fb_mod = (fb_out_0[ch] + fb_out_1[ch]) * (
+                        (1 << (fb - 6)) if fb >= 6 else (1.0 / (1 << (6 - fb))))
                 else:
                     fb_mod = 0.0
 
@@ -1751,6 +1816,52 @@ class SequenceInterpreter:
         self.rom = rom
         self.pokey = pokey
         self.ym2151 = ym2151
+        self._ym_kc_kf_table = None  # built lazily on first YM use
+
+    def _build_ym_kc_kf_table(self):
+        """Build a 128-entry table of (kc_byte, kf_byte) per ROM note.
+
+        The ROM's note→pitch table at $5A35 stores a 16-bit "wavelength
+        count" value per note, inversely proportional to frequency. By
+        empirical fit, freq_hz = 444400 / value, anchored on note 70 →
+        A4 = 440 Hz (per MEMMAP.md line 446 and the ROM at $5A35).
+
+        Earlier I was computing kc directly from MIDI semitones, which
+        accumulated a one-semitone error AND missed the ROM's actual
+        tuning (which has a few cents of detune at the extremes — most
+        accurate at A4, drifting flat at low notes and sharp at high).
+        Using the ROM table directly matches real hardware exactly.
+        """
+        import math
+        table = []
+        # OPM kc note positions per semitone (0=C, 1=C#, ..., 11=B)
+        # Note 14 = C of next octave; the conditional below handles the
+        # block-1 wrap for semitone 0.
+        sem_to_opm_note = [14, 0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13]
+        for n in range(128):
+            val = self.rom.read_word(self.FREQ_TABLE_ADDR + n * 2)
+            if val == 0:
+                table.append((0, 0))
+                continue
+            freq = 444400.0 / val
+            # Convert to continuous MIDI: A4=69 at 440 Hz
+            midi_cont = 69.0 + 12.0 * math.log2(freq / 440.0)
+            midi_int = int(round(midi_cont * 64)) / 64.0  # KF resolution
+            sem_cont = midi_int  # 1/64-semitone units
+            sem_floor = math.floor(sem_cont)
+            semitone = sem_floor % 12
+            octave = sem_floor // 12 - 1  # MIDI octave (C4 = octave 4)
+            opm_note = sem_to_opm_note[semitone]
+            if semitone == 0:
+                octave -= 1
+            octave = max(0, min(7, int(octave)))
+            kc = (octave << 4) | opm_note
+            kf_frac = sem_cont - sem_floor  # 0.0 to <1.0 semitone fraction
+            kf_units = int(round(kf_frac * 64)) & 0x3F  # 6 bits
+            kf_byte = (kf_units << 2) & 0xFC  # KF reg uses upper 6 bits
+            table.append((kc, kf_byte))
+        self._ym_kc_kf_table = table
+        return table
 
     def execute_to_audio(self, start_addr, channel_id, max_seconds=30.0,
                          sample_rate=44100):
@@ -1990,15 +2101,23 @@ class SequenceInterpreter:
         return_stack = []     # for PUSH_SEQ (0x8D) call/return
         loop_stack = []       # for PUSH_SEQ_EXT (0x8E) repeat loops
                               # each entry: [loop_start_addr, remaining_count]
+        backward_jump_counts = {}  # pc -> count, for SET_SEQ_PTR cap
 
-        # handler_type_7 initializes chan_tempo to 0x10 on real hardware,
-        # but at the documented 120Hz frame rate that gives REST durations
-        # shorter than the envelope content the composers wrote, suggesting
-        # the actual envelope step is sub-frame. Empirically a smaller tempo
-        # divisor reproduces the expected SFX duration: long enough that the
+        # handler_type_7 initializes chan_tempo to 0x10 (16) on real
+        # hardware. For YM2151 SFX that don't override via SET_TEMPO (e.g.
+        # heartbeats 0x18-0x1B, treasure chest 0x2A), we need this default
+        # — without it, NOTE durations divide by zero and produce instant
+        # note-off, leaving the rendering padded with safety silence.
+        #
+        # For POKEY SFX the documented tempo=16 produces REST durations
+        # shorter than the count+delta envelope content the composers
+        # actually wrote (e.g. Axe's 28-frame envelope vs a 7.5-frame REST
+        # at tempo=16), suggesting the envelope step rate on real hardware
+        # is fractional rather than once per IRQ. Empirically tempo=2
+        # reproduces the expected POKEY SFX duration: long enough that the
         # full envelope plays out, with silence-stop / both-envelopes-done
         # ending playback when the volume ramp finishes.
-        tempo = 2 if hw_mode == "POKEY" else 0
+        tempo = 2 if hw_mode == "POKEY" else 16
         volume = 0
         transpose = 0
         freq_offset = 0
@@ -2021,6 +2140,21 @@ class SequenceInterpreter:
             'vol_frame_ctr': 0, 'vol_delta': 0, 'vol_accum': 0,
             'vol_loop_count': -1,
         }
+
+        # YM2151 system volume envelope state (chan_vol_env_pos at $049E,X
+        # in real hardware). Modified by YM_VOL_ENV_NEG (0xA2) and
+        # YM_VOL_ENV_SUB (0xA3). Per-frame the ROM's
+        # ym2151_update_channel_state ($4C16) combines this offset with
+        # each operator's TL when writing the YM2151 TL registers.
+        # We track per-op base TL from voice (set by SET_VOICE) plus the
+        # current vol_env_pos, and emit adjusted TL register writes at
+        # each NOTE_ON.
+        ym_vol_env_pos = 0      # signed -128..+127
+        # op_tl_base[0..3] = per-operator TL from voice bytes 5/11/17/23.
+        # Order matches our slot mapping: 0=M1, 1=M2, 2=C1, 3=C2 (writing
+        # to YM2151 register banks $60+ch+slot_offset where slot_offset
+        # is 0/8/16/24 — see _load_ym_voice for the mapping rationale).
+        ym_op_tl_base = [0, 0, 0, 0]
 
         cumulative_frames = 0.0
         max_frames = max_seconds * 120.0
@@ -2109,21 +2243,51 @@ class SequenceInterpreter:
                                                (pokey_ch_idx,)))
 
                     elif hw_mode == "YM2151" and self.ym2151:
-                        # Convert note to YM2151 key code
-                        midi = effective_note - 1
-                        octave = max(0, min(7, (midi // 12)))
-                        semitone = midi % 12
-                        # YM2151 note mapping
-                        ym_notes = [0,1,2,4,5,6,8,9,10,12,13,14]
-                        ym_note = ym_notes[semitone] if semitone < 12 else 0
-                        kc = (octave << 4) | ym_note
+                        # Get pre-computed (KC, KF) from the ROM's own
+                        # freq table at $5A35. See _build_ym_kc_kf_table.
+                        if self._ym_kc_kf_table is None:
+                            self._build_ym_kc_kf_table()
+                        kc, kf_table_byte = self._ym_kc_kf_table[
+                            effective_note]
 
+                        # Apply YM2151 freq_offset (set by FREQ_ADD opcode
+                        # 0xA7, used for pitch slides like 0x28 Transporter).
+                        # FREQ_ADD on real hardware adds (signed arg << 2)
+                        # to chan_state ($0408,X) — a 16-bit pitch offset
+                        # in the same units as the YM2151 KC+KF combined
+                        # word: hi byte modifies KC, lo byte modifies KF.
+                        kf_byte = kf_table_byte
+                        if freq_offset != 0:
+                            so = (freq_offset - 0x10000) if freq_offset >= 0x8000 else freq_offset
+                            kc_delta = so >> 8  # signed hi byte
+                            kf_delta = so & 0xFF  # unsigned lo byte
+                            kc = max(0, min(0x7F, kc + kc_delta))
+                            kf_byte = (kf_byte + (kf_delta & 0xFC)) & 0xFC
+                        ch_id = channel_id & 0x07
+                        events.append((time_secs, 'ym_reg_write',
+                                       (0x30 + ch_id, kf_byte)))
+                        # chan_vol_env_pos ($049E,X) was previously
+                        # applied here as a TL offset, but re-tracing the
+                        # ROM ($4C16 ym2151_update_channel_state) shows it
+                        # only reads $049E,X in the vibrato branch (Y=$17
+                        # != 0), and even there it's routed into the
+                        # $0826 staging buffer, NOT a TL register. So for
+                        # the normal (no-vibrato) path it has no effect on
+                        # TL — applying it here over-attenuated channels
+                        # that the reference recording keeps loud (e.g.
+                        # theme song ch 4 dominating bass via its G1
+                        # harmonics). Leaving it as engine state for now.
                         events.append((time_secs, 'ym_note_on',
                                        (channel_id, kc, volume)))
+                        # On real hardware, sustain (bit 7 of byte1) leaves
+                        # the channel keyed-on past its rhythmic duration —
+                        # the YM2151 only retriggers operator envelopes on
+                        # an off→on transition, so back-to-back sustained
+                        # notes blend smoothly. If we always emit note_off,
+                        # every single note becomes a discrete attack click
+                        # (e.g. 0x12 Doors Open's 17 sustained sixteenths
+                        # turn into a "repeating impulse").
                         if not sustain:
-                            events.append((time_secs + dur_secs,
-                                           'ym_note_off', (channel_id,)))
-                        else:
                             events.append((time_secs + dur_secs,
                                            'ym_note_off', (channel_id,)))
                 else:
@@ -2301,6 +2465,18 @@ class SequenceInterpreter:
             elif byte0 == 0x99 and len(args) >= 2:  # SET_SEQ_PTR (jump)
                 target = args[0] | (args[1] << 8)
                 if ROM_BASE <= target <= ROM_END:
+                    # Cap backward-jump loops. Some bytecodes (e.g. cmd
+                    # 0x05 Effects Chip Test) loop indefinitely with no
+                    # CHAIN — on real hardware the test runs until the
+                    # operator dismisses it; for WAV rendering we cap at
+                    # a small number of iterations so the file isn't a
+                    # 30-second drone. 3 iterations is enough to convey
+                    # the looping character without dragging on.
+                    if target <= pc:
+                        n = backward_jump_counts.get(pc, 0) + 1
+                        backward_jump_counts[pc] = n
+                        if n >= 3:
+                            break
                     pc = target
                     continue
                 else:
@@ -2315,8 +2491,32 @@ class SequenceInterpreter:
                                                         voice_ptr):
                         events.append((time_secs, 'ym_reg_write',
                                        (reg, val)))
+                    # Cache per-op base TL bytes (voice[5,11,17,23]) so we
+                    # can later emit TL register writes adjusted by
+                    # chan_vol_env_pos. Real hardware copies the same
+                    # bytes to chan_TL_cache ($0426/$0444/$0462/$0480 + X)
+                    # which the per-frame routine reads and writes to the
+                    # YM2151 TL registers each IRQ.
+                    try:
+                        for op in range(4):
+                            ym_op_tl_base[op] = self.rom.read_byte(
+                                voice_ptr + 5 + op * 6) & 0x7F
+                    except (ValueError, IndexError):
+                        pass
+                    # NOTE: don't reset ym_vol_env_pos here. SET_VOICE
+                    # on real hardware ($5535) doesn't touch $049E,X — the
+                    # vol_env_pos persists across voice changes, so
+                    # YM_VOL_ENV_SUB applied earlier in the sequence
+                    # continues to attenuate notes after SET_VOICE swaps
+                    # the operator parameters. Only handler_type_7 init
+                    # at channel-allocation time zeroes $049E.
             elif byte0 == 0x9E and len(args) >= 2:  # YM_LOAD_ENV
-                pass  # envelope table load
+                # The full handler at $5613 also configures the YM2151
+                # LFO (writes to LFO freq, PMD/AMD, waveform). For now we
+                # just no-op since we don't model the LFO; the ALS volume
+                # / pitch modulation it drives is approximated by static
+                # offsets via YM_VOL_ENV_*.
+                pass
             elif byte0 == 0x9F and len(args) >= 2:  # YM_LOAD_REG
                 if hw_mode == "YM2151":
                     time_secs = cumulative_frames / 120.0
@@ -2328,10 +2528,38 @@ class SequenceInterpreter:
                     val -= 256
                 freq_offset = val
             elif byte0 == 0xA7 and args:     # FREQ_ADD
-                val = args[0]
-                if val >= 128:
-                    val -= 256
-                freq_offset = (freq_offset + val) & 0xFFFF
+                # Real hardware ($56DC handler): YM2151-only; sign-extend
+                # arg to 16 bits then shift left twice (= multiply by 4)
+                # and add to chan_state ($0408,X 16-bit). On POKEY this
+                # opcode is a no-op.
+                if hw_mode == "YM2151":
+                    val = args[0]
+                    if val >= 128:
+                        val -= 256
+                    freq_offset = (freq_offset + (val << 2)) & 0xFFFF
+            elif byte0 == 0xA2 and args:     # YM_VOL_ENV_NEG
+                # Real handler at $56CB. YM2151-only: chan_vol_env_pos =
+                # -arg (signed). The result is a static attenuation that
+                # the per-frame YM2151 update applies to all 4 operator
+                # TLs. Larger |arg| = quieter channel.
+                if hw_mode == "YM2151":
+                    val = args[0]
+                    if val >= 128:
+                        val -= 256
+                    ym_vol_env_pos = max(-128, min(127, -val))
+            elif byte0 == 0xA3 and args:     # YM_VOL_ENV_SUB
+                # Real handler at $56AF. YM2151-only: chan_vol_env_pos -=
+                # arg (signed-extended) with overflow clamp to ±$7F/$80.
+                if hw_mode == "YM2151":
+                    val = args[0]
+                    if val >= 128:
+                        val -= 256
+                    new_pos = ym_vol_env_pos - val
+                    if new_pos > 127:
+                        new_pos = 127
+                    elif new_pos < -128:
+                        new_pos = -128
+                    ym_vol_env_pos = new_pos
             elif byte0 == 0xA4 and len(args) >= 2:  # VAR_LOAD
                 var_reg = args[0]
                 if var_reg < len(variables):
@@ -2404,28 +2632,52 @@ class SequenceInterpreter:
         return events
 
     def _load_ym_voice(self, channel, voice_ptr):
-        """Build register writes for a YM2151 voice definition from ROM.
+        """Build register writes for a Gauntlet YM2151 voice from ROM.
 
-        Returns list of (register, value) tuples.
+        Voice format (28 bytes), determined from SET_VOICE handler at
+        $5535-$560F. Note that the FIRST 4 bytes are CHANNEL-level
+        registers, not M1 operator data:
+          byte 0: FB/CON    -> reg $20+ch  (RL set to L+R via | $C0)
+          byte 1: KC base   -> reg $28+ch
+          byte 2: KF base   -> reg $30+ch
+          byte 3: PMS/AMS   -> reg $38+ch
+          bytes 4-9:  M1 op (DT1/MUL, TL, KS/AR, AMSEN/D1R, DT2/D2R, D1L/RR)
+          bytes 10-15: M2 op
+          bytes 16-21: C1 op
+          bytes 22-27: C2 op
+
+        Per-operator banks at $40, $60, $80, $A0, $C0, $E0. Per-slot
+        offsets within each bank (per YM2151 hardware layout):
+          M1 -> +0 (so $40+ch, $60+ch, ...)
+          M2 -> +8 (so $48+ch, ...)         <-- NOT $50!
+          C1 -> +16 (so $50+ch, ...)        <-- NOT $48!
+          C2 -> +24 (so $58+ch, ...)
+        Reading: the OPM register layout names $48-$4F as "OP3" and
+        $50-$57 as "OP2", so the natural slot offsets above produce the
+        correct mapping. _slot_map() in the emulator then remaps OP3->C1
+        and OP2->M2 on the read side. So write data for slots in M1/M2/
+        C1/C2 order to register slots at +0/+8/+16/+24 from the bank base.
         """
         writes = []
         try:
             ch = channel & 0x07
-            fb_con = self.rom.read_byte(voice_ptr)
-            writes.append((0x20 + ch, fb_con | 0xC0))  # L+R enabled
-            ptr = voice_ptr + 1
-
-            for slot_base in [
-                    (0x40, 0x60, 0x80, 0xA0, 0xC0, 0xE0),   # M1
-                    (0x50, 0x70, 0x90, 0xB0, 0xD0, 0xF0),   # M2
-                    (0x48, 0x68, 0x88, 0xA8, 0xC8, 0xE8),   # C1
-                    (0x58, 0x78, 0x98, 0xB8, 0xD8, 0xF8)]:  # C2
-                for reg_base in slot_base:
-                    val = self.rom.read_byte(ptr)
-                    writes.append((reg_base + ch, val))
-                    ptr += 1
+            voice = [self.rom.read_byte(voice_ptr + i) for i in range(28)]
         except (ValueError, IndexError):
-            pass
+            return writes
+
+        # Channel-level registers (bytes 0-3)
+        writes.append((0x20 + ch, voice[0] | 0xC0))  # FB/CON | L+R enable
+        writes.append((0x28 + ch, voice[1]))         # KC base
+        writes.append((0x30 + ch, voice[2]))         # KF base
+        writes.append((0x38 + ch, voice[3]))         # PMS/AMS
+
+        # Operator data: 4 slots × 6 register banks
+        op_banks = (0x40, 0x60, 0x80, 0xA0, 0xC0, 0xE0)
+        for slot_idx, slot_offset in enumerate((0, 8, 16, 24)):  # M1,M2,C1,C2
+            voice_base = 4 + slot_idx * 6
+            for bank_idx, bank_base in enumerate(op_banks):
+                writes.append((bank_base + ch + slot_offset,
+                               voice[voice_base + bank_idx]))
         return writes
 
     def _render_pokey_events(self, events, max_seconds, sample_rate):
