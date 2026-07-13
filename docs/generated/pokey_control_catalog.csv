@@ -1,0 +1,13 @@
+kind,value,source,meaning,configured_use,confidence
+AUDCTL_bit,0x80,refs/pokey.cpp,POLY9: select 9-bit rather than 17-bit polynomial,No configured POKEY $8B/$9B operand selects it,Verified supplied implementation meaning/reachability
+AUDCTL_bit,0x40,refs/pokey.cpp,CH1_HICLK: channel 1 uses 1.79 MHz clock,Forced with $10 by $4E3B when channel-2 member wins/ties,Verified
+AUDCTL_bit,0x20,refs/pokey.cpp,CH3_HICLK: channel 3 uses 1.79 MHz clock,Only configured POKEY SET_CTRL_BITS operand; also forced for joined channel 3/4,Verified
+AUDCTL_bit,0x10,refs/pokey.cpp,CH12_JOINED: channel 1/2 form 16-bit divider,Forced with $40 by $4E3B when channel-2 member wins/ties,Verified
+AUDCTL_bit,0x08,refs/pokey.cpp,CH34_JOINED: channel 3/4 form 16-bit divider,Forced with $20 by $4E14 when channel-4 member wins/ties,Verified
+AUDCTL_bit,0x04,refs/pokey.cpp,CH1_FILTER: channel 3 clocks channel-1 high-pass sample,No configured POKEY $8B/$9B operand selects it,Verified supplied implementation meaning/reachability
+AUDCTL_bit,0x02,refs/pokey.cpp,CH2_FILTER: channel 4 clocks channel-2 high-pass sample,No configured POKEY $8B/$9B operand selects it,Verified supplied implementation meaning/reachability
+AUDCTL_bit,0x01,refs/pokey.cpp,CLK_15KHZ: base clock 15.7 rather than 63.9 kHz,No configured POKEY $8B/$9B operand selects it,Verified supplied implementation meaning/reachability
+configured_operand,0x20,$51B7 and mode-aware traversal,OR CH3_HICLK into per-logical-channel $03EA mask,Commands $43-$49; chip-test $05 retains reset mask 0/$FF,Verified
+forced_pair_mode,0x28,$4D02 carry -> $4E14,CH3_HICLK | CH34_JOINED,Second member priority >= first; ties select joined mode,Verified
+forced_pair_mode,0x50,$4D02 carry -> $4E3B,CH1_HICLK | CH12_JOINED,Second member priority >= first; ties select joined mode,Verified
+final_combine,formula,$4DC4-$4DF8;$4E42-$4E4A,AUDCTL = accumulated OR masks AND accumulated AND masks,$03EA starts 0; $03CC starts $FF; $8B ORs and $9B clears,Verified

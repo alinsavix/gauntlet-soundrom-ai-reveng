@@ -1,0 +1,9 @@
+context,rom_note,interpreted_midi,label,kc,kf,block,adjusted_code,fraction,ymfm_phase_step,frequency_hz,comparison_midi,comparison_label,equal_tempered_hz,error_cents,state_assumptions,confidence
+command_04_stable,49,60,C4,0x3E,0x00,3,11,0,4904,261.57632330060005,60,C4,261.6255653005986,-0.32587583932962644,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,51,62,D4,0x41,0x00,4,1,0,5504,293.5799517631531,62,D4,293.6647679174076,-0.500086625750007,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,53,64,E4,0x44,0x00,4,3,0,6180,329.63737316429615,64,E4,329.6275569128699,0.05155508181700405,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,54,65,F4,0x45,0x00,4,4,0,6548,349.26626528799534,65,F4,349.2282314330039,0.18853550071664904,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,56,67,G4,0x48,0x00,4,6,0,7348,391.9377699047327,67,G4,391.99543598174927,-0.2546989346479748,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,58,69,A4,0x4A,0x00,4,8,0,8248,439.94321259856224,69,A4,440.0,-0.2234514265375618,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,60,71,B4,0x4D,0x00,4,10,0,9260,493.922665938735,71,B4,493.8833012561241,0.13798150885102786,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock
+command_04_stable,61,72,C5,0x4E,0x00,4,11,0,9808,523.1526466012001,72,C5,523.2511306011972,-0.32587583932962644,command $04 steady state; voice $6F94 byte +2 = 0; operator multiple 1,Verified ROM/YMFM formula and clock

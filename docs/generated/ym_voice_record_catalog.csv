@@ -1,0 +1,56 @@
+index,start,end_inclusive,width,voice_reference_count,ym9e_reference_count,ym9f_reference_count,configured_voice,referenced_record,verified_live_tl_start,verified_live_tl_end_inclusive,classification,confidence
+0,27094,27135,42,4,0,0,True,True,27123,27129,configured_instrument_record,Verified record grid and configured consumers
+1,27136,27177,42,3,0,0,True,True,27165,27171,configured_instrument_record,Verified record grid and configured consumers
+2,27178,27219,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+3,27220,27261,42,1,0,0,True,True,27249,27255,configured_instrument_record,Verified record grid and configured consumers
+4,27262,27303,42,1,0,0,True,True,27291,27297,configured_instrument_record,Verified record grid and configured consumers
+5,27304,27345,42,2,0,0,True,True,27333,27339,configured_instrument_record,Verified record grid and configured consumers
+6,27346,27387,42,4,0,0,True,True,27375,27381,configured_instrument_record,Verified record grid and configured consumers
+7,27388,27429,42,2,0,0,True,True,27417,27423,configured_instrument_record,Verified record grid and configured consumers
+8,27430,27471,42,8,0,0,True,True,27459,27465,configured_instrument_record,Verified record grid and configured consumers
+9,27472,27513,42,1,0,0,True,True,27501,27507,configured_instrument_record,Verified record grid and configured consumers
+10,27514,27555,42,1,0,0,True,True,27543,27549,configured_instrument_record,Verified record grid and configured consumers
+11,27556,27597,42,20,0,0,True,True,27585,27591,configured_instrument_record,Verified record grid and configured consumers
+12,27598,27639,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+13,27640,27681,42,3,0,0,True,True,27669,27675,configured_instrument_record,Verified record grid and configured consumers
+14,27682,27723,42,1,0,0,True,True,27711,27717,configured_instrument_record,Verified record grid and configured consumers
+15,27724,27765,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+16,27766,27807,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+17,27808,27849,42,2,0,0,True,True,27837,27843,configured_instrument_record,Verified record grid and configured consumers
+18,27850,27891,42,1,0,0,True,True,27879,27885,configured_instrument_record,Verified record grid and configured consumers
+19,27892,27933,42,2,2,0,True,True,27921,27927,configured_instrument_record,Verified record grid and configured consumers
+20,27934,27975,42,2,2,0,True,True,27963,27969,configured_instrument_record,Verified record grid and configured consumers
+21,27976,28017,42,1,1,0,True,True,28005,28011,configured_instrument_record,Verified record grid and configured consumers
+22,28018,28059,42,4,0,0,True,True,28047,28053,configured_instrument_record,Verified record grid and configured consumers
+23,28060,28101,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+24,28102,28143,42,24,0,0,True,True,28131,28137,configured_instrument_record,Verified record grid and configured consumers
+25,28144,28185,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+26,28186,28227,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+27,28228,28269,42,1,0,0,True,True,28257,28263,configured_instrument_record,Verified record grid and configured consumers
+28,28270,28311,42,1,0,0,True,True,28299,28305,configured_instrument_record,Verified record grid and configured consumers
+29,28312,28353,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+30,28354,28395,42,8,0,0,True,True,28383,28389,configured_instrument_record,Verified record grid and configured consumers
+31,28396,28437,42,2,0,0,True,True,28425,28431,configured_instrument_record,Verified record grid and configured consumers
+32,28438,28479,42,9,0,0,True,True,28467,28473,configured_instrument_record,Verified record grid and configured consumers
+33,28480,28521,42,4,0,0,True,True,28509,28515,configured_instrument_record,Verified record grid and configured consumers
+34,28522,28563,42,2,1,0,True,True,28551,28557,configured_instrument_record,Verified record grid and configured consumers
+35,28564,28605,42,8,1,1,True,True,28593,28599,configured_instrument_record,Verified record grid and configured consumers
+36,28606,28647,42,2,0,0,True,True,28635,28641,configured_instrument_record,Verified record grid and configured consumers
+37,28648,28689,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+38,28690,28731,42,1,1,1,True,True,28719,28725,configured_instrument_record,Verified record grid and configured consumers
+39,28732,28773,42,1,1,0,True,True,28761,28767,configured_instrument_record,Verified record grid and configured consumers
+40,28774,28815,42,2,0,0,True,True,28803,28809,configured_instrument_record,Verified record grid and configured consumers
+41,28816,28857,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+42,28858,28899,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+43,28900,28941,42,3,0,0,True,True,28929,28935,configured_instrument_record,Verified record grid and configured consumers
+44,28942,28983,42,0,4,0,False,True,,,auxiliary_only_instrument_record,Verified record grid and configured consumers
+45,28984,29025,42,1,0,0,True,True,29013,29019,configured_instrument_record,Verified record grid and configured consumers
+46,29026,29067,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+47,29068,29109,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+48,29110,29151,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+49,29152,29193,42,4,0,0,True,True,29181,29187,configured_instrument_record,Verified record grid and configured consumers
+50,29194,29235,42,3,0,0,True,True,29223,29229,configured_instrument_record,Verified record grid and configured consumers
+51,29236,29277,42,2,0,0,True,True,29265,29271,configured_instrument_record,Verified record grid and configured consumers
+52,29278,29319,42,0,0,0,False,False,,,unreferenced_instrument_record,Verified grid; original provenance Unknown
+53,29320,29361,42,5,1,0,True,True,29349,29355,configured_instrument_record,Verified record grid and configured consumers
+54,29362,29403,42,1,0,0,True,True,29391,29397,configured_instrument_record,Verified record grid and configured consumers

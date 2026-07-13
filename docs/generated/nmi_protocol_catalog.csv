@@ -1,0 +1,10 @@
+start,end_inclusive,phase,mode,state_in,effect,exit,confidence
+0x57B0,0x57BC,nmi_entry_mode_select,$0213 selects path,NMI vector; A/Y not yet saved completely,"wait for output latch availability, save Y, branch on mode byte",$57BD mode 0; $57DF modes 1..$FF,Verified
+0x4018,0x4029,fast_init_branch,$1030 bit 4 set,RESET hardware-status sample,"zero page $00 only, run $4183 check, skip boot NMI window",$40C8 normal-mode install,Verified
+0x4057,0x408D,ram_test_zero_fill,$1030 bit 4 clear,full RESET RAM-test branch; pages $00-$0F selected,"walking-bit test finishes each byte with zero; therefore $04/$05, $0212/$0213, and all other tested RAM are zero",$408F after all 16 pages,Verified
+0x408F,0x40C7,diagnostic_irq_sync_window,$01=$FF;$0213=$00,$00=$04=$05=$0212=$0213=0 after RAM/ROM tests,"CLI enables the early IRQ path, which increments $00; an NMI arriving first can also write $00 indirectly; timeout sets $02 bit 2",$40C8 on nonzero $00 or 65536-count timeout,Verified
+0x57BD,0x57DE,boot_indirect_write,$0213=$00,one main-CPU byte available at $1010,"store byte through ($04),Y; increment $0212; for negative old $0212, normalize Y with XOR $80 and add $80 to pointer $04/$05",RTI via $5820,Verified arithmetic; protocol intent Unknown
+0x40C8,0x4103,normal_mode_install,$0213=$FF,boot window exit with interrupts disabled,"write $FF to $0213, initialize ring indices/devices, then CLI",$4104 main loop,Verified
+0x57DF,0x57E7,nonqueue_drop,$0213=$01-$FE,one main-CPU byte available,read $1010 to acknowledge/drop byte without queueing,RTI via $5820,Verified; no direct ROM writer selects this mode
+0x57E8,0x5832,normal_command_queue,$0213=$FF,normal initialized mode,"advance 16-byte ring, validate command, queue or synthesize direct dispatch",RTI or synthesized handler dispatch,Verified
+0x44BD,0x44C7,direct_dispatch_restore,$0213=$FF,direct NMI handler completion,"restore X/Y, reassert normal mode $FF, restore A, RTI",RTI,Verified

@@ -1,0 +1,8 @@
+start,end_inclusive,record_width,count,role,consumers,index_domain,confidence
+0x57A0,0x57A7,1,8,YM algorithm/operator scaling masks,$4F05,index = YM algorithm bits 2..0,Verified
+0x57A8,0x57AD,1,2,overlapping hardware pointer/type views,$500D,X=0 POKEY or 1 YM2151,Verified
+0x57AE,0x57AF,1,2,physical-list-head base by hardware dispatcher,$4E08;$4FDC,X=0 -> $1E POKEY; X=1 -> $22 YM; next byte $57B0 is NMI entry,Verified exact extent
+0x5AF9,0x5B78,1,128,YM base key-code lookup view,$4EEC,configured note index 13..95; indices 98..127 structurally alias total-level table but are dormant,Verified
+0x5B5B,0x5C5A,1,256,YM operator total-level scaling lookup,$4F5D;$4F6F,Y is eight-bit combined nibble index,Verified
+0x5C5B,0x5C5E,1,4,YM total-level event/control bias table,$4EBB;$4ED5;$4F14,X=original $082F>>4 after two destructive memory shifts and two A shifts; configured indices 0..3,Verified exact extent
+0x72DC,0x73DB,1,256,YM operator total-level nonlinear lookup,$4F51,Y is eight-bit combined index,Verified

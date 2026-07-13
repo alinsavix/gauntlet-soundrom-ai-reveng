@@ -1,0 +1,27 @@
+kind,start,end_inclusive,size,record_width,records,loop_records,terminator_found,aligned_to_next_object,finite_sequence_events,runtime_unbounded,verified_external_stop_command,named_stop_command,equal_priority_replacement_command,candidate_end_cross_after_envelope_updates,runtime_zero_terminator_after_envelope_updates,runtime_read_end_inclusive,verified_read_end_inclusive,confidence
+volume_envelope,25951,25960,10,2,5,0,True,True,1,False,,,,,,,25952,Verified
+frequency_envelope,25955,25960,6,3,2,0,False,True,1,False,,,,,,,25957,Strong inference
+volume_envelope,25979,25988,10,2,5,0,True,True,1,False,,,,,,,25980,Verified
+frequency_envelope,25983,25988,6,3,2,0,False,True,1,False,,,,,,,25985,Strong inference
+volume_envelope,26007,26026,20,2,9,1,False,False,2,False,,,,,,,26008,Strong inference
+frequency_envelope,26015,26026,12,3,4,0,False,True,2,False,,,,,,,26017,Strong inference
+volume_envelope,26049,26149,101,2,50,0,False,False,1,False,,,,,,,26050,Strong inference
+frequency_envelope,26069,26149,81,3,27,0,False,True,1,False,,,,,,,26071,Strong inference
+volume_envelope,26168,26194,27,2,13,0,False,False,2,False,,,,,,,26169,Strong inference
+frequency_envelope,26180,26194,15,3,5,0,False,True,2,False,,,,,,,26182,Strong inference
+volume_envelope,26217,26238,22,2,11,0,True,True,1,False,,,,,,,26218,Verified
+frequency_envelope,26233,26247,15,3,5,0,False,True,1,False,,,,,,,26235,Strong inference
+volume_envelope,26266,26317,52,2,26,0,False,True,2,False,,,,,,,26267,Strong inference
+frequency_envelope,26282,26317,36,3,12,0,False,True,2,False,,,,,,,26284,Strong inference
+volume_envelope,26666,26679,14,2,7,0,True,True,1,False,,,,,,,26667,Verified
+frequency_envelope,26674,26679,6,3,2,0,False,True,1,False,,,,,,,26676,Strong inference
+volume_envelope,26717,26732,16,2,8,0,True,True,1,False,,,,,,,26718,Verified
+frequency_envelope,26727,26732,6,3,2,0,False,True,1,False,,,,,,,26729,Strong inference
+volume_envelope,26770,26785,16,2,8,0,True,True,1,False,,,,,,,26771,Verified
+frequency_envelope,26780,26785,6,3,2,0,False,True,1,False,,,,,,,26782,Strong inference
+volume_envelope,26802,26817,16,2,8,0,True,True,1,False,,,,,,,26803,Verified
+frequency_envelope,26812,26817,6,3,2,0,False,True,1,False,,,,,,,26814,Strong inference
+volume_envelope,26834,26843,10,2,5,0,True,True,2,True,0x00,,0x05,,,,26835,Verified
+frequency_envelope,26838,26891,54,3,18,2,False,True,2,True,0x00,,0x05,2458,12583,27135,27135,Strong inference
+volume_envelope,26860,26872,13,2,6,1,True,True,2,True,0x00,,0x05,,,,26861,Verified
+frequency_envelope,26867,26891,25,3,8,1,False,False,2,True,0x00,,0x05,65440,71171,27055,27055,Strong inference

@@ -1,0 +1,7 @@
+state,producer,consumer,semantics,configured_domain,confidence
+$3A-$3D/$43,blanket RAM clear; optional boot indirect write only,"none in 3,199 aligned executable instructions",unused zero-page storage in the current ROM,"$36,X and $3E,X candidates have X=3..0 and stop at $39/$41",Verified current-image nonuse
+$082F bit 0,$46B0 secondary expiry; $481D stop; preserved by $4C28,$4EBB destructive LSR carry,YM key-off request,0/1,Verified
+$082F bit 1,$4C28 OR #$02,$4ED5 destructive LSR carry,KC/TL refresh gate,always set for staged YM winner,Verified
+$082F bit 2,$48E9 new-note value $04; preserved by $4C28,$4FBD destructive LSR carry after bits 0/1 consumed,YM key-on request,0/1,Verified
+$082F bits 5..4,$4C1A masks event/control A with $30 and $4C28 stages it,$4F0E two A shifts after two earlier memory shifts; $4F14 indexes $5C5B-$5C5E,four-state operator TL event/control bias selector,00/10/20/30 -> indices 0/1/2/3,Verified
+$082F bits 7..6/3,none,none (bit 3 is discarded; bits 7..6 never staged),unused in current ROM,always zero,Verified current-image nonuse

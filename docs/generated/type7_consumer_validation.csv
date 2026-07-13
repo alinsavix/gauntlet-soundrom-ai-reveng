@@ -1,0 +1,4 @@
+batch,address,instructions,consumer,evidence,confidence
+1,0x49C5,32,frequency_envelope,"pointer reload, countdown decrement, FF loop control, pointer rewind",Verified
+2,0x4A90,32,volume_envelope,"pointer reload, countdown decrement, FF loop control, pointer rewind",Verified
+3,0x4F3E,24,ym_total_level_nonlinear_lookup,"Y = $0819 OR $0826[index]; indexed read from $72DC,Y; result writes $60-$7F",Verified

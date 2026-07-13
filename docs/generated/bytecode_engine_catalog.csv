@@ -1,0 +1,27 @@
+start,end_inclusive,role,entries,consumer_effect,confidence
+0x5029,0x5046,opcode/end dispatch,$5029,classify note/opcode/end byte; synthesize target-minus-one return,Verified
+0x5047,0x5058,sequence advance/read helper,$5047,advance 16-bit stream pointer and fetch next operand,Verified
+0x5059,0x506E,active-command chain search,$5059,interrupt-atomic physical-list search and type dispatch,Verified
+0x506F,0x507A,command-type dispatcher,$506F,synthesize handler-table return using shared parameter,Verified
+0x50F1,0x514A,timer/repeat reset and stream rewind,$50F1,clear timers; arbitrate repeat identity; rewind sequence pointer by two,Verified
+0x514B,0x5153,repeat-counter setter,$514B,store repeat value and clear active repeat state,Verified
+0x5154,0x5169,envelope-pointer setters,$5154;$515F,load volume/frequency 16-bit pointers through $5047,Verified
+0x516A,0x51B2,tempo/volume/transpose handlers,$516A;$5173;$517A;$5192;$51AA;$51AE,set/add scalar state with POKEY/YM and fade-state gates,Verified
+0x51B3,0x51E5,distortion/control/vibrato handlers,$51B3;$51B7;$51CB;$51E2,chip-dependent control-bit transforms and vibrato-depth store,Verified
+0x51E6,0x5270,sequence context push/pop,$51E6;$5214;$523F,allocate/free context records; save/restore pointers and repeat state,Verified
+0x5271,0x529D,variable/ramp loader,$5271,"load signed ramp, integer/fraction accumulator, and rate state",Verified
+0x529E,0x531F,general-register ALU and shifts,$529E;$52AA;$52B4;$52BA;$52C0;$52C6;$52F3,mutate $07AA and publish shadow $07C8,Verified
+0x5320,0x5374,computed conditional target-table handlers,$5320;$5347,index inline little-endian target table; optional register increment,Verified
+0x5375,0x53FA,workspace store and YM application,$5375;$53C2,store register to indexed workspace or route it to chip state,Verified
+0x53FB,0x5443,classifier-backed compare/branch handlers,$53FB;$5401;$5404;$5410;$5417;$541E;$5425,classify state; update shadow or consume/take 16-bit branch,Verified
+0x5444,0x54B0,variable classifier,$5444,map index to chip/channel/global/workspace/random state while preserving Y,Verified
+0x54B1,0x5514,chip-mode/output/fade handlers,$54B1;$54CC;$54E5;$54F4;$54F9,"switch POKEY/YM state, queue output, or initialize fadeout",Verified
+0x5515,0x5523,sequence-pointer replacement,$5515,load absolute 16-bit stream target,Verified
+0x5524,0x5534,speech-command bridge,$5524,priority-check type-11 metadata and invoke speech loader,Verified
+0x5535,0x558E,YM voice state preload,$5535,"load record pointer, channel fields, and four base operator TL bytes",Verified
+0x558F,0x5612,YM voice register-image loader,$558F,winner-only 28-byte voice image write and live shadow update,Verified
+0x5613,0x5675,YM auxiliary loaders,$5613;$5655,load record offsets $24-$29 into YM registers/shadow,Verified
+0x5676,0x5689,indirect YM register writer,$5676,winner-gated ready/write/shadow primitive,Verified
+0x568A,0x5714,YM/frequency modifier handlers,$568A;$56AF;$56CB;$56DC;$5703;$5711,saturating volume/frequency transforms and loop control,Verified
+0x5715,0x5754,YM carrier-TL delta application,$5715,negate signed input and saturating-add it to algorithm-selected carrier TL bases,Verified
+0x5755,0x578F,YM volume-base reload,$5755,reload four operator TL bases and tail-apply signed carrier attenuation,Verified

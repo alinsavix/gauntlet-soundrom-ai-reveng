@@ -1,0 +1,6 @@
+kind,scratch_pointer,pointer_source,consumer_group,target_catalog,additional_unknown_bytes_found,confidence
+sequence_bytecode,$06-$07,$0246/$0264 channel pointer loaded from $6190-$62FB,$4729/$47DA/$4915/$5043/$5056,type7_sequence_catalog.csv,0,Verified
+frequency_envelope,$06-$07,$0462/$0480 loaded by opcode $86,$496D-$4A41,type7_data_reference_catalog.csv;type7_envelope_catalog.csv,58,Verified
+volume_envelope,$06-$07,$0426/$0444 loaded by opcode $87,$4AAB-$4AFC,type7_data_reference_catalog.csv;type7_envelope_catalog.csv,0,Verified
+ym2151_voice,$0E-$0F,$04DA/$04F8 loaded by opcode $9D,$5559-$55FA;$4C16;$4EFF,type7_data_reference_catalog.csv;ym_voice_record_catalog.csv,273,Verified
+ym2151_auxiliary_blocks,$0E-$0F,opcode $9E base+$24 and opcode $9F base+$29,$5613-$5680,type7_data_reference_catalog.csv,0,Verified

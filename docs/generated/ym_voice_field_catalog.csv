@@ -1,0 +1,43 @@
+offset,scope,role,register_or_formula,distinct_value_count,configured_values_hex,configured_voice_bases,confidence
+0x00,channel,FB/CON,$20+channel; ROM sets RL later with OR $C0,26,C1 C4 C5 C7 CC DA DC DD E1 E8 E9 EB EC ED EE F0 F3 F7 F8 F9 FA FB FC FD FE FF,39,Verified
+0x01,channel,KC base,$28+channel,1,00,39,Verified
+0x02,channel,KF base,$30+channel,1,00,39,Verified
+0x03,channel,PMS/AMS,$38+channel,8,00 01 10 11 40 50 70 73,39,Verified
+0x04,M1,DT1/MUL,$40+channel+$00,21,00 01 02 03 04 05 0A 0D 30 31 32 33 3C 60 62 71 72 74 77 78 7F,39,Verified
+0x05,M1,TL,$60+channel+$00,21,00 08 0A 0D 0E 12 15 16 18 19 1A 1E 21 23 24 27 29 2A 2D 37 7F,39,Verified
+0x06,M1,KS/AR,$80+channel+$00,22,08 09 0A 0B 0C 0D 0F 12 14 1E 1F 4B 4E 54 56 5F 89 8D 94 9E D9 DF,39,Verified
+0x07,M1,AMSEN/D1R,$A0+channel+$00,20,00 02 03 04 05 07 08 09 0A 0B 0C 0E 0F 13 17 1F 80 85 8A 8C,39,Verified
+0x08,M1,DT2/D2R,$C0+channel+$00,17,00 01 02 04 05 06 07 08 09 0F 10 1F 4C 5E C0 C1 C6,39,Verified
+0x09,M1,D1L/RR,$E0+channel+$00,27,00 06 07 13 15 22 23 25 30 3A 42 59 64 8A A3 B6 B8 D8 F0 F3 F4 F6 F7 F9 FA FC FF,39,Verified
+0x0A,M2,DT1/MUL,$40+channel+$08,23,00 01 02 03 04 0F 10 12 21 27 30 31 32 33 36 37 3F 42 45 59 70 71 72,39,Verified
+0x0B,M2,TL,$60+channel+$08,19,00 06 08 0A 0C 0E 10 14 15 17 19 1A 1C 1E 23 29 2A 2D 7F,39,Verified
+0x0C,M2,KS/AR,$80+channel+$08,23,00 09 0A 0C 0D 12 14 19 1D 1E 1F 4C 4F 54 56 84 92 9E 9F C7 DC DE DF,39,Verified
+0x0D,M2,AMSEN/D1R,$A0+channel+$08,22,00 01 02 03 04 06 07 08 09 0A 0C 10 11 13 15 80 81 82 86 8A 8B 94,39,Verified
+0x0E,M2,DT2/D2R,$C0+channel+$08,17,00 01 02 04 05 06 08 0B 0D 1F 40 42 43 46 4C 80 C1,39,Verified
+0x0F,M2,D1L/RR,$E0+channel+$08,32,02 04 05 06 07 08 15 17 19 1B 1F 29 3A 40 61 64 6F 79 86 A3 A5 B6 D1 E6 F0 F3 F4 F6 F9 FB FC FF,39,Verified
+0x10,C1,DT1/MUL,$40+channel+$10,18,00 01 02 05 08 09 21 22 30 31 33 39 51 60 6F 70 75 7F,39,Verified
+0x11,C1,TL,$60+channel+$10,20,00 01 04 07 08 0A 0B 0D 0F 10 12 17 19 1B 1E 21 23 24 2D 3B,39,Verified
+0x12,C1,KS/AR,$80+channel+$10,23,07 08 0A 0C 0D 0F 12 14 1A 1B 1D 1F 4C 52 5F 90 94 99 C7 D8 DB DC DF,39,Verified
+0x13,C1,AMSEN/D1R,$A0+channel+$10,30,00 01 02 03 04 05 06 07 0A 0C 0D 0F 11 16 80 81 82 84 85 86 87 88 8A 8B 8C 8D 8E 94 96 99,39,Verified
+0x14,C1,DT2/D2R,$C0+channel+$10,18,00 01 04 05 06 08 0A 0C 1C 1F 40 41 45 4E 8B C0 C1 D7,39,Verified
+0x15,C1,D1L/RR,$E0+channel+$10,23,05 06 07 08 09 15 16 1B 27 3A 5B 86 95 A4 A6 B5 B6 F4 F6 F9 FA FB FF,39,Verified
+0x16,C2,DT1/MUL,$40+channel+$18,16,00 01 02 04 05 07 21 30 31 32 34 36 3D 61 71 72,39,Verified
+0x17,C2,TL,$60+channel+$18,11,00 01 02 03 04 05 07 09 0A 12 7F,39,Verified
+0x18,C2,KS/AR,$80+channel+$18,23,00 09 0C 0D 0E 0F 12 13 14 18 1B 1D 1E 1F 4C 54 5D 5F 92 99 9F DC DF,39,Verified
+0x19,C2,AMSEN/D1R,$A0+channel+$18,16,80 81 82 83 84 85 86 88 89 8A 8B 8C 8D 8E 94 96,39,Verified
+0x1A,C2,DT2/D2R,$C0+channel+$18,18,00 01 02 03 04 05 06 07 08 18 1F 4A 4E 80 87 C0 CA CE,39,Verified
+0x1B,C2,D1L/RR,$E0+channel+$18,22,06 0A 0B 14 19 29 31 3A 4F 65 6F A5 AC AF B6 B7 E4 F0 F4 F6 F7 FF,39,Verified
+0x1C,record,skipped byte,$4C16 stops before +$1C; no configured consumer found,2,00 80,39,Verified skipped; original purpose Unknown
+0x1D,M1,TL transform descriptor,high/low nibble feed $72DC/$5B5B transforms,14,00 02 03 04 05 07 26 32 33 40 44 47 65 F3,39,Verified $4C16/$4EFF consumer formula
+0x1E,M1->M2,TL chain byte,M1 correction source and M2 nonlinear-index seed,1,00,39,Verified $4C16/$4EFF consumer formula
+0x1F,M2,TL transform descriptor,high/low nibble feed $72DC/$5B5B transforms,18,00 02 03 04 07 21 30 33 40 42 43 44 45 65 67 73 A0 A6,39,Verified $4C16/$4EFF consumer formula
+0x20,M2->C1,TL chain byte,M2 correction source and C1 nonlinear-index seed,2,00 80,39,Verified $4C16/$4EFF consumer formula
+0x21,C1,TL transform descriptor,high/low nibble feed $72DC/$5B5B transforms,15,00 03 04 05 07 21 22 27 40 44 46 77 85 87 F5,39,Verified $4C16/$4EFF consumer formula
+0x22,C1->C2,TL chain byte,C1 correction source and C2 nonlinear-index seed,2,00 80,39,Verified $4C16/$4EFF consumer formula
+0x23,C2,TL transform descriptor,high/low nibble feed $72DC/$5B5B transforms; dynamic volume is C2 correction,15,00 04 05 06 07 20 24 34 36 40 43 45 47 67 A7,39,Verified $4C16/$4EFF consumer formula
+0x24,$9E,auxiliary register $18 value,$5613 writes YM register $18,6,00 B4 C3 C6 C8 D2,39,Verified $5613/$5655 consumer
+0x25,$9E,auxiliary register $19 value 1,$5613 writes YM register $19,9,00 80 82 8A 9E A8 C6 E3 FF,39,Verified $5613/$5655 consumer
+0x26,$9E,auxiliary register $19 value 2,$5613 writes YM register $19,6,00 02 0A 0C 14 28,39,Verified $5613/$5655 consumer
+0x27,$9E,auxiliary register $1B value,$5613 writes YM register $1B,3,00 02 03,39,Verified $5613/$5655 consumer
+0x28,$9E,auxiliary shadow byte,$5613 stores $083E after writing YM register $01=$00,2,00 02,39,Verified $5613/$5655 consumer
+0x29,$9F,auxiliary register $0F value,$5655 writes YM register $0F,2,00 07,39,Verified $5613/$5655 consumer

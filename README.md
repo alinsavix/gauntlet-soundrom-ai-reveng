@@ -31,7 +31,7 @@ After the reverse engineering work was largely complete, I had the AI summarize 
 
 I also had Claude generate [MEMMAP.md](MEMMAP.md), just as a compact document show the short version of where everything was and what it was.
 
-And finally, Claude generated (actually _offered_ to generate!) a python script that can dump all of the data associated with each different sound. It seems to work pretty well, and I had it add a couple of bonus feature (the `--score` flag, and the ability to generate MIDI files for the music tracks). That was created as [gauntlet_disasm.py](gauntlet_disasm.py), and has no dependencies.
+And finally, Claude generated (actually _offered_ to generate!) a python script that can dump all of the data associated with each different sound. It seems to work pretty well, and I had it add a couple of bonus feature (the `--score` flag, and the ability to generate MIDI files for the music tracks). That was created as [gauntlet_disasm.py](gauntlet_disasm.py). Run it with `uv run gauntlet_disasm.py soundrom.bin --list`; its inline metadata installs NumPy automatically. Current YM2151 WAV rendering also compiles the bundled YMFM source with a local C++14 compiler.
 
 ## Finally
 

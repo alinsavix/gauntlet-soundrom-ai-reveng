@@ -1,0 +1,35 @@
+source,target,alternative_targets,register_and_address,mask,result,zero_target_feasible,nonzero_targets_feasible,evidence,confidence
+26422,26431,0x6743;0x6747;0x674B,26420,0x03,all_indices,True,True,POKEY RANDOM classifier; supplied 9/17-bit polynomial domains reach every computed target-table index 0..3 under mask $03,Verified
+26516,26549,0x67B9;0x67BD;0x67C1;0x67C5;0x67C9;0x67CD;0x67D1;0x67D5;0x67D9;0x67DD;0x67E1;0x67E5;0x67E9;0x67ED;0x67F1,26514,0x0F,all_indices,True,True,POKEY RANDOM classifier; supplied 9/17-bit polynomial domains reach every computed target-table index 0..15 under mask $0F,Verified
+29679,29756,,29677,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+29703,29756,,29701,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+29727,29756,,29725,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+29751,29756,,29749,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30372,29756,,30370,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30395,29756,,30393,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30418,29756,,30416,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30441,29756,,30439,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30466,29756,,30464,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30491,29756,,30489,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30516,29756,,30514,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30541,29756,,30539,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30566,29756,,30564,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30591,29756,,30589,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30616,29756,,30614,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30641,29756,,30639,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30668,29756,,30666,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30695,29756,,30693,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30722,29756,,30720,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30749,29756,,30747,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30778,29756,,30776,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30807,29756,,30805,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30836,29756,,30834,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30865,29756,,30863,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30879,30918,,30877,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30891,30918,,30889,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30903,30918,,30901,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30915,30918,,30913,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30968,31011,,30966,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30983,31011,,30981,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+30998,31011,,30996,0x00,always_taken,True,False,REG_AND $00 selects computed target-table entry zero before COND_JUMP_REG_Z,Verified
+32038,32071,0x7D4B;0x7D4F;0x7D53;0x7D57;0x7D5B;0x7D5F;0x7D63;0x7D67;0x7D6B;0x7D6F;0x7D73;0x7D77;0x7D7B;0x7D7F;0x7D83,32036,0x0F,all_indices,True,True,POKEY RANDOM classifier; supplied 9/17-bit polynomial domains reach every computed target-table index 0..15 under mask $0F,Verified

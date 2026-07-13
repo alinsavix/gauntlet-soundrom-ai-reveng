@@ -1,0 +1,17 @@
+index,address,value_hex,arithmetic_right_shifts,behavior,confidence
+0,0x5C7F,0x00,8,signed ramp divided by 256,Verified
+1,0x5C80,0xFF,special,fade remainder high-byte countdown/clear control,Verified
+2,0x5C81,0x80,1,signed ramp divided by 2,Verified
+3,0x5C82,0x40,2,signed ramp divided by 4,Verified
+4,0x5C83,0x20,3,signed ramp divided by 8,Verified
+5,0x5C84,0x40,2,signed ramp divided by 4,Verified
+6,0x5C85,0x20,3,signed ramp divided by 8,Verified
+7,0x5C86,0x10,4,signed ramp divided by 16,Verified
+8,0x5C87,0x40,2,signed ramp divided by 4,Verified
+9,0x5C88,0x10,4,signed ramp divided by 16,Verified
+10,0x5C89,0x08,5,signed ramp divided by 32,Verified
+11,0x5C8A,0x04,6,signed ramp divided by 64,Verified
+12,0x5C8B,0x02,7,signed ramp divided by 128,Verified
+13,0x5C8C,0x08,5,signed ramp divided by 32,Verified
+14,0x5C8D,0x04,6,signed ramp divided by 64,Verified
+15,0x5C8E,0x20,3,signed ramp divided by 8,Verified

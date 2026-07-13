@@ -1,0 +1,21 @@
+instruction,opcode,mnemonic,mode,access,encoded_operand,category,confidence
+0x4681,0x8D,STA,abs,write,0x082F,control_082f,Verified aligned decode
+0x46B0,0x8D,STA,abs,write,0x082F,control_082f,Verified aligned decode
+0x481D,0x8D,STA,abs,write,0x082F,control_082f,Verified aligned decode
+0x48E9,0x8D,STA,abs,write,0x082F,control_082f,Verified aligned decode
+0x4C1E,0x0D,ORA,abs,read,0x082F,control_082f,Verified aligned decode
+0x4C23,0xAD,LDA,abs,read,0x082F,control_082f,Verified aligned decode
+0x4C28,0x8D,STA,abs,write,0x082F,control_082f,Verified aligned decode
+0x4EBB,0x4E,LSR,abs,read_modify_write,0x082F,control_082f,Verified aligned decode
+0x4ED5,0x4E,LSR,abs,read_modify_write,0x082F,control_082f,Verified aligned decode
+0x4F0E,0xAD,LDA,abs,read,0x082F,control_082f,Verified aligned decode
+0x4FBD,0x4E,LSR,abs,read_modify_write,0x082F,control_082f,Verified aligned decode
+0x83B3,0xB5,LDA,zpx,read,0x3E,indexed_board_workspace_candidate,Verified aligned decode
+0x83CB,0x95,STA,zpx,write,0x3E,indexed_board_workspace_candidate,Verified aligned decode
+0x83D4,0xB5,LDA,zpx,read,0x3E,indexed_board_workspace_candidate,Verified aligned decode
+0x83DF,0x95,STA,zpx,write,0x3E,indexed_board_workspace_candidate,Verified aligned decode
+0x83F2,0xF6,INC,zpx,read_modify_write,0x36,indexed_board_workspace_candidate,Verified aligned decode
+0x840F,0xB5,LDA,zpx,read,0x36,indexed_board_workspace_candidate,Verified aligned decode
+0x8419,0x95,STA,zpx,write,0x36,indexed_board_workspace_candidate,Verified aligned decode
+0x8422,0xB5,LDA,zpx,read,0x36,indexed_board_workspace_candidate,Verified aligned decode
+0x8429,0x95,STA,zpx,write,0x36,indexed_board_workspace_candidate,Verified aligned decode

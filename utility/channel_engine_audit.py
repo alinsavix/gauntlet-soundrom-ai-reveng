@@ -1,0 +1,78 @@
+#!/usr/bin/env python3
+"""Validate and emit the consumer-led catalog for the $4651-$4B6A engine."""
+
+import argparse
+import csv
+from pathlib import Path
+
+ROM_BASE = 0x4000
+
+
+def hx(value):
+    return f"0x{value:04X}"
+
+
+# Anchors are complete instruction bytes observed in bounded r2mcp listings.
+# They make this catalog fail closed if a different ROM is supplied.
+ANCHORS = {
+    0x4651: bytes.fromhex("bd e6 07 f0 02 a9 ff 85 17"),
+    0x4719: bytes.fromhex("bd 46 02 18 69 02 9d 46 02"),
+    0x472D: bytes.fromhex("20 29 50"),
+    0x47E7: bytes.fromhex("20 d7 42"),
+    0x4809: bytes.fromhex("9d 90 03 9d 08 04 9d 36 03"),
+    0x4820: bytes.fromhex("20 f9 42"),
+    0x483B: bytes.fromhex("20 8f 55"),
+    0x485B: bytes.fromhex("b9 5f 5c"),
+    0x4931: bytes.fromhex("20 6b 4b"),
+    0x4954: bytes.fromhex("a9 00 a8 9d 52 05"),
+    0x49DE: bytes.fromhex("c8 b1 06 9d 34 05"),
+    0x4A9A: bytes.fromhex("bc 9e 04 d0 06"),
+    0x4AAA: bytes.fromhex("c8 b1 06 9d bc 04"),
+    0x4B45: bytes.fromhex("a9 00"),
+    0x4B5D: bytes.fromhex("bd e6 07 f0 08 8e 1c 08 aa ca 4c 51 46 60"),
+}
+
+
+ROWS = [
+    (0x4651, 0x4697, "callable_entry", "logical-channel update entry", "$4D36;$4D84;$4E7A", "X=logical channel 0..29; $081C=physical-list head index", "tail $4809/$49A5/$4B45; continue $4698", "A,Y,P; X advances only in shared suffix", "$07E6,X;$0390,X;$0228,X;$0246/$0264,X;$02BE/$02DC,X;$05CA,X", "$17;$0813;$0811-$0812;$06-$07;$082F;$02BE/$02DC,X", "Verified", "Trace configured status/type combinations at the three callers"),
+    (0x4698, 0x46CB, "internal_block", "secondary timer and chip-path gate", "$4651", "X and scratch established", "tail $49A5/$4B45; fallthrough $46CC", "A,Y,P", "$02FA/$0318,X;$05CA,X;$081D;$0813", "$02FA/$0318,X;$082F", "Verified", "Cycle-count timer underflow paths"),
+    (0x46CC, 0x4718, "internal_block", "fade/ramp service and YM winner-state refresh", "$4651", "$081D==2 or timer path", "JSR $4B6B/$4C16; tail $4B5D", "A,Y,P plus catalogued callees", "$05AC;$0714/$0732;$0228;$0516/$0534;$0660;$00;$0282;$0336", "$0228;$0516/$0534;$0819 plus staged YM state", "Verified", "Callee contracts resolved in support_staging_catalog.csv"),
+    (0x4719, 0x4748, "internal_block", "advance sequence and dispatch opcodes", "$4651;$4806", "$06-$07=current sequence pointer; X=channel", "loop $4719 after opcode pointer change; tail $4B5D", "A,Y,P; opcode handler contract may clobber more", "$0246/$0264;($06),Y", "$0246/$0264;$06-$07;$0811-$0812", "Verified", "Catalog carry contract of all 59 opcode handlers"),
+    (0x4749, 0x47D3, "internal_block", "decode note and prepare chip-specific pitch/portamento", "$4719", "A=note; X=channel", "join note-duration block $47D4", "A,Y,P", "$05E8;$081D;$0813;$0282/$02A0;$5A35-$5B34;$04BC;$083C", "$10;$067E/$069C;$0282/$02A0;$0819;$083D+Y", "Verified", "Resolve exact POKEY/YM pitch units in output consumers"),
+    (0x47D4, 0x4808, "internal_block", "read duration/control byte or pop pushed sequence", "$4749", "$06-$07 points at note; Y=1", "note control $4844; sequence loop $4719; stop $4809", "A,Y,P", "($06),Y;$06BA;$42D7 record", "$06BA;$0246/$0264;$06-$07;linked record", "Verified", "Document push-record ownership and interrupt exclusion"),
+    (0x4809, 0x4843, "shared_tail", "terminate/unlink logical channel", "$4651;$47D4;$491C", "A=0; X=channel", "tail $4B45 or $4B5D", "A,X,Y,P", "$07E6,X;$081C;$081D", "$0390;$0408;$0336;$0714;$0732;$0819;$07E6,list", "Verified", "Prove $42F9 atomicity against command insertion"),
+    (0x4844, 0x491B, "internal_block", "decode duration/control and note articulation", "$47D4", "A=duration/control; stack holds byte on POKEY-special path", "join envelope init $491C", "A,Y,P", "$0390;$0813;$5C5F-$5C7E;$02BE/$02DC;$05CA;$0336;($06),Y", "$11;$0E-$0F;$02BE/$02DC;$02FA/$0318;$03AE;$067E/$069C;$082F;$0336", "Verified", "Path-sensitive duration arithmetic and IRQ-to-seconds conversion"),
+    (0x491C, 0x4947, "internal_block", "fade guard, frequency-envelope step, YM preparation", "$4844", "note state initialized", "tail $4B5D", "A,Y,P plus callees", "$0714/$0732;$0228;$081D;$11", "$0228;$0336", "Verified", "Separate fade completion from ordinary zero-envelope termination"),
+    (0x4948, 0x49A4, "internal_block", "initialize frequency and volume envelope cursors", "$491C", "previous note nonnegative", "continue $49A5", "A,Y,P", "$0462/$0480 pointer; $0426/$0444 pointer; first records", "$0336;$0552/$0570/$058E;$05AC;$0534;$0516;$04DA/$04F8;$04BC;$049E;$06-$07", "Verified", "Validate initial zero-record behavior across all referenced envelopes"),
+    (0x49A5, 0x4A8F, "internal_block", "frequency-envelope consumer and final pitch accumulation", "$4651;$4948", "X=channel; envelope state initialized", "continue volume consumer $4A90", "A,Y,P", "$0462/$0480;three-byte records;$00;$067E/$069C;$0282/$02A0", "$06-$07;$0534;$05AC;$0462/$0480;$0516;$11-$12;$0552/$0570/$058E;$0819-$081B", "Verified", "Cycle-count loop controls and correlate with physical update parity"),
+    (0x4A90, 0x4B44, "internal_block", "POKEY volume-envelope consumer, 8x16 signed shape, clamp, and control combine", "$49A5", "X=POKEY channel; final control in A", "join output state $4B47", "A,Y,P", "$0426/$0444 pointer view;two-byte records;$0408;$03AE;$5C8F-$5D0E;$0642", "$06-$07;$04BC;$04F8;$0426/$0444;$049E;$04DA;$03AE", "Verified", "Configured shape rows/domain resolved in volume_shape_catalog.csv"),
+    (0x4B45, 0x4B5C, "shared_tail", "silence/store prepared physical-channel state", "$4651;$4809;$49A5;$4A90", "A=volume/control or forced zero", "fallthrough $4B5D", "A,Y,P", "$0813;$03EA;$03CC", "$0817-$0818;$081E-$081F;$0822-$0823", "Verified", "Map scratch pairs to POKEY/YM caller consumption"),
+    (0x4B5D, 0x4B6A, "shared_tail", "advance physical list or return", "all channel-update exits", "X=current logical channel; $081C=list head slot", "tail-loop $4651 or RTS", "A,X,P; Y preserved by suffix", "$07E6,X", "$081C", "Verified", "Runtime trace list mutation during preemption"),
+]
+
+
+def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("rom", type=Path)
+    parser.add_argument("--csv", required=True, type=Path)
+    args = parser.parse_args()
+    rom = args.rom.read_bytes()
+    if len(rom) != 0xC000:
+        raise SystemExit(f"expected 0xC000-byte ROM, got {len(rom):#x}")
+    for address, expected in ANCHORS.items():
+        offset = address - ROM_BASE
+        actual = rom[offset:offset + len(expected)]
+        if actual != expected:
+            raise SystemExit(f"anchor mismatch at {hx(address)}: {actual.hex()} != {expected.hex()}")
+    args.csv.parent.mkdir(parents=True, exist_ok=True)
+    fields = ["start", "end_inclusive", "entry_kind", "role", "incoming", "entry_assumptions", "exits", "clobbers", "reads", "writes", "confidence", "next_test"]
+    with args.csv.open("w", newline="") as handle:
+        writer = csv.writer(handle)
+        writer.writerow(fields)
+        for row in ROWS:
+            writer.writerow([hx(row[0]), hx(row[1]), *row[2:]])
+    print(f"channel engine: {len(ROWS)} blocks, {len(ANCHORS)} ROM anchors validated")
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,4 @@
+command,channel,note_address,case,tempo,onset_update,primary_after_duration,secondary_initial,off_intervals,audible_seconds,next_or_rearm_intervals,silent_gap_intervals,derivation,confidence
+0x04,1,0x6917,normal,16,1,944,912,58,0.4839564467022731,60,2,non-sustain control $04; secondary=primary-2*tempo,Verified timer arithmetic and clock-to-seconds conversion
+0x40,1,0x743E,divided,26,19,236,92,4,0.03337630666912229,10,6,control $1A; secondary=(primary-2*tempo)/2 after preceding rest residue -4,Verified timer arithmetic and clock-to-seconds conversion
+0x04,8,0x69A5,sustain_rearm,16,1501,,high=$7F,,,480,no expiry before rearm,control $81 keeps secondary high at $7F; loop replays every 480 sweeps,Verified branch/rearm relation and clock-to-seconds conversion

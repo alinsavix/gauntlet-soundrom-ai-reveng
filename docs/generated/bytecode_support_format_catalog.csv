@@ -1,0 +1,8 @@
+start,end_inclusive,record_width,count,role,consumers,index_domain,confidence
+0x507B,0x50F0,2,59,opcode target-minus-one table,$5029,opcode $80-$BA,Verified
+0x5790,0x579F,1,16,signed YM carrier-TL attenuation table,$578A,low nibble of SET_VOLUME reload argument,Verified
+,,42,,YM instrument record at opcode-$9D operand base,$5535;$558F;$4C16;$4EFF;$5613;$5655,147 exhaustive bytecode references; 39 distinct bases on the 55-record grid,Verified structure; offset $1C purpose Unknown
+,,5,,YM auxiliary block at operand base+$24,$5613,14 exhaustive references; 9 distinct bases,Verified
+,,1,,YM register byte at operand base+$29,$5655,2 exhaustive references,Verified
+,,2,,volume-envelope records,$4954-$4B44,13 distinct bytecode pointers,Verified grammar; bounds vary
+,,3,,frequency-envelope records,$46CC-$4A8F,13 distinct bytecode pointers,Verified grammar; bounds vary

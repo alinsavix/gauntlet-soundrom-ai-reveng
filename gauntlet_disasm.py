@@ -1,4 +1,10 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.10"
+# dependencies = [
+#     "numpy>=1.24",
+# ]
+# ///
 """Gauntlet Sound ROM Sequence Disassembler
 
 Decodes the bytecode sequences in the Gauntlet sound ROM (48KB, 6502-based
@@ -6,39 +12,46 @@ sound coprocessor). Resolves any of the 219 sound commands to their
 underlying sequence data and produces human-readable disassembly.
 
 Includes TMS5220 LPC speech synthesis (ported from MAME's tms5220.cpp),
-POKEY chip emulation (ported from MAME's pokey.cpp), and YM2151 FM synthesis
-for decoding and exporting speech, sound effects, and music as WAV files.
+ROM-driven POKEY register rendering, and YM2151 rendering through the supplied
+YMFM core for exporting speech, sound effects, and music as WAV files. Type-7
+WAV export executes the actual 6502 sound-ROM scheduler and sequence engine.
 
 Usage:
-    python gauntlet_disasm.py soundrom.bin --cmd 0x0D
-    python gauntlet_disasm.py soundrom.bin --list
-    python gauntlet_disasm.py soundrom.bin --all
-    python gauntlet_disasm.py soundrom.bin --addr 0x7234
-    python gauntlet_disasm.py soundrom.bin --range 0x09-0x0C
-    python gauntlet_disasm.py soundrom.bin --score 0x3B
-    python gauntlet_disasm.py soundrom.bin --midi 0x3B
-    python gauntlet_disasm.py soundrom.bin --midi 0x3B --midi-out theme.mid
-    python gauntlet_disasm.py soundrom.bin --speech-wav 0x5A
-    python gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --out needs_food.wav
-    python gauntlet_disasm.py soundrom.bin --speech-all
-    python gauntlet_disasm.py soundrom.bin --speech-all --out-dir my_speech/
-    python gauntlet_disasm.py soundrom.bin --sfx-wav 0x0D
-    python gauntlet_disasm.py soundrom.bin --sfx-all
-    python gauntlet_disasm.py soundrom.bin --music-wav 0x3B
-    python gauntlet_disasm.py soundrom.bin --music-all
-    python gauntlet_disasm.py soundrom.bin --render-wav 0x0D
-    python gauntlet_disasm.py soundrom.bin --render-all
+    uv run gauntlet_disasm.py soundrom.bin --cmd 0x0D
+    uv run gauntlet_disasm.py soundrom.bin --list
+    uv run gauntlet_disasm.py soundrom.bin --all
+    uv run gauntlet_disasm.py soundrom.bin --addr 0x7234
+    uv run gauntlet_disasm.py soundrom.bin --range 0x09-0x0C
+    uv run gauntlet_disasm.py soundrom.bin --score 0x3B
+    uv run gauntlet_disasm.py soundrom.bin --midi 0x3B
+    uv run gauntlet_disasm.py soundrom.bin --midi 0x3B --midi-out theme.mid
+    uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A
+    uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --out needs_food.wav
+    uv run gauntlet_disasm.py soundrom.bin --speech-all
+    uv run gauntlet_disasm.py soundrom.bin --speech-all --out-dir my_speech/
+    uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x0D
+    uv run gauntlet_disasm.py soundrom.bin --sfx-all
+    uv run gauntlet_disasm.py soundrom.bin --music-wav 0x3B
+    uv run gauntlet_disasm.py soundrom.bin --music-all
+    uv run gauntlet_disasm.py soundrom.bin --render-wav 0x0D
+    uv run gauntlet_disasm.py soundrom.bin --render-all
 """
 
 import argparse
 import csv
+import hashlib
 import math
 import os
+import shutil
 import struct
+import subprocess
 import sys
+import tempfile
 import wave
 
 import numpy as np
+
+from mos6502_cycle import CPU6502
 
 # ── ROM Layout ────────────────────────────────────────────────────────────────
 
@@ -56,7 +69,7 @@ ROM_SIZE = 0xC000   # 48KB
 #     (the bytes immediately after the last entry are the start of
 #     channel_state_machine at $4651)
 #   nmi_dispatch_table at $5FA2: 6 bytes = 3 × 16-bit (addr-1)
-#     Index 0 -> $843F (read $44 to main CPU - coin/LED state for cmd 3)
+#     Index 0 -> $843F (return cached input/event fields $44 for cmd 3)
 #     Index 1 -> $44B8 (echo $DB to main CPU = max valid cmd count, for cmd 6)
 #     Index 2 -> $44A8 (read error flags $02 + arm watchdog bits, for cmd 7)
 #   handler_type_3 dispatch at $5FA0: 8 bytes = 4 × 16-bit, OVERLAPS $5FA2
@@ -66,7 +79,7 @@ ROM_SIZE = 0xC000   # 48KB
 DISPATCH_TYPE_TABLE  = 0x5DEA   # 219 bytes: cmd -> handler type (0xFF = invalid)
 DISPATCH_PARAM_TABLE = 0x5EC5   # 219 bytes: cmd -> parameter
 
-# ── Type 7 (POKEY/YM2151 SFX) Tables ─────────────────────────────────────────
+# ── Type 7 (POKEY/YM2151 Sequence) Tables ───────────────────────────────────
 #
 # Two-level indirection: command -> sfx_data_offset[cmd] -> all other tables.
 # The "_a" / "_b" pointer tables are split by the high bit of the offset:
@@ -82,30 +95,46 @@ SFX_SEQ_PTR_TABLE  = 0x6190    # 256 bytes: offset (low half) -> 16-bit seq poin
 SFX_SEQ_PTR_TABLE_B = 0x6290   # 108 bytes: offset (high half) -> 16-bit seq pointer
 SFX_NEXT_TABLE     = 0x62FC    # 182 bytes: offset -> next offset (0 = end of chain)
 
-# ── Type 11 (Music/Speech) Tables ────────────────────────────────────────────
+# ── Type 11 (TMS5220 Speech) Tables ─────────────────────────────────────────
 #
 # All three command tables below are 141 BYTES (one per parameter, 0..140),
-# NOT 219 bytes (one per command) as old documentation claimed. Music/speech
-# commands span 141 distinct values (cmd 0x08, plus 0x4A..0xD5).
+# NOT 219 bytes (one per command) as old documentation claimed. Speech
+# commands span 141 distinct values (cmd 0x08, plus 0x4A..0xD5). All 189
+# pointer/length records describe stop-terminated LPC streams; this ROM's
+# commands select 141 of them. YM2151 music is dispatched through type 7.
 
-MUSIC_INDEX_TABLE   = 0x63B2   # 141 bytes: param -> sequence index (0..188)
-MUSIC_FLAGS_TABLE   = 0x643F   # 141 bytes: param -> music flags (bit 7 = TMS5220 squeak,
-                               #            bits 0-3 = volume reduction params)
-MUSIC_TEMPO_TABLE   = 0x64CC   # 141 bytes: param -> tempo (also used as filter
-                               #            threshold, see music_filter_threshold)
-MUSIC_SEQ_PTR_TABLE = 0x8449   # 378 bytes: seq_idx*2 -> 16-bit seq pointer (189 entries)
-MUSIC_SEQ_LEN_TABLE = 0x85C3   # 378 bytes: seq_idx*2 -> 16-bit length (189 entries)
-                               # NB: extends to $873C; music_seq_data starts at $873D
-                               # (NOT $8700 as old docs claimed).
+SPEECH_INDEX_TABLE    = 0x63B2  # 141 bytes: param -> LPC stream index (0..188)
+SPEECH_FLAGS_TABLE    = 0x643F  # 141 bytes: bit 7 selects TMS5220 clock/pitch
+SPEECH_PRIORITY_TABLE = 0x64CC  # 141 bytes: enqueue/filter priority (0, 4, or 64)
+SPEECH_PTR_TABLE      = 0x8449  # 378 bytes: 189 little-endian LPC pointers
+SPEECH_LEN_TABLE      = 0x85C3  # 378 bytes: 189 little-endian byte lengths
+                                # Ends at $873C; LPC payload is $873D-$FECC.
+
+# Compatibility aliases for callers of older versions of this module.
+MUSIC_INDEX_TABLE = SPEECH_INDEX_TABLE
+MUSIC_FLAGS_TABLE = SPEECH_FLAGS_TABLE
+MUSIC_TEMPO_TABLE = SPEECH_PRIORITY_TABLE
+MUSIC_SEQ_PTR_TABLE = SPEECH_PTR_TABLE
+MUSIC_SEQ_LEN_TABLE = SPEECH_LEN_TABLE
 
 # ── Sequence Engine Tables ───────────────────────────────────────────────────
 
 OPCODE_JUMP_TABLE   = 0x507B   # 118 bytes: 59 × 16-bit LE (addr-1) for opcodes 0x80-0xBA
 DURATION_TABLE_ADDR = 0x5C5F   # 32 bytes: 16 × 16-bit LE durations
-FREQ_ENV_SHAPE_TABLE = 0x5C7F  # ~16 bytes: frequency envelope shape multipliers
+BOARD_MASTER_HZ     = 14_318_181.0
+SOUND_CPU_HZ        = BOARD_MASTER_HZ / 8.0
+POKEY_CLOCK_HZ      = BOARD_MASTER_HZ / 8.0
+YM2151_CLOCK_HZ     = BOARD_MASTER_HZ / 4.0
+SOUND_IRQ_HZ        = (BOARD_MASTER_HZ / 2.0 / (456 * 262)) * 4.0
+SEQUENCE_SERVICE_HZ = (BOARD_MASTER_HZ / 2.0 / (456 * 262)) * 2.0
+FADE_RATE_TABLE       = 0x5C7F  # 16 fade/ramp shift and control selectors
+VOLUME_SHAPE_TABLE    = 0x5C8F  # 8 rows x 16 signed POKEY volume offsets
 VOL_ENV_SHAPE_TABLE  = 0x5C8F  # ~16 bytes: volume envelope distortion shapes
-YM2151_FREQ_TABLE   = 0x5A35   # 256 bytes: 128 × 16-bit LE chromatic freqs
-                               #            (note 0x46 = MIDI 69 = A4 440Hz)
+POKEY_FREQ_TABLE    = 0x5A35   # 128-word code-consumer view; notes 1..97 form
+                               # a chromatic joined-divider prefix
+YM2151_KC_TABLE     = 0x5AF9   # 128-byte note -> gappy YM2151 KC register view
+                               # (indices 98..127 alias the TL scaling table)
+YM2151_FREQ_TABLE   = POKEY_FREQ_TABLE  # compatibility alias
 
 # ── Hardware Configuration Tables ────────────────────────────────────────────
 #
@@ -132,11 +161,11 @@ HANDLER_TYPES = {
     4:    "Kill by Status",
     5:    "Stop Sound",
     6:    "Stop Chain",
-    7:    "POKEY SFX",
+    7:    "POKEY/YM2151 Sequence",
     8:    "Output Buffer Queue",
     9:    "Fade Out Sound",
     10:   "Fade Out by Status",
-    11:   "YM2151 Music/Speech",
+    11:   "TMS5220 Speech",
     12:   "Channel Control",
     13:   "Control Register",
     14:   "Null Handler",
@@ -560,7 +589,7 @@ class TMS5220Emulator:
 class POKEYEmulator:
     """POKEY audio chip emulator (4 channels, polynomial distortion)."""
 
-    FREQ_17_EXACT = 1789790  # 1.79 MHz NTSC clock
+    FREQ_17_EXACT = POKEY_CLOCK_HZ
 
     # AUDCx bit masks
     NOTPOLY5    = 0x80
@@ -621,6 +650,7 @@ class POKEYEmulator:
 
         self.out_raw = 0
         self.old_raw_inval = True
+        self.sample_clock_accum = 0.0
 
     @staticmethod
     def _init_poly4_5(size):
@@ -895,7 +925,7 @@ class POKEYEmulator:
 
         samples = np.empty(num_samples, dtype=np.int16)
         clocks_per_sample = self.FREQ_17_EXACT / sample_rate
-        clock_accum = 0.0
+        clock_accum = self.sample_clock_accum
 
         for i in range(num_samples):
             clock_accum += clocks_per_sample
@@ -1127,6 +1157,7 @@ class POKEYEmulator:
         self.AUDCTL = AUDCTL
         self.out_raw = out_raw
         self.old_raw_inval = old_raw_inval
+        self.sample_clock_accum = clock_accum
 
         return samples
 
@@ -1809,7 +1840,7 @@ class YM2151Emulator:
 class SequenceInterpreter:
     """Executes Gauntlet sound ROM bytecode sequences against chip emulators."""
 
-    # Frequency table: 128 entries at ROM 0x5A35, 16-bit LE
+    # POKEY note lookup view; only the notes 1..97 prefix is chromatic data.
     FREQ_TABLE_ADDR = 0x5A35
 
     def __init__(self, rom, pokey=None, ym2151=None):
@@ -1821,48 +1852,15 @@ class SequenceInterpreter:
     def _build_ym_kc_kf_table(self):
         """Build a 128-entry table of (kc_byte, kf_byte) per ROM note.
 
-        The ROM's note→pitch table at $5A35 stores a 16-bit "wavelength
-        count" value per note, inversely proportional to frequency. By
-        empirical fit, freq_hz = 444400 / value, anchored on note 70 →
-        A4 = 440 Hz (per MEMMAP.md line 446 and the ROM at $5A35).
-
-        Earlier I was computing kc directly from MIDI semitones, which
-        accumulated a one-semitone error AND missed the ROM's actual
-        tuning (which has a few cents of detune at the extremes — most
-        accurate at A4, drifting flat at low notes and sharp at high).
-        Using the ROM table directly matches real hardware exactly.
+        The verified CPU consumer reads KC directly from the 128-byte view at
+        $5AF9. KF is prepared independently by the channel-state path; this
+        practical interpreter starts it at zero and applies its modeled pitch
+        offsets below. Indices 98..127 intentionally alias another table.
         """
-        import math
-        table = []
-        # OPM kc note positions per semitone (0=C, 1=C#, ..., 11=B)
-        # Note 14 = C of next octave; the conditional below handles the
-        # block-1 wrap for semitone 0.
-        sem_to_opm_note = [14, 0, 1, 2, 4, 5, 6, 8, 9, 10, 12, 13]
-        for n in range(128):
-            val = self.rom.read_word(self.FREQ_TABLE_ADDR + n * 2)
-            if val == 0:
-                table.append((0, 0))
-                continue
-            freq = 444400.0 / val
-            # Convert to continuous MIDI: A4=69 at 440 Hz
-            midi_cont = 69.0 + 12.0 * math.log2(freq / 440.0)
-            midi_int = int(round(midi_cont * 64)) / 64.0  # KF resolution
-            sem_cont = midi_int  # 1/64-semitone units
-            sem_floor = math.floor(sem_cont)
-            semitone = sem_floor % 12
-            octave = sem_floor // 12 - 1  # MIDI octave (C4 = octave 4)
-            opm_note = sem_to_opm_note[semitone]
-            if semitone == 0:
-                octave -= 1
-            octave = max(0, min(7, int(octave)))
-            kc = (octave << 4) | opm_note
-            kf_frac = sem_cont - sem_floor  # 0.0 to <1.0 semitone fraction
-            kf_units = int(round(kf_frac * 64)) & 0x3F  # 6 bits
-            kf_byte = (kf_units << 2) & 0xFC  # KF reg uses upper 6 bits
-            table.append((kc, kf_byte))
+        table = [(self.rom.read_byte(YM2151_KC_TABLE + n), 0)
+                 for n in range(128)]
         self._ym_kc_kf_table = table
         return table
-
     def execute_to_audio(self, start_addr, channel_id, max_seconds=30.0,
                          sample_rate=44100):
         """Execute a sequence and return rendered PCM samples.
@@ -2243,8 +2241,8 @@ class SequenceInterpreter:
                                                (pokey_ch_idx,)))
 
                     elif hw_mode == "YM2151" and self.ym2151:
-                        # Get pre-computed (KC, KF) from the ROM's own
-                        # freq table at $5A35. See _build_ym_kc_kf_table.
+                        # Get KC from the ROM's direct $5AF9 view; KF starts
+                        # from the interpreter's modeled offset state.
                         if self._ym_kc_kf_table is None:
                             self._build_ym_kc_kf_table()
                         kc, kf_table_byte = self._ym_kc_kf_table[
@@ -2853,9 +2851,10 @@ class TimedEvent:
 
 # ── Musical Note Names ──────────────────────────────────────────────────────
 #
-# The frequency table at $5A35 is a chromatic scale (128 entries × 16-bit LE).
-# Note 0 = rest, notes 1-127 are chromatic.  Mapping: MIDI note = note_value - 1.
-# This makes note $46 (70) = MIDI 69 = A4 (440 Hz).
+# Both the YM KC view and dormant POKEY divider prefix establish the sequence
+# convention MIDI = note_value + 11 for the chromatic domain through note 97.
+# Higher YM note bytes are an overlapping/nonchromatic view; corrected target-
+# table traversal finds no configured note above 95.
 
 NOTE_NAMES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B']
 
@@ -2864,7 +2863,9 @@ def note_name(note_value):
     """Convert a ROM note value (1-127) to a musical note name like 'A4'."""
     if note_value == 0:
         return None  # rest
-    midi = note_value - 1
+    if note_value > 97:
+        return f"raw-${note_value:02X}"
+    midi = note_value + 11
     name = NOTE_NAMES[midi % 12]
     octave = (midi // 12) - 1
     return f"{name}{octave}"
@@ -2879,7 +2880,7 @@ OPCODES = {
     0x80: ("SET_TEMPO",        1, "Set tempo: $05CA,X = arg >> 2",                  "b"),
     0x81: ("ADD_TEMPO",        1, "Add to tempo: $05CA,X += arg",                   "b"),
     0x82: ("SET_VOLUME",       1, "POKEY: set base_volume; YM2151: reload vol env", "b"),
-    0x83: ("ADD_VOLUME",       1, "POKEY: add to base_volume; YM2151: apply detune", "b"),
+    0x83: ("ADD_VOLUME",       1, "POKEY: add base volume; YM2151: apply carrier TL delta", "b"),
     0x84: ("SET_TRANSPOSE",    1, "Set chan_transpose ($05E8,X) = arg",             "b"),
     0x85: ("ADD_TRANSPOSE",    1, "Add to chan_transpose: $05E8,X += arg",          "b"),
     0x86: ("SET_FREQ_ENV",     2, "Set freq envelope pointer ($0462/$0480,X)",      "w"),
@@ -2905,14 +2906,14 @@ OPCODES = {
     0x97: ("FADEOUT_ENV",      1, "Reset envelope, mark active_cmd=$FE (arg ignored)", "b"),
     0x98: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
     0x99: ("SET_SEQ_PTR",      2, "Unconditional jump: load seq_ptr_lo/hi",         "w"),
-    0x9A: ("PLAY_MUSIC_CMD",   1, "Trigger music_speech_handler from sequence",     "b"),
+    0x9A: ("PLAY_SPEECH_CMD",  1, "Trigger TMS5220 speech handler from sequence",   "b"),
     0x9B: ("CLR_CTRL_BITS",    1, "POKEY: AND ctrl_mask; YM2151: AND ctrl_bits w/twist", "b"),
     0x9C: ("FORCE_POKEY",      1, "Force POKEY mode (clear $0813, sync $0811)",     "b"),
     0x9D: ("SET_VOICE",        2, "Load YM2151 voice/instrument (FM patch)",        "w"),
     0x9E: ("YM_LOAD_ENV",      2, "Load YM2151 envelope table from arg+$24",        "bb"),
     0x9F: ("YM_LOAD_REG",      2, "Load YM2151 register block from arg+$29",        "bb"),
     0xA0: ("YM_FREQ_OFFSET",   1, "YM2151 only, skipped if chain_present: freq off","b"),
-    0xA1: ("YM_DETUNE_NEG",    1, "Negate + apply YM2151 detune",                   "b"),
+    0xA1: ("YM_CARRIER_TL_DELTA", 1, "Negate signed operand + apply YM carrier TL delta", "b"),
     0xA2: ("YM_VOL_ENV_NEG",   1, "YM2151: $049E,X = -arg (else no-op)",            "b"),
     0xA3: ("YM_VOL_ENV_SUB",   1, "YM2151: $049E,X -= arg w/clamp (else no-op)",    "b"),
     0xA4: ("VAR_LOAD",         2, "Load pair: $11=arg1, env_rate_hi=arg2",          "bb"),
@@ -2925,8 +2926,8 @@ OPCODES = {
     0xAB: ("REG_AND",          1, "gp_reg &= arg, mirror to $07C8,X",               "b"),
     0xAC: ("REG_OR",           1, "gp_reg |= arg, mirror to $07C8,X",               "b"),
     0xAD: ("REG_XOR",          1, "gp_reg ^= arg, mirror to $07C8,X",               "b"),
-    0xAE: ("COND_JUMP_REG_Z",  2, "If gp_reg==0 jump; else skip arg-1 frames + arg2","w"),
-    0xAF: ("COND_JUMP_INC",    2, "Like 0xAE + INC gp_reg (one-shot decay loop)",   "w"),
+    0xAE: ("COND_JUMP_REG_Z",  2, "Index packed target table by gp_reg",             "w"),
+    0xAF: ("COND_JUMP_INC",    2, "Index packed target table, then INC gp_reg",       "w"),
     0xB0: ("VAR_STORE",        1, "Store gp_reg into named variable (idx 6+ = workspace)", "b"),
     0xB1: ("VAR_APPLY_YM",     1, "YM2151 only: apply gp_reg to selected register", "b"),
     0xB2: ("VAR_CLASSIFY_LOAD",1, "Classify var idx, load result into gp_reg",      "b"),
@@ -3008,6 +3009,23 @@ def load_sound_names(csv_path):
                     names[cmd] = (subsystem, desc)
     except FileNotFoundError:
         pass
+    # Consumer-verified system/control mechanics supersede legacy game-side
+    # annotations.  "Use unverified" remains explicit where main-CPU evidence
+    # is absent; it does not obscure what the sound ROM actually does.
+    names.update({
+        0x00: ("CONTROL", "Clear/reinitialize all audio state (self-test stop)"),
+        0x01: ("CONTROL", "Set global filter threshold high / silent"),
+        0x02: ("CONTROL", "Clear global filter threshold / noisy"),
+        0x03: ("STATUS", "Status query: read cached input/event fields ($44) -> main CPU [NMI handler 0]"),
+        0x06: ("STATUS", "Status query: echo $DB sentinel -> main CPU [NMI handler 1]"),
+        0x07: ("STATUS", "Status query: return error flags and arm heartbeats [NMI handler 2]"),
+        0xD5: ("SPEECH", "Dragon Roar"),
+        0xD6: ("CONTROL", "Mixer/control preset $E7; game-side use unverified"),
+        0xD7: ("CONTROL", "Mixer/control preset $EF; game-side use unverified"),
+        0xD8: ("CONTROL", "Mixer/control preset $F7; game-side use unverified"),
+        0xD9: ("CONTROL", "Mixer/control preset $FF; game-side use unverified"),
+        0xDA: ("STATUS", "Queue $55 response byte for main CPU"),
+    })
     return names
 
 
@@ -3051,13 +3069,16 @@ def resolve_command(rom, cmd):
     )
 
     if handler_type == 7:
-        # POKEY SFX path — follow the next-offset chain at $62FC
+        # Shared POKEY/YM2151 sequence path — follow the next-offset chain
         # to collect ALL channels for multi-channel commands.
         offset = rom.read_byte(SFX_OFFSET_TABLE + param)
         channels = []
         cur = offset
         seen = set()
-        while cur != 0 and cur not in seen and len(channels) < 30:
+        # Offset zero is a valid first record (command $04 uses chain
+        # 0->1->...->7).  Zero is only a terminator when read as the *next*
+        # value after processing a record.
+        while cur not in seen and len(channels) < 30:
             seen.add(cur)
             ch = ChannelInfo(
                 offset=cur,
@@ -3066,7 +3087,10 @@ def resolve_command(rom, cmd):
                 seq_ptr=rom.read_word(SFX_SEQ_PTR_TABLE + cur * 2),
             )
             channels.append(ch)
-            cur = rom.read_byte(SFX_NEXT_TABLE + cur)
+            next_offset = rom.read_byte(SFX_NEXT_TABLE + cur)
+            if next_offset == 0:
+                break
+            cur = next_offset
 
         info.channels = channels
         # Primary channel info (backwards compat for single-channel display)
@@ -3077,13 +3101,12 @@ def resolve_command(rom, cmd):
         info.has_sequence = True
 
     elif handler_type == 11:
-        # Music/Speech path — in this ROM, ALL type 11 commands are
-        # speech or speech-related (LPC data, not sequence bytecode).
-        # Music commands route through type 7 instead.
-        index = rom.read_byte(MUSIC_INDEX_TABLE + param)
+        # TMS5220 speech path — LPC data, not sequence bytecode.
+        # YM2151 music commands route through type 7 instead.
+        index = rom.read_byte(SPEECH_INDEX_TABLE + param)
         info.offset = index
-        info.seq_ptr = rom.read_word(MUSIC_SEQ_PTR_TABLE + index * 2)
-        info.seq_len = rom.read_word(MUSIC_SEQ_LEN_TABLE + index * 2)
+        info.seq_ptr = rom.read_word(SPEECH_PTR_TABLE + index * 2)
+        info.seq_len = rom.read_word(SPEECH_LEN_TABLE + index * 2)
         info.has_sequence = True
         info.is_speech = True
 
@@ -3261,6 +3284,15 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
             continue
 
         name, arg_bytes, desc, arg_fmt = OPCODES[byte0]
+        computed_mask = None
+        if byte0 in (0xAE, 0xAF) and addr >= ROM_BASE + 2:
+            try:
+                if rom.read_byte(addr - 2) == 0xAB:
+                    computed_mask = rom.read_byte(addr - 1)
+                    if computed_mask in (0x00, 0x03, 0x0F):
+                        arg_bytes = 2 * (computed_mask + 1)
+            except ValueError:
+                pass
 
         # Read argument bytes
         args = []
@@ -3271,7 +3303,14 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
                 break
 
         # Emit the instruction
-        instructions.append(_format_opcode(addr, byte0, args, arg_fmt))
+        instruction = _format_opcode(addr, byte0, args, arg_fmt)
+        if byte0 in (0xAE, 0xAF) and computed_mask is not None:
+            targets = [args[i] | (args[i + 1] << 8)
+                       for i in range(0, len(args), 2)]
+            instruction.operands = ", ".join(
+                f"{value}:${target:04X}" for value, target in enumerate(targets))
+            instruction.comment = f"computed table, mask ${computed_mask:02X}"
+        instructions.append(instruction)
 
         # ── PUSH_SEQ: call sub-segment ──────────────────────────────
         if byte0 == 0x8D and len(args) >= 2:
@@ -3313,6 +3352,12 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
             addr = target
             continue
 
+        # $AE/$AF always replace the sequence pointer with one entry from the
+        # inline table.  There is no sequential fallthrough after that table;
+        # callers that model register values select and traverse a target.
+        if byte0 in (0xAE, 0xAF) and computed_mask is not None:
+            break
+
         # ── All other opcodes: advance past instruction ─────────────
         addr += 1 + arg_bytes
 
@@ -3320,6 +3365,40 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
 
 
 # ── Music Stats ──────────────────────────────────────────────────────────────
+
+def expand_extended_repeats(instructions):
+    """Expand configured $8E/$8F counted-repeat bodies for timing displays."""
+    real = [inst for inst in instructions if not inst.is_marker]
+    expanded = []
+    repeat_stack = []
+    index = 0
+    executed = 0
+    while index < len(real):
+        executed += 1
+        if executed > 10000:
+            break
+        inst = real[index]
+        if inst.mnemonic == "PUSH_SEQ_EXT" and len(inst.raw) >= 2:
+            count = inst.raw[1]
+            if count == 0:
+                break
+            repeat_stack.append([index + 1, count])
+        elif inst.mnemonic == "POP_SEQ" and repeat_stack:
+            repeat_stack[-1][1] -= 1
+            if repeat_stack[-1][1]:
+                index = repeat_stack[-1][0]
+                continue
+            repeat_stack.pop()
+        else:
+            expanded.append(inst)
+        index += 1
+    return expanded
+
+
+def has_unbounded_sequence_loop(instructions):
+    return any(not inst.is_marker and inst.mnemonic == "SET_SEQ_PTR"
+               for inst in instructions)
+
 
 def compute_channel_stats(rom, instructions):
     """Compute note count and estimated play time for one channel.
@@ -3329,13 +3408,14 @@ def compute_channel_stats(rom, instructions):
 
     Returns (note_count, total_seconds).
     """
-    tempo = 0
+    # Type-7 allocation at $4537 initializes $05CA,Y to $10 before the first
+    # device sweep. Keep fractional duration/tempo values here as a presentation
+    # mean; timing_clock_audit.py performs the exact carried-residue trace.
+    tempo = 0x10
     total_frames = 0.0
     note_count = 0
 
-    for inst in instructions:
-        if inst.is_marker:
-            continue
+    for inst in expand_extended_repeats(instructions):
 
         opcode = inst.raw[0] if inst.raw else None
 
@@ -3368,7 +3448,7 @@ def compute_channel_stats(rom, instructions):
             if inst.mnemonic == "NOTE":
                 note_count += 1
 
-    total_seconds = total_frames / 120.0
+    total_seconds = total_frames / SEQUENCE_SERVICE_HZ
     return note_count, total_seconds
 
 
@@ -3383,13 +3463,11 @@ def build_channel_timeline(rom, instructions):
 
     Returns a list of TimedEvent sorted by time.
     """
-    tempo = 0
+    tempo = 0x10
     cumulative_frames = 0.0
     events = []
 
-    for inst in instructions:
-        if inst.is_marker:
-            continue
+    for inst in expand_extended_repeats(instructions):
 
         if inst.mnemonic == "SET_TEMPO" and len(inst.raw) >= 2:
             tempo = inst.raw[1] >> 2
@@ -3425,12 +3503,16 @@ def build_channel_timeline(rom, instructions):
             else:
                 dur_frames = 0.0
 
-            time_secs = cumulative_frames / 120.0
-            dur_secs = dur_frames / 120.0
+            time_secs = cumulative_frames / SEQUENCE_SERVICE_HZ
+            dur_secs = dur_frames / SEQUENCE_SERVICE_HZ
 
             pitch = note_name(byte0)
             is_rest = (byte0 == 0)
-            midi_note = byte0 - 1 if byte0 > 0 else None
+            # The two independently decoded chromatic views establish +11,
+            # but ROM notes above 97 alias non-pitch data and are not safe to
+            # export as conventional MIDI until their runtime KC/KF state is
+            # traced.
+            midi_note = byte0 + 11 if 0 < byte0 <= 97 else None
 
             events.append(TimedEvent(
                 time=time_secs,
@@ -3872,10 +3954,342 @@ def _normalize_stereo(samples, target_peak=0.9):
     return np.clip(arr * scale, -32768, 32767).astype(np.int16)
 
 
+# ── ROM-driven type-7 audio rendering ──────────────────────────────────────
+
+class _TracingMemory:
+    """Byte-addressable 6502 memory with lightweight I/O callbacks."""
+
+    def __init__(self, data, read_callback=None, write_callback=None):
+        self.data = bytearray(data)
+        self.read_callback = read_callback
+        self.write_callback = write_callback
+
+    def __getitem__(self, key):
+        value = self.data[key]
+        if isinstance(key, int) and self.read_callback is not None:
+            replacement = self.read_callback(key & 0xFFFF, value)
+            if replacement is not None:
+                return replacement & 0xFF
+        return value
+
+    def __setitem__(self, key, value):
+        self.data[key] = value
+        if isinstance(key, int) and self.write_callback is not None:
+            self.write_callback(key & 0xFFFF, int(value) & 0xFF)
+
+    def __len__(self):
+        return len(self.data)
+
+
+class SoundRomRegisterTrace:
+    """Run the real sound-ROM control and sequence code and log chip writes.
+
+    This replaces the old WAV path's independent per-channel bytecode
+    approximation.  The ROM itself now performs allocation, timer carry,
+    repeats, envelope stepping, priority arbitration, POKEY joined-mode
+    selection, YM TL transforms, keying, and register writes.
+    """
+
+    _RETURN_SENTINEL = 0x3FFF
+
+    def __init__(self, rom):
+        self.rom = rom
+        self.cpu = CPU6502(rom.data)
+        self.pokey_events = []
+        self.ym_events = []
+        self._ym_address = 0
+        self._recording = False
+        self._collapse_time = False
+        self._call_time = 0.0
+        self._call_cycle = 0
+        self._rng_state = 0x1FFFF
+        self.cpu.mem = _TracingMemory(
+            self.cpu.mem, self._read_io, self._write_io)
+
+    def _event_time(self):
+        if self._collapse_time:
+            return self._call_time
+        elapsed = self.cpu.cycles - self._call_cycle
+        return self._call_time + elapsed / SOUND_CPU_HZ
+
+    def _read_io(self, address, stored):
+        if address == 0x1030:
+            # Self-test inactive, speech READY active, both board latches empty.
+            return 0x10
+        if address == 0x1811:
+            # Register writes are separated by the ROM's busy-wait helper.  A
+            # ready status preserves the writes while avoiding an artificial
+            # emulator-dependent stall in the 6502 trace.
+            return 0x00
+        if address == 0x180A:
+            # Deterministic 17-bit POKEY polynomial sample.  Runtime seed/phase
+            # only chooses among already verified-feasible target-table paths.
+            feedback = ((self._rng_state >> 0) ^
+                        (self._rng_state >> 5)) & 1
+            self._rng_state = ((self._rng_state >> 1) |
+                               (feedback << 16)) & 0x1FFFF
+            return self._rng_state & 0xFF
+        return None
+
+    def _write_io(self, address, value):
+        if not self._recording:
+            return
+        timestamp = self._event_time()
+        if 0x1800 <= address <= 0x180F:
+            self.pokey_events.append((timestamp, address - 0x1800, value))
+        elif address == 0x1810:
+            self._ym_address = value
+        elif address == 0x1811:
+            self.ym_events.append((timestamp, self._ym_address, value))
+
+    def _call(self, address, start_time, collapse_time=False,
+              max_instructions=250000):
+        """Call one ROM routine with a synthetic return address."""
+        return_address = (self._RETURN_SENTINEL - 1) & 0xFFFF
+        self.cpu._push(return_address >> 8)
+        self.cpu._push(return_address)
+        self.cpu.pc = address
+        self._call_time = start_time
+        self._call_cycle = self.cpu.cycles
+        self._collapse_time = collapse_time
+        self._recording = True
+        first_instruction = self.cpu.instructions
+        try:
+            while self.cpu.pc != self._RETURN_SENTINEL:
+                if self.cpu.instructions - first_instruction >= max_instructions:
+                    raise RuntimeError(
+                        f"ROM execution limit at ${self.cpu.pc:04X}")
+                self.cpu.step()
+        finally:
+            self._recording = False
+            self._collapse_time = False
+        return (self.cpu.cycles - self._call_cycle) / SOUND_CPU_HZ
+
+    def render_command(self, command, max_seconds=30.0, release_tail=1.0):
+        info = resolve_command(self.rom, command)
+        if info is None or info.handler_type != 7:
+            raise ValueError(f"command 0x{command:02X} is not type 7")
+
+        # Run the ROM's own global reset and type-7 command dispatcher.  Reset
+        # writes are collapsed to t=0 because boot completes before the command
+        # is delivered; their final register state still reaches both chips.
+        self._call(0x41E6, 0.0, collapse_time=True)
+        self.cpu.y = command
+        self._call(0x432E, 0.0, collapse_time=True)
+
+        if not any(self.cpu.mem[0x0804:0x0810]):
+            raise RuntimeError(f"command 0x{command:02X} allocated no channels")
+
+        irq_period = 1.0 / SOUND_IRQ_HZ
+        scheduled_irq = irq_period
+        cpu_available = 0.0
+        finish_time = None
+        irq_count = 0
+        max_irqs = int(math.ceil(max_seconds * SOUND_IRQ_HZ)) + 2
+
+        while scheduled_irq <= max_seconds and irq_count < max_irqs:
+            start_time = max(scheduled_irq, cpu_available)
+            self.cpu.mem[0x00] = (self.cpu.mem[0x00] + 1) & 0xFF
+            elapsed = self._call(0x41C8, start_time)
+            cpu_available = start_time + elapsed
+            irq_count += 1
+            scheduled_irq += irq_period
+
+            if not any(self.cpu.mem[0x0804:0x0810]):
+                finish_time = start_time
+                break
+
+        duration = max_seconds
+        if finish_time is not None:
+            duration = min(max_seconds, finish_time + release_tail)
+
+        # Stable ordering matters when several writes quantize to one chip
+        # sample.  Python's sort is stable, preserving 6502 write order.
+        self.pokey_events.sort(key=lambda event: event[0])
+        self.ym_events.sort(key=lambda event: event[0])
+        return self.pokey_events, self.ym_events, duration, irq_count
+
+
+def _ymfm_helper_path():
+    """Build the small local YMFM renderer when its sources change."""
+    root = os.path.dirname(os.path.abspath(__file__))
+    sources = [
+        os.path.join(root, "ymfm_renderer.cpp"),
+        os.path.join(root, "ymfm", "src", "ymfm_opm.cpp"),
+        os.path.join(root, "ymfm", "src", "ymfm_opm.h"),
+        os.path.join(root, "ymfm", "src", "ymfm_fm.ipp"),
+    ]
+    missing = [path for path in sources if not os.path.exists(path)]
+    if missing:
+        raise RuntimeError(f"YMFM source missing: {missing[0]}")
+
+    digest = hashlib.sha256()
+    for path in sources:
+        stat = os.stat(path)
+        digest.update(path.encode("utf-8"))
+        digest.update(str(stat.st_mtime_ns).encode("ascii"))
+        digest.update(str(stat.st_size).encode("ascii"))
+    helper = os.path.join(
+        tempfile.gettempdir(), f"gauntlet-ymfm-{digest.hexdigest()[:16]}")
+    if os.path.exists(helper):
+        return helper
+
+    compiler = shutil.which("clang++") or shutil.which("g++") or shutil.which("c++")
+    if compiler is None:
+        raise RuntimeError(
+            "a C++14 compiler is required to build the bundled YMFM renderer")
+    include_dir = os.path.join(root, "ymfm", "src")
+    command = [
+        compiler, "-std=c++14", "-O2", f"-I{include_dir}",
+        sources[0], sources[1], "-o", helper,
+    ]
+    result = subprocess.run(command, capture_output=True, text=True)
+    if result.returncode != 0:
+        detail = result.stderr.strip() or result.stdout.strip()
+        raise RuntimeError(f"failed to build YMFM renderer: {detail}")
+    return helper
+
+
+def _render_ymfm_events(events, duration, sample_rate):
+    """Render ROM-generated YM writes through the supplied YMFM core."""
+    native_rate = int(YM2151_CLOCK_HZ // 64)
+    native_samples = max(1, int(math.ceil(duration * native_rate)))
+    encoded = []
+    for timestamp, register, value in events:
+        position = min(native_samples - 1,
+                       max(0, int(round(timestamp * native_rate))))
+        encoded.append((position, register, value))
+
+    event_file = tempfile.NamedTemporaryFile(prefix="gauntlet-ymfm-",
+                                              suffix=".bin", delete=False)
+    pcm_file = tempfile.NamedTemporaryFile(prefix="gauntlet-ymfm-",
+                                            suffix=".pcm", delete=False)
+    event_path = event_file.name
+    pcm_path = pcm_file.name
+    pcm_file.close()
+    try:
+        event_file.write(b"GYM1")
+        event_file.write(struct.pack("<II", native_samples, len(encoded)))
+        for position, register, value in encoded:
+            event_file.write(struct.pack("<IBB", position, register, value))
+        event_file.close()
+
+        result = subprocess.run([_ymfm_helper_path(), event_path, pcm_path],
+                                capture_output=True, text=True)
+        if result.returncode != 0:
+            detail = result.stderr.strip() or result.stdout.strip()
+            raise RuntimeError(f"YMFM rendering failed: {detail}")
+        native = np.fromfile(pcm_path, dtype="<i2")
+        if native.size != native_samples * 2:
+            raise RuntimeError(
+                f"YMFM returned {native.size} values, expected {native_samples * 2}")
+        native = native.reshape((-1, 2)).astype(np.float64)
+    finally:
+        if not event_file.closed:
+            event_file.close()
+        for path in (event_path, pcm_path):
+            try:
+                os.unlink(path)
+            except FileNotFoundError:
+                pass
+
+    output_samples = max(1, int(round(duration * sample_rate)))
+    if output_samples == native_samples and sample_rate == native_rate:
+        return native.astype(np.int16)
+    source_pos = np.arange(native_samples, dtype=np.float64)
+    target_pos = np.arange(output_samples, dtype=np.float64) * (
+        native_rate / float(sample_rate))
+    left = np.interp(target_pos, source_pos, native[:, 0])
+    right = np.interp(target_pos, source_pos, native[:, 1])
+    return np.column_stack((left, right)).astype(np.int16)
+
+
+def _render_pokey_register_events(events, duration, sample_rate):
+    """Render one shared four-channel POKEY from ROM-generated writes."""
+    pokey = POKEYEmulator()
+    chunks = []
+    current_sample = 0
+    total_samples = max(1, int(round(duration * sample_rate)))
+    event_index = 0
+
+    while current_sample < total_samples:
+        if event_index < len(events):
+            next_sample = min(total_samples, max(
+                current_sample, int(round(events[event_index][0] * sample_rate))))
+        else:
+            next_sample = total_samples
+        if next_sample > current_sample:
+            chunks.append(pokey.render(next_sample - current_sample, sample_rate))
+            current_sample = next_sample
+        while (event_index < len(events) and
+               int(round(events[event_index][0] * sample_rate)) <= current_sample):
+            _, register, value = events[event_index]
+            pokey.write(register, value)
+            event_index += 1
+
+    samples = np.concatenate(chunks) if chunks else np.zeros(total_samples)
+    # The board output is AC coupled.  The digital POKEY model is unipolar, so
+    # remove its DC component before normalizing the standalone export.
+    centered = samples.astype(np.float64) - float(np.mean(samples))
+    return _normalize_mono(centered)
+
+
+def _write_pcm_wav(path, samples, sample_rate):
+    channels = 2 if samples.ndim == 2 else 1
+    with wave.open(path, "w") as wav:
+        wav.setnchannels(channels)
+        wav.setsampwidth(2)
+        wav.setframerate(sample_rate)
+        wav.writeframes(np.asarray(samples, dtype="<i2").tobytes())
+
+
+def _rom_driven_to_wav(rom, cmd, names, out_path, sample_rate=44100,
+                       max_seconds=30.0):
+    info = resolve_command(rom, cmd)
+    if info is None or info.handler_type != 7:
+        print(f"Command 0x{cmd:02X}: not a type 7 command", file=sys.stderr)
+        return False
+
+    trace = SoundRomRegisterTrace(rom)
+    pokey_events, ym_events, duration, irq_count = trace.render_command(
+        cmd, max_seconds=max_seconds)
+    channels = info.channels or []
+    has_pokey = any(channel.channel <= 0x03 for channel in channels)
+    has_ym = any(channel.channel >= 0x04 for channel in channels)
+    if has_pokey and has_ym:
+        raise RuntimeError("current ROM unexpectedly mixed POKEY and YM channels")
+    if has_ym:
+        samples = _render_ymfm_events(ym_events, duration, sample_rate)
+        backend = f"YM2151/YMFM ({len(ym_events)} register writes)"
+    elif has_pokey:
+        samples = _render_pokey_register_events(
+            pokey_events, duration, sample_rate)
+        backend = f"POKEY ({len(pokey_events)} register writes)"
+    else:
+        print(f"Command 0x{cmd:02X}: ROM produced no chip writes")
+        return False
+
+    _write_pcm_wav(out_path, samples, sample_rate)
+    label_info = names.get(cmd)
+    label = f' "{label_info[1]}"' if label_info else ""
+    print(f"Rendered command 0x{cmd:02X}{label}:")
+    print(f"  Backend: ROM-driven 6502 -> {backend}")
+    print(f"  IRQ services: {irq_count}")
+    print(f"  Samples: {len(samples)} ({len(samples) / sample_rate:.3f}s @ {sample_rate} Hz)")
+    print(f"  Output: {out_path}")
+    return True
+
+
 # ── POKEY SFX WAV Export ────────────────────────────────────────────────────
 
-def sfx_to_wav(rom, cmd, names, out_path, sample_rate=44100):
+def sfx_to_wav(rom, cmd, names, out_path, sample_rate=44100,
+               max_seconds=30.0):
     """Render a POKEY SFX command to a WAV file."""
+    return _rom_driven_to_wav(rom, cmd, names, out_path, sample_rate,
+                              max_seconds)
+
+    # Legacy heuristic renderer retained below for reference; WAV commands use
+    # the ROM-driven path above.
     info = resolve_command(rom, cmd)
     if info is None:
         print(f"Invalid command number: 0x{cmd:02X}", file=sys.stderr)
@@ -4068,7 +4482,8 @@ def sfx_to_wav(rom, cmd, names, out_path, sample_rate=44100):
     print(f"  Output: {out_path}")
 
 
-def sfx_all_to_wav(rom, names, out_dir, sample_rate=44100):
+def sfx_all_to_wav(rom, names, out_dir, sample_rate=44100,
+                   max_seconds=30.0):
     """Render all type 7 SFX commands (POKEY + YM2151) to WAV files."""
     os.makedirs(out_dir, exist_ok=True)
 
@@ -4093,7 +4508,7 @@ def sfx_all_to_wav(rom, names, out_dir, sample_rate=44100):
         out_path = os.path.join(out_dir, fname)
         print(f"\n--- Command 0x{cmd:02X} ---")
         try:
-            sfx_to_wav(rom, cmd, names, out_path, sample_rate)
+            sfx_to_wav(rom, cmd, names, out_path, sample_rate, max_seconds)
             count += 1
         except Exception as e:
             print(f"  Error: {e}", file=sys.stderr)
@@ -4103,8 +4518,14 @@ def sfx_all_to_wav(rom, names, out_dir, sample_rate=44100):
 
 # ── Music WAV Export ────────────────────────────────────────────────────────
 
-def music_to_wav(rom, cmd, names, out_path, sample_rate=44100):
+def music_to_wav(rom, cmd, names, out_path, sample_rate=44100,
+                 max_seconds=30.0):
     """Render a music command (YM2151 channels) to a WAV file."""
+    return _rom_driven_to_wav(rom, cmd, names, out_path, sample_rate,
+                              max_seconds)
+
+    # Legacy heuristic renderer retained below for reference; WAV commands use
+    # the ROM-driven/YMFM path above.
     info = resolve_command(rom, cmd)
     if info is None:
         print(f"Invalid command number: 0x{cmd:02X}", file=sys.stderr)
@@ -4225,7 +4646,8 @@ def music_to_wav(rom, cmd, names, out_path, sample_rate=44100):
     print(f"  Output: {out_path}")
 
 
-def music_all_to_wav(rom, names, out_dir, sample_rate=44100):
+def music_all_to_wav(rom, names, out_dir, sample_rate=44100,
+                     max_seconds=30.0):
     """Render all music commands to WAV files."""
     os.makedirs(out_dir, exist_ok=True)
 
@@ -4254,7 +4676,7 @@ def music_all_to_wav(rom, names, out_dir, sample_rate=44100):
         print(f"\n{'='*60}")
         print(f"Command 0x{cmd:02X}")
         try:
-            music_to_wav(rom, cmd, names, out_path, sample_rate)
+            music_to_wav(rom, cmd, names, out_path, sample_rate, max_seconds)
             count += 1
         except Exception as e:
             print(f"  Error: {e}", file=sys.stderr)
@@ -4262,7 +4684,8 @@ def music_all_to_wav(rom, names, out_dir, sample_rate=44100):
     print(f"\nExported {count} music commands to {out_dir}/")
 
 
-def render_wav(rom, cmd, names, out_path, sample_rate=44100):
+def render_wav(rom, cmd, names, out_path, sample_rate=44100,
+               max_seconds=30.0):
     """Render any type 7 command to WAV (auto-detects POKEY vs YM2151)."""
     info = resolve_command(rom, cmd)
     if info is None:
@@ -4283,14 +4706,15 @@ def render_wav(rom, cmd, names, out_path, sample_rate=44100):
     has_pokey = any(ch.channel <= 0x03 for ch in channels)
 
     if has_ym and not has_pokey:
-        music_to_wav(rom, cmd, names, out_path, sample_rate)
+        music_to_wav(rom, cmd, names, out_path, sample_rate, max_seconds)
     elif has_pokey:
-        sfx_to_wav(rom, cmd, names, out_path, sample_rate)
+        sfx_to_wav(rom, cmd, names, out_path, sample_rate, max_seconds)
     else:
         print(f"Command 0x{cmd:02X}: no renderable channels")
 
 
-def render_all_to_wav(rom, names, out_dir, sample_rate=44100):
+def render_all_to_wav(rom, names, out_dir, sample_rate=44100,
+                      max_seconds=30.0):
     """Render all renderable commands (SFX + music + speech) to WAV."""
     os.makedirs(out_dir, exist_ok=True)
 
@@ -4313,7 +4737,8 @@ def render_all_to_wav(rom, names, out_dir, sample_rate=44100):
             out_path = os.path.join(out_dir, fname)
             print(f"\n{'='*60}")
             try:
-                render_wav(rom, cmd, names, out_path, sample_rate)
+                render_wav(rom, cmd, names, out_path, sample_rate,
+                           max_seconds)
                 count += 1
             except Exception as e:
                 print(f"  Error rendering 0x{cmd:02X}: {e}", file=sys.stderr)
@@ -4391,8 +4816,11 @@ def score_command(rom, cmd, names):
     if total_notes > 0:
         secs_rounded = round(max_seconds)
         m, s = divmod(secs_rounded, 60)
+        time_label = ("Decoded loop prefix" if any(
+            has_unbounded_sequence_loop(i) for i in all_instructions)
+            else "Est. play time")
         lines.append(f"Notes: {total_notes} | "
-                     f"Est. play time: {max_seconds:.1f}s ({m}:{s:02d}) | "
+                     f"{time_label}: {max_seconds:.1f}s ({m}:{s:02d}) | "
                      f"Channels: {len(all_instructions)}")
 
     # Build timelines
@@ -4544,8 +4972,11 @@ def disassemble_command(rom, cmd, names):
     if total_notes > 0:
         secs_rounded = round(max_seconds)
         m, s = divmod(secs_rounded, 60)
+        time_label = ("Decoded loop prefix" if any(
+            insts is not None and has_unbounded_sequence_loop(insts)
+            for insts, _, _ in all_channel_results) else "Est. play time")
         lines.append(f"Notes: {total_notes} | "
-                     f"Est. play time: {max_seconds:.1f}s ({m}:{s:02d})")
+                     f"{time_label}: {max_seconds:.1f}s ({m}:{s:02d})")
 
     # Now emit the disassembly
     if not channels:
@@ -4699,10 +5130,19 @@ Examples:
                         help="Output path for WAV file (default: auto-generated)")
     parser.add_argument("--out-dir", metavar="DIR",
                         help="Output directory for batch exports (default: varies)")
+    parser.add_argument("--sample-rate", type=int, default=44100, metavar="HZ",
+                        help="WAV sample rate for POKEY/YM output (default: 44100)")
+    parser.add_argument("--max-seconds", type=float, default=30.0, metavar="S",
+                        help="maximum type-7 render length, including loops "
+                             "(default: 30)")
     parser.add_argument("--csv", metavar="FILE",
                         help="Path to soundcmds.csv (auto-detected if omitted)")
 
     args = parser.parse_args()
+    if args.sample_rate <= 0:
+        parser.error("--sample-rate must be positive")
+    if args.max_seconds <= 0:
+        parser.error("--max-seconds must be positive")
 
     # Load ROM
     if not os.path.exists(args.rom):
@@ -4718,27 +5158,33 @@ Examples:
 
     if args.sfx_wav is not None:
         out = args.out or f"sfx_0x{args.sfx_wav:02X}.wav"
-        sfx_to_wav(rom, args.sfx_wav, names, out)
+        sfx_to_wav(rom, args.sfx_wav, names, out,
+                   args.sample_rate, args.max_seconds)
 
     elif args.sfx_all:
         out_dir = args.out_dir or "sfx"
-        sfx_all_to_wav(rom, names, out_dir)
+        sfx_all_to_wav(rom, names, out_dir,
+                       args.sample_rate, args.max_seconds)
 
     elif args.music_wav is not None:
         out = args.out or f"music_0x{args.music_wav:02X}.wav"
-        music_to_wav(rom, args.music_wav, names, out)
+        music_to_wav(rom, args.music_wav, names, out,
+                     args.sample_rate, args.max_seconds)
 
     elif args.music_all:
         out_dir = args.out_dir or "music"
-        music_all_to_wav(rom, names, out_dir)
+        music_all_to_wav(rom, names, out_dir,
+                         args.sample_rate, args.max_seconds)
 
     elif args.render_wav is not None:
         out = args.out or f"render_0x{args.render_wav:02X}.wav"
-        render_wav(rom, args.render_wav, names, out)
+        render_wav(rom, args.render_wav, names, out,
+                   args.sample_rate, args.max_seconds)
 
     elif args.render_all:
         out_dir = args.out_dir or "rendered"
-        render_all_to_wav(rom, names, out_dir)
+        render_all_to_wav(rom, names, out_dir,
+                          args.sample_rate, args.max_seconds)
 
     elif args.speech_wav is not None:
         out = args.out or f"speech_0x{args.speech_wav:02X}.wav"

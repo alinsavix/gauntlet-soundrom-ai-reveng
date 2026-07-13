@@ -1,0 +1,190 @@
+instruction_address,opcode,kind,storage,referenced_start,referenced_end_inclusive,fixed_size,operand_hex,confidence
+25963,135,volume_envelope,pointer,25951,25960,10,5F 65,Verified
+25966,134,frequency_envelope,pointer,25955,25960,6,63 65,Strong inference
+25991,135,volume_envelope,pointer,25979,25988,10,7B 65,Verified
+25994,134,frequency_envelope,pointer,25983,25988,6,7F 65,Strong inference
+26029,135,volume_envelope,pointer,26007,26026,20,97 65,Strong inference
+26032,134,frequency_envelope,pointer,26015,26026,12,9F 65,Strong inference
+26152,135,volume_envelope,pointer,26049,26149,101,C1 65,Strong inference
+26155,134,frequency_envelope,pointer,26069,26149,81,D5 65,Strong inference
+26197,135,volume_envelope,pointer,26168,26194,27,38 66,Strong inference
+26200,134,frequency_envelope,pointer,26180,26194,15,44 66,Strong inference
+26250,135,volume_envelope,pointer,26217,26238,22,69 66,Verified
+26253,134,frequency_envelope,pointer,26233,26247,15,79 66,Strong inference
+26320,135,volume_envelope,pointer,26266,26317,52,9A 66,Strong inference
+26323,134,frequency_envelope,pointer,26282,26317,36,AA 66,Strong inference
+26340,157,ym2151_voice,pointer,27682,27709,28,22 6C,Verified
+26415,157,ym2151_voice,pointer,29362,29389,28,B2 72,Verified
+26447,157,ym2151_voice,pointer,27850,27877,28,CA 6C,Verified
+26459,157,ym2151_voice,pointer,27514,27541,28,7A 6B,Verified
+26466,157,ym2151_voice,pointer,28732,28759,28,3C 70,Verified
+26469,158,ym2151_envelope_register_block,base_plus_0x24,28768,28772,5,3C 70,Verified
+26474,157,ym2151_voice,pointer,27892,27919,28,F4 6C,Verified
+26477,158,ym2151_envelope_register_block,base_plus_0x24,27928,27932,5,F4 6C,Verified
+26486,157,ym2151_voice,pointer,27262,27289,28,7E 6A,Verified
+26505,157,ym2151_voice,pointer,28228,28255,28,44 6E,Verified
+26613,157,ym2151_voice,pointer,27220,27247,28,54 6A,Verified
+26620,157,ym2151_voice,pointer,28774,28801,28,66 70,Verified
+26630,157,ym2151_voice,pointer,28774,28801,28,66 70,Verified
+26639,157,ym2151_voice,pointer,27136,27163,28,00 6A,Verified
+26648,157,ym2151_voice,pointer,27136,27163,28,00 6A,Verified
+26657,157,ym2151_voice,pointer,27136,27163,28,00 6A,Verified
+26680,135,volume_envelope,pointer,26666,26679,14,2A 68,Verified
+26683,134,frequency_envelope,pointer,26674,26679,6,32 68,Strong inference
+26694,135,volume_envelope,pointer,26834,26843,10,D2 68,Verified
+26697,134,frequency_envelope,pointer,26838,26891,54,D6 68,Strong inference
+26733,135,volume_envelope,pointer,26717,26732,16,5D 68,Verified
+26736,134,frequency_envelope,pointer,26727,26732,6,67 68,Strong inference
+26747,135,volume_envelope,pointer,26860,26872,13,EC 68,Verified
+26750,134,frequency_envelope,pointer,26867,26891,25,F3 68,Strong inference
+26786,135,volume_envelope,pointer,26770,26785,16,92 68,Verified
+26789,134,frequency_envelope,pointer,26780,26785,6,9C 68,Strong inference
+26818,135,volume_envelope,pointer,26802,26817,16,B2 68,Verified
+26821,134,frequency_envelope,pointer,26812,26817,6,BC 68,Strong inference
+26892,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+26895,158,ym2151_envelope_register_block,base_plus_0x24,28600,28604,5,94 6F,Verified
+26898,159,ym2151_register_block,base_plus_0x29,28605,28605,1,94 6F,Verified
+26911,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+26926,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+26943,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+26962,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+26977,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+26994,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+27013,157,ym2151_voice,pointer,28564,28591,28,94 6F,Verified
+27034,157,ym2151_voice,pointer,28690,28717,28,12 70,Verified
+27037,158,ym2151_envelope_register_block,base_plus_0x24,28726,28730,5,12 70,Verified
+27040,159,ym2151_register_block,base_plus_0x29,28731,28731,1,12 70,Verified
+29660,157,ym2151_voice,pointer,28018,28045,28,72 6D,Verified
+29663,158,ym2151_envelope_register_block,base_plus_0x24,28978,28982,5,0E 71,Verified
+29684,157,ym2151_voice,pointer,28018,28045,28,72 6D,Verified
+29687,158,ym2151_envelope_register_block,base_plus_0x24,28978,28982,5,0E 71,Verified
+29708,157,ym2151_voice,pointer,28018,28045,28,72 6D,Verified
+29711,158,ym2151_envelope_register_block,base_plus_0x24,28978,28982,5,0E 71,Verified
+29732,157,ym2151_voice,pointer,28018,28045,28,72 6D,Verified
+29735,158,ym2151_envelope_register_block,base_plus_0x24,28978,28982,5,0E 71,Verified
+30354,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30377,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30400,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30423,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30446,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30471,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30496,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30521,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30546,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30571,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30596,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30621,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30646,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30673,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30700,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30727,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30754,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30783,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30812,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30841,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+30870,157,ym2151_voice,pointer,28480,28507,28,40 6F,Verified
+30882,157,ym2151_voice,pointer,28480,28507,28,40 6F,Verified
+30894,157,ym2151_voice,pointer,28480,28507,28,40 6F,Verified
+30906,157,ym2151_voice,pointer,28480,28507,28,40 6F,Verified
+30956,157,ym2151_voice,pointer,27346,27373,28,D2 6A,Verified
+30971,157,ym2151_voice,pointer,27346,27373,28,D2 6A,Verified
+30986,157,ym2151_voice,pointer,27346,27373,28,D2 6A,Verified
+31001,157,ym2151_voice,pointer,27346,27373,28,D2 6A,Verified
+31107,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+31145,157,ym2151_voice,pointer,27892,27919,28,F4 6C,Verified
+31148,158,ym2151_envelope_register_block,base_plus_0x24,27928,27932,5,F4 6C,Verified
+31175,157,ym2151_voice,pointer,27976,28003,28,48 6D,Verified
+31178,158,ym2151_envelope_register_block,base_plus_0x24,28012,28016,5,48 6D,Verified
+31239,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31425,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31505,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31587,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31617,157,ym2151_voice,pointer,28984,29011,28,38 71,Verified
+31675,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31713,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31797,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+31873,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+31914,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31943,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31970,157,ym2151_voice,pointer,28438,28465,28,16 6F,Verified
+31997,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32024,157,ym2151_voice,pointer,27472,27499,28,50 6B,Verified
+32031,157,ym2151_voice,pointer,28270,28297,28,6E 6E,Verified
+32135,157,ym2151_voice,pointer,29194,29221,28,0A 72,Verified
+32148,157,ym2151_voice,pointer,29194,29221,28,0A 72,Verified
+32161,157,ym2151_voice,pointer,29194,29221,28,0A 72,Verified
+32174,157,ym2151_voice,pointer,27094,27121,28,D6 69,Verified
+32191,157,ym2151_voice,pointer,27094,27121,28,D6 69,Verified
+32208,157,ym2151_voice,pointer,27094,27121,28,D6 69,Verified
+32227,157,ym2151_voice,pointer,27094,27121,28,D6 69,Verified
+32242,157,ym2151_voice,pointer,29320,29347,28,88 72,Verified
+32251,158,ym2151_envelope_register_block,base_plus_0x24,29356,29360,5,88 72,Verified
+32260,157,ym2151_voice,pointer,29320,29347,28,88 72,Verified
+32275,157,ym2151_voice,pointer,29320,29347,28,88 72,Verified
+32290,157,ym2151_voice,pointer,29320,29347,28,88 72,Verified
+32305,157,ym2151_voice,pointer,29320,29347,28,88 72,Verified
+32320,157,ym2151_voice,pointer,28396,28423,28,EC 6E,Verified
+32353,157,ym2151_voice,pointer,28396,28423,28,EC 6E,Verified
+32386,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32413,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32444,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32469,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32496,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32523,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32552,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32579,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32610,157,ym2151_voice,pointer,27388,27415,28,FC 6A,Verified
+32654,157,ym2151_voice,pointer,27388,27415,28,FC 6A,Verified
+32663,157,ym2151_voice,pointer,27640,27667,28,F8 6B,Verified
+32678,157,ym2151_voice,pointer,27640,27667,28,F8 6B,Verified
+32693,157,ym2151_voice,pointer,29236,29263,28,34 72,Verified
+32714,157,ym2151_voice,pointer,29236,29263,28,34 72,Verified
+32733,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32744,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32757,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32768,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32779,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32790,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32801,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32812,157,ym2151_voice,pointer,27556,27583,28,A4 6B,Verified
+32825,157,ym2151_voice,pointer,27304,27331,28,A8 6A,Verified
+32828,158,ym2151_envelope_register_block,base_plus_0x24,27970,27974,5,1E 6D,Verified
+32843,157,ym2151_voice,pointer,27304,27331,28,A8 6A,Verified
+32858,157,ym2151_voice,pointer,27934,27961,28,1E 6D,Verified
+32861,158,ym2151_envelope_register_block,base_plus_0x24,27970,27974,5,1E 6D,Verified
+32876,157,ym2151_voice,pointer,27934,27961,28,1E 6D,Verified
+32891,157,ym2151_voice,pointer,28522,28549,28,6A 6F,Verified
+32894,158,ym2151_envelope_register_block,base_plus_0x24,28558,28562,5,6A 6F,Verified
+32940,157,ym2151_voice,pointer,28522,28549,28,6A 6F,Verified
+32995,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+33041,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+33093,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33122,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33149,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33176,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33201,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33230,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33257,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33286,157,ym2151_voice,pointer,28354,28381,28,C2 6E,Verified
+33313,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33324,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33335,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33344,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33353,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33364,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33375,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33386,157,ym2151_voice,pointer,27430,27457,28,26 6B,Verified
+33397,157,ym2151_voice,pointer,28606,28633,28,BE 6F,Verified
+33404,157,ym2151_voice,pointer,28606,28633,28,BE 6F,Verified
+33411,157,ym2151_voice,pointer,27808,27835,28,A0 6C,Verified
+33426,157,ym2151_voice,pointer,27808,27835,28,A0 6C,Verified
+33441,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+33474,157,ym2151_voice,pointer,28102,28129,28,C6 6D,Verified
+33509,157,ym2151_voice,pointer,27640,27667,28,F8 6B,Verified
+33524,157,ym2151_voice,pointer,28900,28927,28,E4 70,Verified
+33559,157,ym2151_voice,pointer,28900,28927,28,E4 70,Verified
+33594,157,ym2151_voice,pointer,28900,28927,28,E4 70,Verified
+33629,157,ym2151_voice,pointer,29152,29179,28,E0 71,Verified
+33638,157,ym2151_voice,pointer,29152,29179,28,E0 71,Verified
+33647,157,ym2151_voice,pointer,29152,29179,28,E0 71,Verified
+33656,157,ym2151_voice,pointer,29152,29179,28,E0 71,Verified

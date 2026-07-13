@@ -1,0 +1,30 @@
+start,end_inclusive,size,raw_hex,classification,consumer_evidence,confidence
+29682,29683,2,00 00,computed_jump_unreachable_zero_trailer,$73EF $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+29706,29707,2,00 00,computed_jump_unreachable_zero_trailer,$7407 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+29730,29731,2,00 00,computed_jump_unreachable_zero_trailer,$741F $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+29754,29755,2,00 00,computed_jump_unreachable_zero_trailer,$7437 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30375,30376,2,00 00,computed_jump_unreachable_zero_trailer,$76A4 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30398,30399,2,00 00,computed_jump_unreachable_zero_trailer,$76BB $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30421,30422,2,00 00,computed_jump_unreachable_zero_trailer,$76D2 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30444,30445,2,00 00,computed_jump_unreachable_zero_trailer,$76E9 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30469,30470,2,00 00,computed_jump_unreachable_zero_trailer,$7702 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30494,30495,2,00 00,computed_jump_unreachable_zero_trailer,$771B $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30519,30520,2,00 00,computed_jump_unreachable_zero_trailer,$7734 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30544,30545,2,00 00,computed_jump_unreachable_zero_trailer,$774D $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30569,30570,2,00 00,computed_jump_unreachable_zero_trailer,$7766 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30594,30595,2,00 00,computed_jump_unreachable_zero_trailer,$777F $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30619,30620,2,00 00,computed_jump_unreachable_zero_trailer,$7798 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30644,30645,2,00 00,computed_jump_unreachable_zero_trailer,$77B1 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30671,30672,2,00 00,computed_jump_unreachable_zero_trailer,$77CC $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30698,30699,2,00 00,computed_jump_unreachable_zero_trailer,$77E7 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30725,30726,2,00 00,computed_jump_unreachable_zero_trailer,$7802 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30752,30753,2,00 00,computed_jump_unreachable_zero_trailer,$781D $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30781,30782,2,00 00,computed_jump_unreachable_zero_trailer,$783A $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30810,30811,2,00 00,computed_jump_unreachable_zero_trailer,$7857 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30839,30840,2,00 00,computed_jump_unreachable_zero_trailer,$7874 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+30868,30869,2,00 00,computed_jump_unreachable_zero_trailer,$7891 $AE/$AF handler always replaces the sequence pointer with its sole table entry,Verified unreachable; original purpose Unknown
+26457,26458,2,00 00,set_seq_ptr_unreachable_zero_trailer,$6756 SET_SEQ_PTR unconditionally replaces the sequence pointer,Verified unreachable; original purpose Unknown
+26715,26716,2,00 00,set_seq_ptr_unreachable_zero_trailer,$6858 SET_SEQ_PTR unconditionally replaces the sequence pointer,Verified unreachable; original purpose Unknown
+26768,26769,2,00 00,set_seq_ptr_unreachable_zero_trailer,$688D SET_SEQ_PTR unconditionally replaces the sequence pointer,Verified unreachable; original purpose Unknown
+27050,27051,2,00 00,set_seq_ptr_unreachable_zero_trailer,$69A7 SET_SEQ_PTR unconditionally replaces the sequence pointer,Verified unreachable; original purpose Unknown
+32986,32994,9,9D 6A 6F 80 A0 00 01 00 00,unreferenced_sequence_candidate,"valid SET_VOICE/SET_TEMPO/REST/CHAIN grammar; no command, record, call, jump, or computed-target reference",Strong inference; original provenance Unknown

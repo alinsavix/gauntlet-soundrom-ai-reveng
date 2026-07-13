@@ -1,0 +1,3 @@
+start,end_inclusive,size,kind,consumer,index_domain,confidence
+25945,25950,6,handler_match_records,0x434D;0x4353;0x435A;0x4360;0x4462;0x4483;0x448A;0x4490,reserved handlers; no selected command rows,Verified
+29404,29659,256,ym_total_level_nonlinear_lookup,0x4F51,Y=0x00..0xFF,Verified

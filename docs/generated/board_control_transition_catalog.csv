@@ -1,0 +1,9 @@
+transition,condition,state,result,interpretation
+self-test-active direct input inactive,$1020 bit=1,$44 field,00,replace selected two-bit field with 00
+self-test-active direct input active,$1020 bit=0,$44 field,01 at field position,replace selected field using $40/$10/$04/$01
+normal filtered input active,filter low5=1..26 and phase&7=7,$3E-$41,low5 minus 1,slow decay; 27..31 decay every call
+normal filtered input inactive,filter below saturation,$3E-$41,add $21,8-bit accumulator rise
+filter threshold crossing,add $21 carries with nonzero result,$3E-$41 and $36-$39,filter=$1F; pulse state incremented,also updates corresponding $44 field
+pulse start,even phase and aggregate 1..15,$36-$39,first nonzero becomes $F0,begins stretched solenoid pulse
+pulse decay,even phase and state >=$10,$36-$39,subtract $10,"$F0,$E0,...,$10,0"
+physical outputs,every call,$1035/$1034,"OR($36,$37) / OR($38,$39)",left/right mechanical counter solenoids

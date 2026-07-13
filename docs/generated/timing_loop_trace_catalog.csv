@@ -1,0 +1,6 @@
+command,chain_channel,sequence_start,loop_site,loop_target,executed_back_edges,notes,rests,first_event_update,first_loop_boundary_update,prefix_intervals,period_intervals,bounded_elapsed_intervals,bounded_elapsed_seconds,final_signed_residue,scope,confidence
+0x2E,1,0x674F,0x6756,0x6754,3,4,0,1,481,480,480;480;480,1920,16.020627201178698,-16,YM sustained F2,Verified bounded loop/timer arithmetic and clock-to-seconds conversion
+0x37,1,0x67FC,0x6803,0x6801,3,4,0,1,16,15,15;15;15,60,0.5006446000368343,-16,YM sustained C0,Verified bounded loop/timer arithmetic and clock-to-seconds conversion
+0x05,1,0x6838,0x6858,0x6854,3,0,6,1,61,60,30;30;30,150,1.2516115000920858,-16,POKEY chip-test channel 1,Verified bounded loop/timer arithmetic and clock-to-seconds conversion
+0x05,2,0x686D,0x688D,0x6889,3,0,6,1,61,60,30;30;30,150,1.2516115000920858,-16,POKEY chip-test channel 2,Verified bounded loop/timer arithmetic and clock-to-seconds conversion
+0x04,8,0x6985,0x69A7,0x69A5,3,6,5,1,1501,1500,480;480;480,2940,24.53158540180488,-16,YM chip-test sustained C5,Verified bounded loop/timer arithmetic and clock-to-seconds conversion
