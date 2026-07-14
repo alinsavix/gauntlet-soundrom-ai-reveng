@@ -120,6 +120,29 @@ The implementation configuration and independently calculated schematic clock
 tree agree on the following rates. ROM-side parity and call-count relationships
 are independently Verified.
 
+```mermaid
+sequenceDiagram
+    participant V as "Video 32V source"
+    participant I as "IRQ $4187"
+    participant S as "Speech service $5894"
+    participant P as "POKEY"
+    participant Y as "YM2151"
+    participant B as "Board/coin $8381"
+
+    V->>I: Assert IRQ at 239.6909904 Hz
+    I->>I: Acknowledge $1830 and increment $00
+    I->>S: Call four times
+    alt incremented $00 is odd
+        I->>P: One four-channel full sweep
+        Note right of P: 119.8454952 sweeps/s
+    else incremented $00 is even
+        I->>Y: One eight-channel full sweep
+        Note right of Y: 119.8454952 sweeps/s
+    end
+    I->>B: Update input filters and counter outputs
+    I-->>V: RTI while a late next assertion remains pending
+```
+
 | Clock or event | Derivation | Rate |
 |---|---:|---:|
 | 6502 | master / 8 | 1,789,772.625 Hz |

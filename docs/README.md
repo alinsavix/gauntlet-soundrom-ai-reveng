@@ -22,6 +22,15 @@ The current operational priority and new-context handoff are maintained in
 
 Machine-readable catalogs are under [`generated/`](generated/README.md).
 
+## Diagram guide
+
+The behavioral diagrams are embedded beside the prose they summarize:
+
+- [System, boot/NMI, Type-7, chip-output, speech, and board-control
+  flows](04_subsystems.md)
+- [Sequence interpreter cycle and bytecode control flow](06_sequence_engine.md)
+- [IRQ device-service cadence](01_hardware.md#clock-tree-and-service-cadence)
+
 ## Evidence vocabulary
 
 - **Verified** — established directly from ROM bytes, bounded 6502

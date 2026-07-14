@@ -27,7 +27,60 @@ The pair `xx 00` is a chain/return marker rather than a zero-duration note. It
 returns from a pushed subsequence when a return context exists; otherwise it
 ends the current stream.
 
+The IRQ-time interpreter advances one logical channel until it has scheduled a
+new timed event, reached an end marker, or completed the non-expired timer path.
+
+```mermaid
+flowchart TD
+    Sweep["Matching POKEY or YM<br/>IRQ sweep"] --> Channel["Enter logical-channel engine<br/>$4651"]
+    Channel --> Timers["Subtract channel tempo from<br/>primary and secondary timers"]
+    Timers --> Expired{"Primary timer<br/>expired?"}
+    Expired -->|"no"| Continuous["Advance active envelopes,<br/>fade/ramp, and prepared output"]
+    Expired -->|"yes"| Fetch["Fetch byte at<br/>sequence pointer"]
+    Fetch --> Classify{"Byte class"}
+
+    Classify -->|"$00-$7F"| Note["Note/rest plus<br/>duration/control byte"]
+    Note --> Marker{"Duration byte $00?"}
+    Marker -->|"yes, context exists"| Return["Restore pushed sequence<br/>or repeat context"]
+    Marker -->|"yes, no context"| Stop["Mark logical channel inactive"]
+    Marker -->|"no"| Schedule["Decode duration, reload timers,<br/>and initialize note/envelopes"]
+
+    Classify -->|"$80-$BA"| Dispatch["Dispatch through 59-entry<br/>opcode table $507B"]
+    Dispatch --> Mutate["Update channel state,<br/>pointer, or control context"]
+    Mutate --> Continue{"Handler continuation<br/>carry set?"}
+    Continue -->|"yes"| Fetch
+    Continue -->|"no"| Stop
+
+    Classify -->|"$BB-$FF"| Stop
+    Return --> Fetch
+    Schedule --> Continuous
+    Continuous --> Prepared["Stage chip-specific candidate<br/>and advance physical-list link"]
+    Stop --> Prepared
+```
+
 ## Control-flow model
+
+The control-flow opcodes change the same sequence pointer and context state
+used by the interpreter above; they are not separate execution engines.
+
+```mermaid
+flowchart LR
+    Current["Current sequence pointer"] --> Linear["Ordinary opcode or note<br/>advance past operands"]
+    Current --> Call["$8D push return<br/>and enter target"]
+    Current --> Repeat["$8E/$8F extended<br/>repeat context"]
+    Current --> Jump["$99 replace pointer<br/>often a loop back edge"]
+    Current --> Indexed["$AE/$AF choose target<br/>from inline pointer table"]
+    Current --> Branch["$B5-$B8 classify,<br/>compare, and branch"]
+    Current --> End["$BB-$FF stop channel"]
+
+    Linear --> Next["Next decoded byte"]
+    Call --> Next
+    Repeat --> Next
+    Jump --> Next
+    Indexed --> Next
+    Branch --> Next
+    Next --> Current
+```
 
 - `$8D` pushes a return and enters a 16-bit target.
 - `$8E/$8F` implement extended repeat/push/pop state.
