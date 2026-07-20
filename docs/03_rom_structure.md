@@ -81,8 +81,7 @@ edges. It also identifies 189 support-data references. See the generated
 
 Fresh bounded disassembly verified that code begins at `$8381`; bytes
 `$837F-$8380` are the complete `00 00` chain/end pair reached from the
-sequence entry at `$8378`. The earlier `$837F` boundary and incomplete-decode
-claim are **Contradicted**.
+sequence entry at `$8378`. 
 
 The map is not an exact proof of original author intent. Nine envelopes
 have consumer-proven terminators; 17 are bounded by the next independently

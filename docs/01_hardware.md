@@ -96,11 +96,9 @@ but its detailed text and ROM accesses establish the corrected mapping:
   it is generated when video scanline-counter bit 5 rises. The upstream MAME
   configuration uses a 14.318181 MHz master, a master/2 pixel clock, and raw
   timing of 456 by 262. Its 32V callback asserts IRQ at scanlines 32, 96, 160,
-  and 224. Those values imply 59.9227476 frames/s and 239.6909904 IRQ/s, with a
-  4.172038 ms period. The older ~245 Hz result is **Contradicted**; “240 Hz” is
-  the accurate engineering approximation. These exact values are **Verified**
-  by agreement between the mature implementation and an independent schematic
-  calculation (external confirmation provided 2026-07-12).
+  and 224. Those values imply 59.9227476 frames/s and 239.6909904 IRQ/s, with a 
+  4.172038 ms period. (240 Hz is the accurate engineering approximation; these
+  exact values are **Verified** by an independent schematic calculation).
 - The current MAME Gauntlet driver models this as a level assertion, not a
   pulse: each selected 32V callback calls `ASSERT_LINE`, while any `$1830`
   read or write calls `CLEAR_LINE`. The ROM acknowledges near the start of

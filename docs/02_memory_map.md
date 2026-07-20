@@ -138,5 +138,4 @@ See [Hardware](01_hardware.md) for direction-sensitive register semantics.
 ## ROM
 
 The complete ROM-content map is maintained separately in
-[ROM structure](03_rom_structure.md); the old broad division into “code,”
-“music,” and “speech” regions was inaccurate.
+[ROM structure](03_rom_structure.md).
