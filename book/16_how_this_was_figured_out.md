@@ -169,6 +169,11 @@ Two places in those chapters still carry an unresolved disagreement between the
 generated catalogs and a direct execution of the ROM, and both are marked in the
 source of the book rather than smoothed over. The rest is settled.
 
+<!-- TODO: Reconcile this paragraph with the preceding claim that Chapters
+     1–15 contain only Verified and Strong-inference material. Until the POKEY
+     duration and shape-selector disagreements are resolved, qualify that
+     confidence promise in this chapter and the book README. -->
+
 Nine of the ROM's 26 envelopes have a terminator that a consumer has been proven
 to read. The other seventeen are bounded by the next object that something else
 independently reaches, which is a good argument and not a proof. That distinction

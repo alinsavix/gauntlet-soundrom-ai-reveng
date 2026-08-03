@@ -253,6 +253,9 @@ written to make that work.
 - Each interrupt sweeps one chip, alternating, so each chip is refreshed about
   120 times a second: one **tick**, 8.344 ms.
 - Nothing in any sound can change faster than one tick.
+  <!-- TODO: Scope this to sequence-driven POKEY/YM control changes. Speech is
+       serviced four times per IRQ, and all three chips evolve autonomously
+       between CPU writes. -->
 - The speech chip gets four service attempts per interrupt, most of which the
   chip refuses.
 - The same interrupt filters the coin switches, stretches the coin-counter

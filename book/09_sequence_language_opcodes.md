@@ -132,6 +132,10 @@ note, which is how one instruction produces fifty-three seconds of sound.
 16-bit address. There are five of them in the whole ROM, and every one of them
 jumps backwards to form a loop:
 
+**[needs verification]** The effects-chip-test figures below use the direct
+execution result. The generated timing-loop catalog instead reports a 60-sweep
+prefix and a 30-sweep period for both channels; see Chapter 17.
+
 | Sound | Reaches the loop after | Repeats every |
 |---|---:|---:|
 | Player Touches Force Field | 480 sweeps | 480 sweeps |

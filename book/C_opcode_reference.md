@@ -34,6 +34,14 @@ executes it. Thirty-three of the 59 carry a dash.
 
 ## Envelopes and shaping
 
+**[needs verification]** `$8A`'s relationship to the volume-shape selector is
+part of the unresolved shape-table disagreement in Chapters 10 and 17. Canonical
+docs currently derive the selector from duration/control bits 3–5, while direct
+execution appears to clear it to row 0.
+
+<!-- TODO: Replace "distortion nibble" with "three-bit distortion field" unless
+     a separate four-bit field is intended. -->
+
 | Opcode | Name | Operands | Scope | What it does | Uses |
 |---|---|---:|---|---|---:|
 | `$86` | SET_FREQ_ENV | 2 | Both | Point the channel at a frequency envelope in ROM | 13 |

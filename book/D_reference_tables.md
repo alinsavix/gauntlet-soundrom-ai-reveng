@@ -159,10 +159,17 @@ The note's control byte carries three more fields alongside that index:
 |---|---|---|---|---|---|---|---|---|
 | Field | sustain | dotted | division | division | duration | duration | duration | duration |
 
+**[needs verification]** The POKEY exception below conflicts with the generated
+timing-loop catalog's duration-table interpretation. See Chapters 8 and 17.
+
 A POKEY channel ignores all of this and takes the low seven bits of the control
 byte times 32.
 
 ## D.8 The POKEY volume-shape table
+
+**[needs verification]** The selector source and configured row reachability are
+unresolved. The generated catalog marks rows 0, 1, 4, 5, and 7 reachable, while
+direct ROM execution appears to force row 0.
 
 Eight rows of sixteen signed bytes at `$5C8F`. A row is chosen by an index that
 travels with the distortion setting, and one entry per sweep is added to the
@@ -216,6 +223,9 @@ the loaded count. Bigger numbers give lower pitches, and the values halve every
 twelve entries. The whole table assumes the joined 16-bit mode.
 No sequence in this ROM reaches it.
 [Chapter 11](11_driving_the_pokey.md).
+
+<!-- TODO: Keep claims about chromatic tuning and joined-mode generation scoped
+     to entries 1–97. The semantics of entries 98–127 are not established. -->
 
 One full octave, and then every C:
 

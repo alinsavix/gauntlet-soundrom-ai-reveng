@@ -112,6 +112,9 @@ the expected SHA-1, and the one command that checks it are in
 [Chapter 1](01_two_computers.md) and again in
 [Appendix E](E_using_the_tool.md).
 
+<!-- TODO: Chapters 16 and 17 currently have no "Try it yourself" box. Add one
+     to each chapter or qualify the statement above. -->
+
 Once `soundrom.bin` is in the repository root, the tool needs nothing installed:
 
 ```bash
@@ -131,6 +134,10 @@ reference in [`docs/`](../docs/README.md) that labels every claim with how well 
 is established, and these chapters were filtered to admit only the two strongest
 levels. Anything weaker was left out or handed to
 [Chapter 17](17_open_questions.md), where the uncertainty is the subject.
+
+<!-- TODO: Qualify this confidence statement. Chapters 8 and 10 currently state
+     conclusions that Chapters 16 and 17 identify as unresolved disagreements
+     between generated catalogs and direct ROM execution. -->
 
 So if a sentence here makes you suspicious, there is somewhere specific to go.
 The **Going deeper** list at the end of each chapter names the `docs/` chapter and

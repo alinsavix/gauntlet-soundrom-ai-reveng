@@ -9,6 +9,10 @@ Gauntlet II. Seven effects and one diagnostic, out of 219 commands. This chapter
 follows the last few inches of the path they take: from four prepared logical
 channels to nine numbers written into a chip.
 
+<!-- TODO: "Four prepared logical channels" conflicts with Chapter 7's
+     priority lists, which may contain many logical channels. If this means the
+     four winning physical-channel candidates, name them that way. -->
+
 ## The sweep
 
 [Chapter 4](04_heartbeat.md) established the alternation. On odd ticks the
@@ -141,6 +145,10 @@ Joined mode is selected by bits in the POKEY's mode register, AUDCTL, and so is
 the choice of clock, and so are the high-pass filters and the polynomial length.
 One byte, eight independent switches, and up to eight logical channels with
 opinions about it.
+
+<!-- TODO: Verify the "up to eight logical channels" count and distinguish
+     logical channels from the four prepared physical candidates. Chapter 7
+     permits up to thirty live logical channels across the lists. -->
 
 The engine solves this with **mask accumulation**, a pattern worth learning once
 because it turns up wherever independent parties have to agree on a shared set
@@ -317,6 +325,9 @@ to full volume in two sweeps and stops dead.
 - A 128-entry table converts note numbers to 16-bit dividers, chromatically from
   C0 to C8, with an inverse relationship that leaves the top octave a few cents
   flat. No sound in this ROM reaches it.
+  <!-- TODO: Clarify that only entries 1–97 are the verified chromatic prefix.
+       The remaining entries overlap another table and are not established as
+       additional chromatic divider values. -->
 - Nine stores end the sweep: four dividers, four control bytes, and AUDCTL. The
   chip accepts all of them immediately.
 - Eight commands use this whole path, and seven of them are one record with six

@@ -221,6 +221,10 @@ with four registers and no arithmetic. The YM2151 turns a 42-byte description
 into a complex, evolving timbre without the CPU touching it again. The TMS5220
 turns 200 bytes into a spoken sentence.
 
+<!-- TODO: Narrow "without the CPU touching it again" to the YM2151's internal
+     operator-envelope evolution. Chapter 12 shows continuing CPU pitch, level,
+     key, and refresh writes on every YM sweep. -->
+
 The common thread is that none of them plays back audio. There is no sampler on
 this board and nowhere to put samples if there were. Every sound Gauntlet II
 makes is generated at the moment you hear it, from a description small enough to

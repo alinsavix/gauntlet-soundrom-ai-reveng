@@ -118,6 +118,12 @@ described below, under articulation.
 
 ## POKEY notes count differently
 
+**[needs verification]** The POKEY-only duration rule in this section conflicts
+with `docs/generated/timing_loop_trace_catalog.csv`: direct ROM execution gives
+the effects chip test a 250-sweep period, while duration-table interpretation
+gives 30 sweeps. Resolve that disagreement before treating the examples below as
+settled timing.
+
 A channel attached to one of the POKEY's four voices never touches the duration
 table. It masks off the top bit of the control byte and multiplies what is left
 by 32.
@@ -136,11 +142,6 @@ records are short effects whose shape comes from the envelopes in
 [Chapter 10](10_shaping_the_sound.md) rather than from anything resembling
 notation, and none of them plays a pitch at all. Every POKEY event in the ROM is
 a rest, with the actual sound produced entirely by envelopes running underneath.
-
-<!-- TODO: docs/generated/timing_loop_trace_catalog.csv gives command $05 a
-     30-sweep loop period, which is the duration-table reading. Executing the
-     ROM's own IRQ service gives 250 sweeps, matching the (control AND $7F) * 32
-     rule at $48EF. The docs row needs reconciling. -->
 
 ## How duration becomes time
 

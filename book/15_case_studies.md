@@ -165,6 +165,10 @@ rejected, which is the only place in this pipeline where anything is ever thrown
 away. The board says one thing at a time, in order, and a full queue puts it
 around ten seconds behind the game.
 
+<!-- TODO: Rewrite "the only place." Chapter 13 says lower-priority arrivals
+     are rejected and higher-priority arrivals discard the waiting backlog;
+     Chapter 6 also describes threshold-based speech rejection. -->
+
 A narrator that comments on something that stopped being true a moment ago is an
 eight-entry queue doing exactly what it was told. The alternative, cutting each
 phrase off when the next arrives, would have made the machine unintelligible in

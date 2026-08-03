@@ -300,6 +300,9 @@ the formal `**[image needed]**` and `**[needs verification]**` draft markers.
 
 No antithesis. No corrective negation. No paragraph pinning. No parataxis. No summary beats. No rhetorical crutches. No negative parallelisms. No negative anaphoras. No contrasting pairs. No rule of three. No em dashes. No throat-clearing openers. No landing sentences. No setup/payoff constructions. No parallel sentence structures within a paragraph. Vary sentence length unpredictably. No stacked noun phrases. No filler intensifiers (genuinely, really, truly, actually). No corporate-register verbs (leverage, underscore, reflect). No nominalization. No hedging qualifiers. No performed enthusiasm.
 
+<!-- TODO: Reconcile "No em dashes" with the required `# Chapter N — Title`
+     format in section 0.9 and the existing chapter/appendix titles. -->
+
 Items that need verification or author input, you can mark them with `**[needs verification]**`. Places where the author needs to provide an image can be marked with a blockquote beginning with `**[image needed]**` that describes what the image should show. These markers are draft-only, the finished book should contain zero such markers. 
 
 ---

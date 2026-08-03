@@ -154,6 +154,15 @@ the last entry and staying there. Rows 4 and 6 are a slow decay at two different
 strengths, rows 5 and 7 are a fast one, and rows 2 and 3 are a delayed cut that
 takes the volume down rather than up.
 
+**[needs verification]** The selector and reachability described below conflict
+with the generated volume-shape catalog and canonical subsystem documentation,
+which derive the selector from duration/control bits 3–5 and mark rows 0, 1, 4,
+5, and 7 reachable. Direct ROM execution instead appears to clear the selector
+to row 0. Resolve the state assumption before treating either result as settled.
+
+<!-- TODO: "Distortion nibble" is also inconsistent with the three-bit AUDC
+     distortion field. Use "distortion field" unless four bits are intended. -->
+
 The row index travels with the distortion nibble that the distortion instruction
 of [Chapter 9](09_sequence_language_opcodes.md) sets, and each channel tracks its
 own position within the row. The POKEY note path writes zero into that index
@@ -161,11 +170,6 @@ every time it starts a note, so every POKEY channel in this ROM selects row 0,
 which is sixteen zeroes, and the table changes nothing about any sound Gauntlet
 II makes. The mechanism is complete and the curves are real; nothing reaches
 them.
-
-<!-- TODO: docs/generated/volume_shape_catalog.csv marks rows 0,1,4,5,7 as
-     configured-reachable from a static enumeration of note control bytes.
-     Executing the ROM shows the POKEY note path at $48EF storing zero into the
-     shape index every time, so only row 0 is ever selected. Needs reconciling. -->
 
 ## Fades and ramps
 

@@ -154,6 +154,10 @@ The POKEY note path is the same story from
 [Chapter 11](11_driving_the_pokey.md). A 128-entry chromatic divider table sits in
 ROM, correct and complete, and no POKEY sequence in the game plays a note.
 
+**[needs verification]** Only entries 1–97 are established as a chromatic
+divider prefix. The remaining entries overlap the YM key-code/level-table region,
+so “128-entry chromatic” and “complete” overstate what is known.
+
 The frequency-envelope machinery has a YM2151 branch as well as a POKEY one. All
 thirteen frequency envelopes in the ROM are attached to POKEY channels, so the YM
 branch never executes.
@@ -203,6 +207,10 @@ been powered up.
 
 Honesty about the ledger includes the ledger's own inconsistencies.
 
+**[needs verification]** The two disagreements below propagate into Chapters 8,
+9, 10, 11, and 14 and Appendices C and D. Do not treat either interpretation as
+settled until the static catalogs and direct execution agree.
+
 The generated catalogs give the effects chip test a thirty-sweep loop period,
 computed by reading its rest durations through the duration table of
 [Chapter 8](08_sequence_language_time.md). Executing the ROM's own interrupt
@@ -220,6 +228,9 @@ reports the executed result.
 Both are cases of a static reading and a dynamic reading of the same code
 producing different answers, which usually means one of them has a state
 assumption wrong. Neither changes anything a listener would hear.
+
+<!-- TODO: Revisit the final sentence after resolving shape-row reachability;
+     non-neutral configured shape rows could affect audible POKEY output. -->
 
 ## How you could help
 

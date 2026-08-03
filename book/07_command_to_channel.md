@@ -79,6 +79,10 @@ thirty entries each, hold everything about a sound that is currently playing:
 where it has got to in its sequence, its tempo, its volume, its two timers, its
 envelope positions, its priority.
 
+<!-- TODO: Replace "thirty sounds" with "thirty in-progress voices" or
+     "thirty record instances." A multi-record chain is one sound but consumes
+     one logical channel per record, as the theme example above demonstrates. -->
+
 Reconciling thirty with twelve is the central idea of the whole ROM.
 
 Every physical channel owns a list of the logical channels that want it. The

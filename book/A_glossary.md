@@ -153,6 +153,9 @@ operator's envelope; releasing lets them run down.
 channels compete for twelve physical ones.
 [Chapter 7](07_command_to_channel.md).
 
+<!-- TODO: Define this as an in-progress voice or type-7 record instance, not a
+     whole sound. One sound may occupy several logical channels. -->
+
 **LPC.** Linear predictive coding, the speech compression scheme the TMS5220 uses.
 Instead of a waveform it stores a frame-by-frame description of a vocal tract.
 [Chapter 3](03_three_sound_chips.md).
@@ -261,6 +264,10 @@ second. [Chapter 4](04_heartbeat.md).
 change at any moment other than a tick boundary.
 [Chapter 4](04_heartbeat.md).
 
+<!-- TODO: Scope the timing restriction to sequence-driven POKEY/YM control
+     changes. Speech service and autonomous chip output are not limited to one
+     event per 8.344-ms tick. -->
+
 **TMS5220.** The Texas Instruments speech chip, which reconstructs speech from an
 LPC description of a vocal tract at 8,000 samples a second.
 [Chapter 3](03_three_sound_chips.md).
@@ -283,6 +290,10 @@ pieces of music. [Chapters 7](07_command_to_channel.md) to
 straight into chip registers and the rest is bookkeeping the ROM keeps for itself.
 The ROM holds 55, of which 40 are ever reached. Also called an **instrument** in
 this book. [Chapter 12](12_driving_the_ym2151.md).
+
+<!-- TODO: "Voice" is also used throughout the chapters for a physical chip
+     channel and for one part of a multi-record sound. Split these senses or
+     reserve "instrument" for the 42-byte patch definition. -->
 
 **Walking-bit test.** A RAM test that writes a value with exactly one bit set,
 reads it back, then repeats with the bit rotated and with everything inverted. It
