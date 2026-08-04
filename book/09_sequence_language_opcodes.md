@@ -253,17 +253,17 @@ The language has 59 instructions. The 62 sounds in this ROM use 26 of them.
 |---|---:|---|---:|
 | Load instrument | 147 | Distortion shape | 18 |
 | Set volume | 109 | Load YM envelope block | 14 |
-| Set tempo | 106 | Set volume envelope | 13 |
-| YM pitch offset | 88 | Set frequency envelope | 13 |
-| Add tempo | 50 | Switch to POKEY mode | 13 |
-| Set transpose | 46 | Classify into register | 10 |
-| Start a volume ramp | 44 | Store register to workspace | 9 |
-| AND the register | 43 | Set control bits | 7 |
-| Indexed jump | 34 | Unconditional jump | 5 |
-| YM carrier level delta | 31 | Fade this channel out | 5 |
-| Open repeat block | 23 | Shift YM level left | 4 |
-| Close repeat block | 23 | Load one YM register | 2 |
-| Add to frequency | 19 | Subtract from YM volume | 14 |
+| Set tempo | 106 | Subtract from YM volume | 14 |
+| YM pitch offset | 88 | Set volume envelope | 13 |
+| Add tempo | 50 | Set frequency envelope | 13 |
+| Set transpose | 46 | Switch to POKEY mode | 13 |
+| Start a volume ramp | 44 | Classify into register | 10 |
+| AND the register | 43 | Store register to workspace | 9 |
+| Indexed jump | 34 | Set control bits | 7 |
+| YM carrier level delta | 31 | Unconditional jump | 5 |
+| Open repeat block | 23 | Fade this channel out | 5 |
+| Close repeat block | 23 | Shift YM level left | 4 |
+| Add to frequency | 19 | Load one YM register | 2 |
 
 The other 33 are dead in this ROM: the subroutine call, the vibrato instruction,
 all four comparison-and-branch instructions, every arithmetic instruction except

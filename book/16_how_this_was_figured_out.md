@@ -126,7 +126,7 @@ never heard Gauntlet II, that was a plausible output. To the repository's author
 who had, it was obviously wrong: the theme is half a minute long and there is a
 lot of it.
 
-The correction needed was two words: *that's too short*. What came back was a
+The correction needed was three words: *that's too short*. What came back was a
 re-examination of the type-7 record tables, and what it found was that the record
 chaining had been misread. The analysis had believed music used two channels. It
 uses eight. The "next" column had been under-followed, so six of the theme's
@@ -170,9 +170,11 @@ generated catalogs and a direct execution of the ROM, and both are marked in the
 source of the book rather than smoothed over. The rest is settled.
 
 <!-- TODO: Reconcile this paragraph with the preceding claim that Chapters
-     1–15 contain only Verified and Strong-inference material. Until the POKEY
-     duration and shape-selector disagreements are resolved, qualify that
-     confidence promise in this chapter and the book README. -->
+     1–15 contain only Verified and Strong-inference material. The two
+     disagreements are the POKEY duration rule (chapters 8, 9, 14, appendix D.7)
+     and the volume-shape selector (chapter 10, appendices C and D.8). Until
+     both are resolved, qualify the confidence promise here and in the book
+     README. -->
 
 Nine of the ROM's 26 envelopes have a terminator that a consumer has been proven
 to read. The other seventeen are bounded by the next object that something else

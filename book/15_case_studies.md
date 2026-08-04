@@ -396,23 +396,40 @@ One more comparison makes the priority numbers legible as a design document
 rather than a table. Sort the ROM's sounds by priority and you get a ranking of
 what Atari thought mattered:
 
-| Priority | Sounds |
-|---:|---|
-| 63 | The four coin slots |
-| 61 | The theme |
-| 51 | "Unable to Join In", "No Potions" |
-| 32 | The four death sounds |
-| 31 | The level-opening music |
-| 30 | The four heartbeats |
-| 8 | Most one-shot effects, and both chip tests |
-| 2 | Treasure-room music, food, keys, doors, monster hits |
+| Priority | Records | Sounds |
+|---:|---:|---|
+| 63 | 8 | The four coin slots |
+| 61 | 8 | The theme |
+| 51 | 2 | "Unable to Join In", "No Potions" |
+| 32 | 8 | The four death sounds |
+| 31 | 5 | The level-opening music |
+| 30 | 8 | The four heartbeats |
+| 20 | 2 | "Death Touches Player" |
+| 15 | 8 | The four "Joins In" sounds, lead voices |
+| 14 | 5 | Three of them, inner voices |
+| 13 | 4 | The Wizard's four remaining voices |
+| 10 | 8 | The thief and mugger warnings |
+| 9 | 2 | "End of Slow Motion", "Player Shoots Dragon" |
+| 8 | 37 | Most one-shot effects, and both chip tests |
+| 7 | 3 | Trailing voices of the transporter and thief warning, "Medium Tone Stun Tile" |
+| 6 | 1 | The trailing voice of "Trap / Walls Turn to Exits" |
+| 3 | 10 | The four player exits, "Message Appears on Screen" |
+| 2 | 63 | Treasure-room music, food, keys, doors, monster hits, five POKEY effects |
 
 Money first. The theme second, above every effect in the game. Then the two
 sounds that tell a player something they need to know and cannot see. Then dying,
-then the level fanfare, then the heartbeat that warns you are about to die. The
-treasure-room music sits at the bottom, at the same priority as picking up a key,
-which means every effect cuts straight through it: in the treasure room the
-effects are the point and the music is wallpaper.
+then the level fanfare, then the heartbeat that warns you are about to die. Then
+Death itself, and then the announcements — joining in, the thief, the mugger —
+which outrank ordinary effects but lose to anything about a player's own
+survival. The treasure-room music sits at the bottom, at the same priority as
+picking up a key, which means every effect cuts straight through it: in the
+treasure room the effects are the point and the music is wallpaper.
+
+The bottom of that list is also where the multi-voice sounds give themselves an
+internal ranking. The transporter is seven records at 8 and one at 7; the thief
+warning is seven at 10 and one at 7. A sound with a spare voice it can afford to
+lose says so in the table, and the arbitration in
+[Chapter 7](07_command_to_channel.md) does the rest.
 
 That is the whole design, in one collision. Thirty logical channels so that
 everything the game asks for is tracked. Twelve physical voices because that is

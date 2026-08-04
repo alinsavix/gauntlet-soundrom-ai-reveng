@@ -169,8 +169,15 @@ Touches Player", so `$21` is the instruction to stop it.
 | `$2F` | `$2E` | Player Touches Force Field |
 | `$39` | `$37` | Slow Motion |
 
-The three sounds with a stop command are exactly the three that run until told
-otherwise. Everything else in the ROM ends on its own.
+The three sounds with a stop command are the three that outlast the event they
+belong to. Two of them genuinely never end: "Player Touches Force Field" and
+"Slow Motion" both reach a backward jump and loop forever, as
+[Chapter 9](09_sequence_language_opcodes.md) shows. "Death Touches Player" is
+technically finite — a repeat count of ten around a sustained whole note, which
+runs 53 seconds and then stops — but no player is ever in contact with Death for
+anything like that long, so in practice it behaves the same way: it plays until
+the game says stop. Everything else in the ROM ends on its own, near enough to
+when the thing that caused it ends.
 
 Fading is the same idea with a gentler ending. Command `$3C` names command `$3B`,
 the theme song, and instead of marking its channels finished it marks them

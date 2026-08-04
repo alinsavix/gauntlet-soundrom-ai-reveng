@@ -207,16 +207,19 @@ curve, then applies that as a carrier delta:
 | `$0C` | −6 | +6 | 4.5 dB down |
 | `$0A` | −10 | +10 | 7.5 dB down |
 | `$08` | −14 | +14 | 10.5 dB down |
+| `$06` | −18 | +18 | 13.5 dB down |
 | `$04` | −23 | +23 | 17 dB down |
 | `$02` | −31 | +31 | 23 dB down |
 | `$01` | −36 | +36 | 27 dB down |
 | `$00` | −64 | +64 | 48 dB down |
 
-The top fourteen steps are evenly spaced two units apart, which is a gentle,
-musical fade of a decibel and a half per step. Then the bottom two fall off a
-cliff. Somebody built this curve so that a sequence counting its volume down
-would fade smoothly through the useful range and then vanish rather than trailing
-away at the threshold of hearing.
+The top ten steps, `$0F` down to `$06`, are evenly spaced two units apart, which
+is a gentle, musical fade of a decibel and a half per step. Below `$06` the
+spacing widens — three, two, three, five, five — and then the last step drops 28
+units at once. Somebody built this curve so that a sequence counting its volume
+down would fade smoothly through the useful range, steepen as it got quiet, and
+then vanish rather than trailing away at the threshold of hearing.
+[Appendix D](D_reference_tables.md) prints all sixteen entries.
 
 The reload matters as much as the curve. Because `SET_VOLUME` starts from the
 instrument's own levels every time, a sequence can raise and lower its volume
@@ -368,8 +371,9 @@ and loops forever so a technician can leave it running.
 - Making an FM channel quieter means attenuating its carriers only, and which
   operators are carriers comes from an eight-entry table indexed by the
   instrument's algorithm.
-- Volume steps run through a sixteen-entry curve that is evenly spaced at the top
-  and falls off a cliff at the bottom.
+- Volume steps run through a sixteen-entry curve whose top ten entries are evenly
+  spaced two units apart and whose bottom entries steepen, the last one dropping
+  28 units at once.
 - Each instrument carries its own correction descriptors so that a fade keeps the
   timbre rather than dulling it.
 - Pitch is a key code from a lookup table plus a six-bit fraction, and the result

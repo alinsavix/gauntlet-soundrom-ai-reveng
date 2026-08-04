@@ -172,10 +172,11 @@ solenoids. A solenoid needs current for long enough to physically move an
 armature and step a wheel, so flicking the output on and off for one interrupt
 would do nothing but click. Instead, a coin sets a small state machine going: the
 state starts at `$F0` and steps down by `$10` on every other interrupt, through
-`$E0`, `$D0`, and so on to zero. The counter solenoid is driven by the top bit of
-that state. The top bit stays set for the first eight steps and clear for the
-remaining seven, so each coin produces an energized pulse of about 67 ms followed
-by a guaranteed 58 ms of rest before the next pulse can start. The mechanism gets
+`$E0`, `$D0`, and so on down to `$00`, which is the idle state. The counter
+solenoid is driven by the top bit of that state. The top bit is set for the eight
+steps from `$F0` to `$80` and clear for the seven from `$70` to `$10`, so each
+coin produces an energized pulse of about 67 ms followed by a guaranteed 58 ms of
+rest before the state reaches idle and another pulse can start. The mechanism gets
 a push long enough to respond to, and two pushes can never run together into one.
 
 **The watchdog.** The main CPU has no direct way to see whether the sound board

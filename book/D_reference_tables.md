@@ -91,16 +91,35 @@ book to find it in `soundrom.bin`.
 
 | Range | Contents |
 |---|---|
-| `$4000`–`$5C5E` | All the 6502 code: boot, interrupts, handlers, sequence engine, output paths. The pitch, key-code, carrier-mask, and level-transform tables sit among it |
+| `$4000`–`$5C5E` | All the 6502 code: boot, interrupts, handlers, sequence engine, output paths. Several tables sit among it, listed below |
 | `$5C5F`–`$5D0E` | Durations, fade rates, and the POKEY shape table |
 | `$5D0F`–`$5F9F` | The three 219-byte command tables: validation, handler type, parameter |
 | `$5FA8`–`$63B1` | The six type-7 tables: start offsets, flags, priorities, channels, sequence pointers, next links |
 | `$63B2`–`$6558` | The three 141-byte speech metadata tables: index, clock flag, priority |
-| `$6559`–`$8380` | Sequences, envelopes, and the 55 YM2151 instrument records, interleaved |
+| `$6559`–`$655E` | Two three-byte handler-match records, all zeros, read by the dormant handler types ([Chapter 17](17_open_questions.md)) |
+| `$655F`–`$8380` | Sequences, envelopes, and the 55 YM2151 instrument records, interleaved, plus the 256-byte operator level-transform lookup at `$72DC`–`$73DB` |
 | `$8381`–`$8446` | The board and coin-counter routine, and the NMI direct-query handlers |
 | `$8449`–`$873C` | 189 speech stream pointers and 189 lengths |
 | `$873D`–`$FECC` | The speech corpus: 30,608 bytes, gapless |
+| `$FECD`–`$FFF9` | 301 bytes with no consumer: one stray `$FF`, 296 zero bytes of padding, and four bytes at `$FFF6` reading `8C FF 00 00` ([Chapter 17](17_open_questions.md)) |
 | `$FFFA`–`$FFFF` | The NMI, reset, and IRQ vectors |
+
+The tables embedded in the code region, in address order:
+
+| Range | What it is | Section |
+|---|---|---|
+| `$5790`–`$579F` | The sixteen-entry YM2151 volume curve | D.14 |
+| `$57A0`–`$57A7` | The eight YM2151 carrier masks, one per algorithm | D.13 |
+| `$5A35`–`$5AF8` | POKEY note dividers, entries 0 to 97 | D.10 |
+| `$5AF9`–`$5B5A` | YM2151 key codes by note number | D.11 |
+| `$5B5B`–`$5C5A` | 256-byte YM2151 operator total-level scaling transform | — |
+| `$5C5B`–`$5C5E` | The four-entry level bias table the division field selects | — |
+
+Note that the level-transform machinery of
+[Chapter 12](12_driving_the_ym2151.md) uses **two** 256-byte lookups, and they
+are nowhere near each other: `$5B5B`–`$5C5A` sits at the end of the code, and
+`$72DC`–`$73DB` sits in the middle of the sequence data. The second is the one
+[Chapter 16](16_how_this_was_figured_out.md) tells the story about.
 
 Each 16 KB third of the image sums to exactly `$FF` modulo 256, which is the
 self-test's ROM check.
@@ -216,49 +235,57 @@ dividing it. Several indices give the same divisor.
 
 ## D.10 The POKEY note-divider table
 
-128 sixteen-bit values at `$5A35`, of which entries 1 to 97 form a chromatic
-scale. The chip loads the value plus seven and counts it down at 1.79 MHz,
-flipping its output at each underflow, so the pitch is the clock divided by twice
-the loaded count. Bigger numbers give lower pitches, and the values halve every
-twelve entries. The whole table assumes the joined 16-bit mode.
-No sequence in this ROM reaches it.
-[Chapter 11](11_driving_the_pokey.md).
+A table of sixteen-bit values beginning at `$5A35`, indexed by note number. The
+consumer can reach 128 entries, but only entries 0 to 97 physically belong to it:
+entry 97 ends at `$5AF8`, and `$5AF9` is where the key-code table of D.11 begins.
+Entries 98 to 127 read bytes belonging to that table and to the total-level
+scaling table beyond it, so their values are an artifact of the overlap rather
+than dividers. Nothing in this ROM indexes that far — the highest note the
+sequences use is 95 — and the semantics of the tail are not established.
 
-<!-- TODO: Keep claims about chromatic tuning and joined-mode generation scoped
-     to entries 1–97. The semantics of entries 98–127 are not established. -->
+Entries 1 to 97 form a chromatic scale of eight octaves. The chip loads the value
+plus seven and counts it down at the POKEY clock of 1,789,772.625 Hz, flipping
+its output at each underflow, so the pitch is the clock divided by twice the
+loaded count. Bigger numbers give lower pitches, and the values halve every
+twelve entries. The whole table assumes the joined 16-bit mode. No sequence in
+this ROM reaches it. [Chapter 11](11_driving_the_pokey.md).
+
+The dividers were chosen against a nominal 1.790 MHz clock, so on real hardware
+every note sits a systematic 0.22 cents flat of the value its author intended.
+The frequencies below are what the board actually produces.
 
 One full octave, and then every C:
 
 | Note | Pitch | Divider | Resulting frequency | Error |
 |---:|---|---:|---:|---:|
-| 49 | C4 | 3,414 | 261.62 Hz | −0.04 cents |
-| 50 | C♯4 | 3,222 | 277.18 Hz | −0.04 cents |
-| 51 | D4 | 3,041 | 293.64 Hz | −0.17 cents |
-| 52 | D♯4 | 2,870 | 311.09 Hz | −0.22 cents |
-| 53 | E4 | 2,708 | 329.65 Hz | +0.12 cents |
-| 54 | F4 | 2,556 | 349.20 Hz | −0.14 cents |
-| 55 | F♯4 | 2,412 | 369.99 Hz | −0.03 cents |
-| 56 | G4 | 2,276 | 392.03 Hz | +0.14 cents |
-| 57 | G♯4 | 2,148 | 415.31 Hz | +0.04 cents |
-| 58 | A4 | 2,027 | 440.02 Hz | +0.08 cents |
-| 59 | A♯4 | 1,913 | 466.15 Hz | −0.07 cents |
-| 60 | B4 | 1,805 | 493.93 Hz | +0.16 cents |
+| 49 | C4 | 3,414 | 261.59 Hz | −0.26 cents |
+| 50 | C♯4 | 3,222 | 277.14 Hz | −0.26 cents |
+| 51 | D4 | 3,041 | 293.60 Hz | −0.39 cents |
+| 52 | D♯4 | 2,870 | 311.05 Hz | −0.44 cents |
+| 53 | E4 | 2,708 | 329.61 Hz | −0.10 cents |
+| 54 | F4 | 2,556 | 349.16 Hz | −0.36 cents |
+| 55 | F♯4 | 2,412 | 369.94 Hz | −0.25 cents |
+| 56 | G4 | 2,276 | 391.98 Hz | −0.08 cents |
+| 57 | G♯4 | 2,148 | 415.26 Hz | −0.18 cents |
+| 58 | A4 | 2,027 | 439.96 Hz | −0.14 cents |
+| 59 | A♯4 | 1,913 | 466.09 Hz | −0.29 cents |
+| 60 | B4 | 1,805 | 493.87 Hz | −0.06 cents |
 
 | Note | Pitch | Divider | Resulting frequency |
 |---:|---|---:|---:|
 | 1 | C0 | 54,728 | 16.35 Hz |
 | 13 | C1 | 27,360 | 32.70 Hz |
-| 25 | C2 | 13,677 | 65.41 Hz |
-| 37 | C3 | 6,835 | 130.81 Hz |
-| 49 | C4 | 3,414 | 261.62 Hz |
-| 61 | C5 | 1,703 | 523.39 Hz |
-| 73 | C6 | 848 | 1,046.78 Hz |
-| 85 | C7 | 421 | 2,091.12 Hz |
-| 97 | C8 | 207 | 4,182.24 Hz |
+| 25 | C2 | 13,677 | 65.40 Hz |
+| 37 | C3 | 6,835 | 130.79 Hz |
+| 49 | C4 | 3,414 | 261.59 Hz |
+| 61 | C5 | 1,703 | 523.33 Hz |
+| 73 | C6 | 848 | 1,046.65 Hz |
+| 85 | C7 | 421 | 2,090.86 Hz |
+| 97 | C8 | 207 | 4,181.71 Hz |
 
-Across notes 1 to 97 the rounding error runs from 3.9 cents flat to 2.2 cents
-sharp, and it is worst at the top where one step of the divider is worth several
-cents.
+Across notes 1 to 97 the error runs from 3.9 cents flat at note 96 to 2.2 cents
+sharp at note 93, and it is worst at the top where one step of the divider is
+worth several cents.
 
 ## D.11 The YM2151 key-code table
 
@@ -266,7 +293,9 @@ cents.
 in the high nibble and a semitone slot in the low nibble, with every fourth slot
 skipped because the chip's own frequency tables are organized in groups of three.
 The block boundary falls between B and C, so C4 is the last entry of octave 3.
-[Chapter 12](12_driving_the_ym2151.md).
+Entries 98 to 127 land past `$5B5A` and alias the first thirty bytes of the
+total-level scaling table; the sequences only ever use notes 13 to 95, so nothing
+reaches them. [Chapter 12](12_driving_the_ym2151.md).
 
 | Note | Pitch | Key code | Octave field | Semitone field |
 |---:|---|---:|---:|---:|
@@ -351,37 +380,59 @@ loudness. [Chapter 12](12_driving_the_ym2151.md).
 ## D.14 The YM2151 volume curve
 
 Sixteen signed bytes at `$5790`, indexed by the low nibble of a volume
-instruction's operand and applied as a carrier attenuation. The top fourteen
-steps are evenly spaced; the bottom two fall off a cliff.
+instruction's operand and applied as a carrier attenuation. Entries `$0F` down to
+`$06` step by exactly 2; below that the steps widen, and `$00` drops 28 units in
+one go. One step of total level is about 0.75 dB.
 [Chapter 12](12_driving_the_ym2151.md).
 
-| Operand | Curve value | Added to carrier level | Roughly |
-|---:|---:|---:|---|
-| `$0F` | 0 | 0 | Full |
-| `$0E` | −2 | +2 | 1.5 dB down |
-| `$0C` | −6 | +6 | 4.5 dB down |
-| `$0A` | −10 | +10 | 7.5 dB down |
-| `$08` | −14 | +14 | 10.5 dB down |
-| `$04` | −23 | +23 | 17 dB down |
-| `$02` | −31 | +31 | 23 dB down |
-| `$01` | −36 | +36 | 27 dB down |
-| `$00` | −64 | +64 | 48 dB down |
+| Operand | Byte | Curve value | Added to carrier level | Roughly |
+|---:|---|---:|---:|---|
+| `$0F` | `$00` | 0 | 0 | Full |
+| `$0E` | `$FE` | −2 | +2 | 1.5 dB down |
+| `$0D` | `$FC` | −4 | +4 | 3 dB down |
+| `$0C` | `$FA` | −6 | +6 | 4.5 dB down |
+| `$0B` | `$F8` | −8 | +8 | 6 dB down |
+| `$0A` | `$F6` | −10 | +10 | 7.5 dB down |
+| `$09` | `$F4` | −12 | +12 | 9 dB down |
+| `$08` | `$F2` | −14 | +14 | 10.5 dB down |
+| `$07` | `$F0` | −16 | +16 | 12 dB down |
+| `$06` | `$EE` | −18 | +18 | 13.5 dB down |
+| `$05` | `$EB` | −21 | +21 | 16 dB down |
+| `$04` | `$E9` | −23 | +23 | 17 dB down |
+| `$03` | `$E6` | −26 | +26 | 19.5 dB down |
+| `$02` | `$E1` | −31 | +31 | 23 dB down |
+| `$01` | `$DC` | −36 | +36 | 27 dB down |
+| `$00` | `$C0` | −64 | +64 | 48 dB down |
 
 ## D.15 Type-7 priorities
 
-Every record carries one. The highest value wins the physical voice.
+Every record carries one, and the highest value wins the physical voice. The
+value belongs to the record rather than to the command, so a multi-record sound
+can occupy more than one row. All 182 records, by priority:
 [Chapter 7](07_command_to_channel.md).
 
-| Priority | Sounds |
-|---:|---|
-| 63 | The four coin-slot sounds |
-| 61 | The Gauntlet II theme |
-| 51 | "Unable to Join In", "No Potions" |
-| 32 | The four player-death sounds |
-| 31 | Level-opening music |
-| 30 | The four player heartbeats |
-| 8 | Most one-shot effects, and both chip tests |
-| 2 | Treasure-room music, food, keys, doors, monster hits |
+| Priority | Records | Commands | Sounds |
+|---:|---:|---:|---|
+| 63 | 8 | 4 | `$22`–`$25`, the four coin slots |
+| 61 | 8 | 1 | `$3B`, the Gauntlet II theme |
+| 51 | 2 | 2 | `$43` "Unable to Join In", `$44` "No Potions" |
+| 32 | 8 | 4 | `$14`–`$17`, the four player deaths |
+| 31 | 5 | 1 | `$42`, level-opening music |
+| 30 | 8 | 4 | `$18`–`$1B`, the four player heartbeats |
+| 20 | 2 | 1 | `$20` "Death Touches Player" |
+| 15 | 8 | 4 | `$09`–`$0C`, two voices each of the four "Joins In" sounds |
+| 14 | 5 | 3 | `$09` (1 voice), `$0A` (2), `$0B` (2) |
+| 13 | 4 | 1 | `$0B` "Wizard Joins In", its remaining four voices |
+| 10 | 8 | 2 | `$29` "Thief Warning" (7 voices), `$2D` "Mugger Warning" (1) |
+| 9 | 2 | 2 | `$38` "End of Slow Motion", `$3A` "Player Shoots Dragon" |
+| 8 | 37 | 15 | Most one-shot effects, plus both chip tests `$04` and `$05` |
+| 7 | 3 | 3 | `$28` and `$29`, one trailing voice each; `$33` "Medium Tone Stun Tile" |
+| 6 | 1 | 1 | `$27` "Trap / Walls Turn to Exits", one trailing voice |
+| 3 | 10 | 5 | `$0E`–`$11`, the four player exits; `$1C` "Message Appears on Screen" |
+| 2 | 63 | 16 | Treasure-room music, food, keys, doors, monster hits, and `$45`–`$49` |
+
+Six commands span more than one priority: `$09`, `$0A`, `$0B`, `$27`, `$28`, and
+`$29`. Every other sound gives all of its records the same value.
 
 Speech priorities are separate: 134 phrases at 0, one at 4, and the Dungeon
 Master's six time-pressure lines at 64.

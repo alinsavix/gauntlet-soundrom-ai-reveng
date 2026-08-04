@@ -58,6 +58,11 @@ volume envelope plus shape, divided by eight and clamped to 0 through 15, OR'd
 with the distortion setting, gives the control byte. Base frequency plus
 frequency envelope gives the divider.
 
+<!-- TODO: "Distortion nibble" here contradicts the candidate table three lines
+     above, which says the top three bits of AUDC. Same wording appears in
+     chapter 10 and appendix C. Settle on "three-bit distortion field"
+     throughout unless four bits are genuinely intended. -->
+
 The distortion nibble is worth a table of its own, because it is the POKEY's
 whole palette of timbre and Gauntlet II uses seven of the eight settings:
 
@@ -172,49 +177,60 @@ to the OR mask; its counterpart clears bits from the AND mask.
 
 In practice this ROM barely stretches it. Every one of the seven POKEY effects
 executes exactly one such instruction, with the same operand, requesting the
-same single bit: use the fast 1.79 MHz clock for channel 3. The effects chip test
-executes none at all and leaves the masks at their reset values, so nothing it
-plays contributes a bit of its own. Nothing in Gauntlet II ever vetoes anything.
+same single bit: `$20`, use the fast 1.79 MHz clock for channel 3. The effects
+chip test executes none at all and leaves the masks at their reset values, so
+nothing it plays contributes a bit of its own. Nothing in Gauntlet II ever vetoes
+anything.
 
-The joined-mode bits do not come from the masks. The pair comparison ORs them in
-afterwards, which is why a sound gets 16-bit precision by asking for two adjacent
-channels rather than by asking for a bit.
+That single operand is worth a second look, because six of the seven effects do
+not play on channel 3. "No Potions" runs on chip channel 2 and still asks for
+channel 3's clock. Whoever wrote the sounds appears to have copied one setup
+block into all seven and never varied the operand, which does no harm and does
+nothing.
+
+The bits that actually matter are not requested by anyone. The pair comparison
+in the next section ORs in the joined-mode bit *and* the matching fast-clock bit
+after the masks have been combined: `$28` for the upper pair, `$50` for the
+lower one. So a sound gets both 16-bit precision and the 1.79 MHz clock by
+asking for two adjacent channels, not by asking for a bit.
 
 ## Pitch: the divider table
 
 Somewhere the engine has to turn a note number into a divider, and the ROM has a
-table for it: 128 sixteen-bit values, indexed by note.
+table for it: sixteen-bit values indexed by note, starting at `$5A35`.
 
 | Note | As a pitch | Divider | Resulting frequency |
 |---:|---|---:|---:|
 | 1 | C0 | 54,728 | 16.35 Hz |
 | 13 | C1 | 27,360 | 32.70 Hz |
-| 25 | C2 | 13,677 | 65.41 Hz |
-| 37 | C3 | 6,835 | 130.81 Hz |
-| 49 | C4, middle C | 3,414 | 261.62 Hz |
-| 61 | C5 | 1,703 | 523.39 Hz |
-| 73 | C6 | 848 | 1,046.78 Hz |
-| 85 | C7 | 421 | 2,091.12 Hz |
-| 97 | C8 | 207 | 4,182.24 Hz |
+| 25 | C2 | 13,677 | 65.40 Hz |
+| 37 | C3 | 6,835 | 130.79 Hz |
+| 49 | C4, middle C | 3,414 | 261.59 Hz |
+| 61 | C5 | 1,703 | 523.33 Hz |
+| 73 | C6 | 848 | 1,046.65 Hz |
+| 85 | C7 | 421 | 2,090.86 Hz |
+| 97 | C8 | 207 | 4,181.71 Hz |
 
-Read it as a countdown. The chip loads the stored number plus a small fixed
-offset, counts it down at 1.79 MHz, and flips its output every time it reaches
-zero. Two flips make one cycle, so the pitch is the clock divided by twice the
-count. Bigger number, lower pitch. The
-relationship is inverse, which is why the values halve every twelve rows: an
-octave up is half the wait.
+Read it as a countdown. The chip loads the stored number plus seven, counts it
+down at 1.79 MHz, and flips its output every time it reaches zero. Two flips make
+one cycle, so the pitch is the clock divided by twice the count. Bigger number,
+lower pitch. The relationship is inverse, which is why the values halve every
+twelve rows: an octave up is half the wait.
 
-The table is a full chromatic scale from note 1 to note 97, eight octaves, and it
-assumes the joined 16-bit mode from the previous section. Dividers of 54,728 do
-not fit in eight bits.
+Entries 1 to 97 are a full chromatic scale, eight octaves, and they assume the
+joined 16-bit mode from the previous section. Dividers of 54,728 do not fit in
+eight bits. The table's consumer can index as far as note 127, but the entries
+past 97 are not dividers at all: entry 97 ends at `$5AF8` and `$5AF9` is the
+start of the YM2151's key-code table, so anything beyond that is one table read
+through the other. Nothing in this ROM indexes that far.
 
-It is also a nice illustration of where integer arithmetic starts to hurt. Down
-at C0 the divider is five figures long and the rounding error is a hundredth of a
-cent. Up at C7 the divider is 421, one step is worth about four cents, and the
-best available value lands a cent and a half flat. By the top of the table the
-worst note in the octave is nearly four cents off. This is the detuning the
-POKEY is famous for, and it is not a flaw in the chip so much as a consequence of
-choosing a pitch by picking a whole number.
+The scale is also a nice illustration of where integer arithmetic starts to hurt.
+Down at C0 the divider is five figures long and the rounding error is a
+hundredth of a cent. Up at C7 the divider is 421, one step is worth about four
+cents, and the best available value lands two cents flat. By the top of the table
+the worst note is nearly four cents off. This is the detuning the POKEY is famous
+for, and it is not a flaw in the chip so much as a consequence of choosing a
+pitch by picking a whole number.
 
 There is a catch, and Chapters 8 and 10 have already given it away. No sequence
 in Gauntlet II plays a note on a POKEY channel. All eleven POKEY records use
@@ -298,8 +314,9 @@ to full volume in two sweeps and stops dead.
 >
 > The first prints the eight instructions above. The second reports `41 IRQ
 > services` and `201 register writes`, which is the arithmetic of this chapter
-> made visible: 41 interrupts, half of them POKEY ticks at nine writes each, plus
-> the eleven the audio reset performs before anything starts playing. The
+> made visible: 41 interrupts give 21 POKEY ticks at nine writes each, plus the
+> twelve the audio reset of [Chapter 5](05_waking_up.md) performs before anything
+> starts playing. 21 × 9 + 12 = 201, exactly. The
 > resulting `sfx_0x44.wav` is 1.171 seconds long, of which the sound occupies the
 > first fifth and the rest is the tail the renderer adds. Measure the peak in each
 > 8.3 ms window with the snippet from
@@ -307,7 +324,8 @@ to full volume in two sweeps and stops dead.
 > exactly twenty windows wide.
 >
 > Then do the same with `--sfx-wav 0x46`, the fireball. That one reports 741
-> register writes over 161 services, and its peaks climb through eight distinct
+> register writes over 161 services, and 81 × 9 + 12 comes to 741 again. Its
+> peaks climb through eight distinct
 > levels and back down, one per volume-envelope step, while the frequency envelope
 > drags the divider under it.
 
@@ -322,12 +340,10 @@ to full volume in two sweeps and stops dead.
   channel of a pair wins or ties, the pair is joined into one 16-bit counter.
 - AUDCTL is built by OR-ing every channel's requested bits together and then
   filtering the result through every channel's permitted bits.
-- A 128-entry table converts note numbers to 16-bit dividers, chromatically from
-  C0 to C8, with an inverse relationship that leaves the top octave a few cents
-  flat. No sound in this ROM reaches it.
-  <!-- TODO: Clarify that only entries 1–97 are the verified chromatic prefix.
-       The remaining entries overlap another table and are not established as
-       additional chromatic divider values. -->
+- A table at `$5A35` converts note numbers to 16-bit dividers, chromatically from
+  C0 to C8 across entries 1 to 97, with an inverse relationship that leaves the
+  top of the range a few cents out. Entries past 97 overlap the key-code table
+  and are not dividers. No sound in this ROM reaches any of it.
 - Nine stores end the sweep: four dividers, four control bytes, and AUDCTL. The
   chip accepts all of them immediately.
 - Eight commands use this whole path, and seven of them are one record with six

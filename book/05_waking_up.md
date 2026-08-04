@@ -227,9 +227,11 @@ anything, which matters because they happen while a sound is playing.
 It clears the thirty logical channel records and the twelve physical channel
 lists, so no sound is playing and no chip voice is claimed.
 
-It resets the POKEY: two writes to the chip's control register put it into a
-known mode, then the master control register and all eight audio registers are
-zeroed. Four silent channels.
+It resets the POKEY with twelve register writes: the mode register AUDCTL is
+zeroed, two writes to the chip's serial control register put it into a known
+state, AUDCTL is zeroed a second time, and then all eight audio registers are
+cleared. Four silent channels. The count matters later — [Chapter 11](11_driving_the_pokey.md)
+uses it to account for every register write a rendered POKEY sound performs.
 
 It resets the YM2151: wait for the chip to report itself ready, then walk
 channels 7 down to 0 releasing every note on each. Eight silent voices, and the

@@ -297,7 +297,7 @@ this book. [Chapter 12](12_driving_the_ym2151.md).
 
 **Walking-bit test.** A RAM test that writes a value with exactly one bit set,
 reads it back, then repeats with the bit rotated and with everything inverted. It
-catches stuck bits and shorted address lines that a simple write-and-read-back
+catches stuck bits and shorted data lines that a simple write-and-read-back
 misses. [Chapter 5](05_waking_up.md).
 
 **Watchdog.** A mechanism for noticing that something has stopped running. This

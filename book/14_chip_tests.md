@@ -208,7 +208,7 @@ you leave running while you work.
 
 This is the chapter's best chance to see a
 [Chapter 10](10_shaping_the_sound.md) idea in its natural habitat. Channel 2's
-frequency envelope is fifteen bytes at `$68F3`:
+frequency envelope is nine bytes at `$68F3`:
 
 | Bytes | Record | Meaning |
 |---|---|---|

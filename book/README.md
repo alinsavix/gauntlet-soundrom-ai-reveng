@@ -103,17 +103,21 @@ you can dip into at any point.
 | **[E. Using `gauntlet_disasm.py`](E_using_the_tool.md)** | Building the ROM image, every flag with real output, and regenerating the catalogs |
 | **[F. Where to Look Next](F_where_to_look_next.md)** | Chapter by chapter, where the rigorous version of each claim lives |
 
+The seventeen chapters and six appendices above are the whole book. One other
+file sits in this directory: [`OUTLINE.md`](OUTLINE.md) is the working outline
+and author's brief the book was written from. It is a specification rather than
+prose, it is kept for the record, and it is not part of the book.
+
 ## Before the first exercise
 
-Every chapter ends with a **Try it yourself** box, and every one of them needs a
-copy of the sound ROM. **The ROM is not in this repository**, because the code is
-still Atari's. You supply it by concatenating two EPROM images; the part numbers,
-the expected SHA-1, and the one command that checks it are in
+Most chapters end with a **Try it yourself** box, and every one of those boxes
+needs a copy of the sound ROM. (Chapters 16 and 17 are the exceptions; they are
+about how the work was done and what is still unknown, and there is nothing to
+run.) **The ROM is not in this repository**, because the code is still Atari's.
+You supply it by concatenating two EPROM images; the part numbers, the expected
+SHA-1, and the one command that checks it are in
 [Chapter 1](01_two_computers.md) and again in
 [Appendix E](E_using_the_tool.md).
-
-<!-- TODO: Chapters 16 and 17 currently have no "Try it yourself" box. Add one
-     to each chapter or qualify the statement above. -->
 
 Once `soundrom.bin` is in the repository root, the tool needs nothing installed:
 
@@ -135,9 +139,13 @@ is established, and these chapters were filtered to admit only the two strongest
 levels. Anything weaker was left out or handed to
 [Chapter 17](17_open_questions.md), where the uncertainty is the subject.
 
-<!-- TODO: Qualify this confidence statement. Chapters 8 and 10 currently state
-     conclusions that Chapters 16 and 17 identify as unresolved disagreements
-     between generated catalogs and direct ROM execution. -->
+<!-- TODO: Qualify this confidence statement. Two disagreements between the
+     generated catalogs and direct ROM execution are still open, and are marked
+     [needs verification] where they appear:
+       - the POKEY duration rule: chapters 8, 9, 14 and appendix D.7
+       - the volume-shape selector: chapter 10 and appendices C and D.8
+     Chapter 17 states both. Either resolve them or say here that the
+     verified/strong-inference filter has two documented exceptions. -->
 
 So if a sentence here makes you suspicious, there is somewhere specific to go.
 The **Going deeper** list at the end of each chapter names the `docs/` chapter and

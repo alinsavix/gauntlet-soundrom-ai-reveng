@@ -86,10 +86,11 @@ In table form, with the detail that matters later:
 The proportions in that last row are the surprising part. The ROM holds the
 program, the description of every sound effect, every note of every tune, and
 all 55 of the YM2151's instrument definitions. All of that together occupies
-about 18 KB. The remaining 30,608 bytes, nearly two thirds of the entire ROM,
-are recorded speech. Gauntlet II spends more of its sound ROM on talking than on
-everything else put together. [Chapter 13](13_speaking.md) explains what those
-bytes hold.
+18,544 bytes, or about 18 KB: 18,237 of them before the speech and 307 of
+padding and interrupt vectors after it. The remaining 30,608 bytes, nearly two
+thirds of the entire ROM, are recorded speech. Gauntlet II spends more of its
+sound ROM on talking than on everything else put together.
+[Chapter 13](13_speaking.md) explains what those bytes hold.
 
 ## The wall of mailboxes at `$1000`
 

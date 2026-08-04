@@ -1,7 +1,6 @@
 # Chapter 3 — Meet the Three Sound Chips
 
-*Before this chapter: [Chapters 1](01_two_computers.md) and
-[2](02_tour_of_the_board.md).*
+*Before this chapter: [Chapters 1](01_two_computers.md) and [2](02_tour_of_the_board.md).*
 
 Stand in front of a Gauntlet II cabinet with your eyes shut and you can sort the
 noises into families without knowing anything about the hardware. The arrow has
@@ -23,8 +22,11 @@ the counter. That is the whole tone generator.
 
 The clock feeding those counters is selectable. POKEY divides its 1,789,772 Hz
 input down to a 64 kHz or 15 kHz base rate, and two of the four channels can be
-switched to run straight off the full 1.79 MHz instead. Gauntlet II's sequences
-ask for the fast clock, which buys them finer pitch steps.
+switched to run straight off the full 1.79 MHz instead. Each of Gauntlet II's
+seven POKEY effects asks for the fast clock, which buys finer pitch steps; the
+effects chip test asks for nothing and runs off the 64 kHz default.
+[Chapter 11](11_driving_the_pokey.md) has the details, including the reason the
+request is not quite as useful as it looks.
 
 The counting arrangement explains the chip's whole personality. A *smaller*
 number in the counter means the output flips more often, which means a *higher*

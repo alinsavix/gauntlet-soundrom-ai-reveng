@@ -151,12 +151,12 @@ nonzero depth has not been determined, because determining it means guessing at
 inputs that nothing supplies.
 
 The POKEY note path is the same story from
-[Chapter 11](11_driving_the_pokey.md). A 128-entry chromatic divider table sits in
-ROM, correct and complete, and no POKEY sequence in the game plays a note.
-
-**[needs verification]** Only entries 1–97 are established as a chromatic
-divider prefix. The remaining entries overlap the YM key-code/level-table region,
-so “128-entry chromatic” and “complete” overstate what is known.
+[Chapter 11](11_driving_the_pokey.md). A chromatic divider table covering
+ninety-seven notes sits in ROM, correct and complete over that range, and no
+POKEY sequence in the game plays a note. Its consumer can index further, but
+entry 97 is the last one that belongs to the table; past `$5AF8` it is reading
+the YM2151 key-code table and the total-level scaling table beyond it. What those
+entries would mean is not a question worth asking, because nothing reaches them.
 
 The frequency-envelope machinery has a YM2151 branch as well as a POKEY one. All
 thirteen frequency envelopes in the ROM are attached to POKEY channels, so the YM

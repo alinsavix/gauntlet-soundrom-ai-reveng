@@ -156,23 +156,41 @@ channel on every list updated, on a 1.79 MHz processor.
 
 ## Priority, preemption, and running out
 
-Every record carries a priority, and the ROM's values run from 2 to 63.
+Every record carries a priority, and the ROM uses seventeen distinct values
+between 2 and 63.
 
-| Priority | Sounds |
-|---:|---|
-| 63 | The four coin-slot sounds |
-| 61 | The Gauntlet II theme |
-| 51 | "Unable to Join In", "No Potions" |
-| 32 | The four player-death sounds |
-| 31 | Level-opening music |
-| 30 | The four player heartbeats |
-| 8 | Most one-shot effects, and both chip tests |
-| 2 | Treasure-room music, food, keys, doors, monster hits |
+The priority belongs to the *record*, not to the command, so a chain several
+records long can spread itself across several levels. Six of the 62 sounds do.
+"Wizard Joins In" is the clearest: two of its eight voices sit at 15, two at 14,
+and the remaining four at 13, so when something has to give, the arrangement
+thins from the inside out instead of disappearing all at once.
+
+| Priority | Records | Sounds |
+|---:|---:|---|
+| 63 | 8 | The four coin slots |
+| 61 | 8 | The Gauntlet II theme |
+| 51 | 2 | "Unable to Join In", "No Potions" |
+| 32 | 8 | The four player deaths |
+| 31 | 5 | Level-opening music |
+| 30 | 8 | The four player heartbeats |
+| 20 | 2 | "Death Touches Player" |
+| 15 | 8 | The lead voices of the four "Joins In" sounds |
+| 14 | 5 | Inner voices of the Warrior, Valkyrie, and Wizard joining |
+| 13 | 4 | The Wizard's four remaining voices |
+| 10 | 8 | "Thief Warning" and "Mugger Warning" |
+| 9 | 2 | "End of Slow Motion", "Player Shoots Dragon" |
+| 8 | 37 | Most one-shot effects, and both chip tests |
+| 7 | 3 | The last voice of the transporter and of the thief warning, plus "Medium Tone Stun Tile" |
+| 6 | 1 | The last voice of "Trap / Walls Turn to Exits" |
+| 3 | 10 | The four player exits, "Message Appears on Screen" |
+| 2 | 63 | Treasure-room music, food, keys, doors, monster hits, and five of the seven POKEY effects |
 
 The coin sounds outrank everything, which is the correct commercial decision for
 a coin-operated machine. The theme outranks the effects that play over it. The
 treasure-room music sits at the same priority as ordinary effects, so effects cut
-straight through it rather than waiting.
+straight through it rather than waiting. Two levels carry most of the ROM: 100 of
+the 182 records are at 8 or 2, and everything in between is a small number of
+sounds that Atari wanted to survive a collision with an ordinary effect.
 
 Allocation runs once per record in the chain, and goes like this:
 
