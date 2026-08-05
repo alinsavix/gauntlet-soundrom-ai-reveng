@@ -12,7 +12,7 @@ section puts all three on the board at once.
 
 ## "Food Eaten", command `$0D`
 
-### One byte to two voices
+### One byte to two parts
 
 The main CPU writes `$0D`. NMI, ring buffer, main loop, two lookups: handler type
 7, parameter `$06`. The parameter's starting record is number 29, and following
@@ -55,7 +55,7 @@ wants.
 
 The two channels play interlocking figures a semitone or so apart, low in the
 register, with the second channel offset in pitch by a small key-fraction nudge.
-Two voices playing nearly the same thing slightly out of tune with each other is
+Two parts playing nearly the same thing slightly out of tune with each other is
 how you make one short sound feel thick without spending anything.
 
 ### Time
@@ -67,7 +67,7 @@ Add up channel 1: a thirty-second rest, a sixteenth, a thirty-second rest, a
 dotted sixteenth, a thirty-second rest, a thirty-second. Fifty-seven sweeps in
 total, which is 0.47 seconds. Channel 2 comes out at the same length by a
 different route, which is not a coincidence, because a chain that ends raggedly
-leaves one voice hanging.
+leaves one part hanging.
 
 Inside those 57 sweeps the articulation machinery from
 [Chapter 8](08_sequence_language_time.md) is working. None of channel 1's three
@@ -88,7 +88,7 @@ start of a half-second effect.
 Each channel reaches its `xx 00` marker. There is no return context, so the
 channel shuts down properly: status cleared, volume cleared, a key-off requested
 so the chip actually goes quiet, both context chains returned to the free list,
-and the channel unlinked from its physical voice's list. Two logical slots go
+and the channel unlinked from its voice's list. Two logical slots go
 back to the pool.
 
 Rendering this sound reports 463 register writes across 116 interrupt services.
@@ -161,13 +161,17 @@ second and a half to say.
 
 The queue absorbs this. Eight entries, all at priority 0, appended in arrival
 order, spoken one after another. A ninth arriving while eight are waiting is
-rejected, which is the only place in this pipeline where anything is ever thrown
-away. The board says one thing at a time, in order, and a full queue puts it
-around ten seconds behind the game.
+simply dropped. The board says one thing at a time, in order, and a full queue
+puts it around ten seconds behind the game.
 
-<!-- TODO: Rewrite "the only place." Chapter 13 says lower-priority arrivals
-     are rejected and higher-priority arrivals discard the waiting backlog;
-     Chapter 6 also describes threshold-based speech rejection. -->
+A full queue is the commonest way a phrase gets discarded, but it is not the
+only one. [Chapter 13](13_speaking.md) gave two more: a phrase that outranks
+what is speaking throws away the entire waiting backlog, and a phrase that
+ranks below it is rejected on arrival. [Chapter 6](06_taking_orders.md) added a
+fourth, the global threshold that commands `$01` and `$02` set, which drops a
+phrase before it reaches the queue at all. Speech is in fact the part of this
+board most willing to throw work away — which makes sense, because a sentence
+you have missed the moment for is worse than silence.
 
 A narrator that comments on something that stopped being true a moment ago is an
 eight-entry queue doing exactly what it was told. The alternative, cutting each
@@ -215,7 +219,7 @@ Every one of the eight sets tempo `$90`, which the instruction shifts down to 36
 and every one of them later sets `$B0`, which is 44. The whole piece changes gear
 at the same moment on all eight voices, because all eight were told to.
 
-Here is what each voice is for:
+Here is what each part is for:
 
 | Channel | Notes | Range | Role |
 |---:|---:|---|---|
@@ -272,7 +276,7 @@ against it.
 
 The chord underneath is B, D, and F#, a B minor triad, with the bass doubling the
 root two octaves down and the melody circling B4 above it. Four of the eight
-voices hold that chord and three more are resting, waiting for the section that
+parts hold that chord and three more are resting, waiting for the section that
 starts at 2.9 seconds. Spending half the chip on three sustained notes is a
 choice, and it is why the opening sounds as thick as it does.
 
@@ -290,7 +294,7 @@ CHAIN
 
 Four bytes produce a run of sustained whole notes on E2, one every 1.46 seconds
 at tempo 44, carrying the bass to the end of the piece. Channel 1's version wraps
-a whole rest in a count of nine, which is how the melody voice sits out the
+a whole rest in a count of nine, which is how the melody part sits out the
 middle of the piece without nine copies of a rest in ROM.
 
 The block borrows a four-byte record from the free list of
@@ -311,8 +315,8 @@ There is also a way to cut it short. Command `$3C` is handler type 9, "fade a
 named sound", and its parameter is `$3B`. It walks the channel arrays looking for
 anything playing the theme and hands each one a signed amount of −48 volume steps
 and a rate that divides by 32, which is the fixed-point machinery from
-[Chapter 10](10_shaping_the_sound.md). Every voice of the theme fades together
-and stops. One byte, one handler, eight voices.
+[Chapter 10](10_shaping_the_sound.md). Every part of the theme fades together
+and stops. One byte, one handler, eight parts.
 
 ### A word on the MIDI export
 
@@ -380,7 +384,7 @@ stopping.
 
 Then the coin sound reaches its end marker, unlinks, and the theme's records are
 back at the front. And this is the payoff for
-[Chapter 7](07_command_to_channel.md)'s least obvious decision: those two voices
+[Chapter 7](07_command_to_channel.md)'s least obvious decision: those two parts
 did not freeze while they were losing. They kept decoding, kept counting, kept
 stepping. When they come back they are exactly where the other six are, on the
 right note, in the right bar. The listener hears a six-part texture become
@@ -405,14 +409,14 @@ what Atari thought mattered:
 | 31 | 5 | The level-opening music |
 | 30 | 8 | The four heartbeats |
 | 20 | 2 | "Death Touches Player" |
-| 15 | 8 | The four "Joins In" sounds, lead voices |
-| 14 | 5 | Three of them, inner voices |
-| 13 | 4 | The Wizard's four remaining voices |
+| 15 | 8 | The four "Joins In" sounds, lead parts |
+| 14 | 5 | Three of them, inner parts |
+| 13 | 4 | The Wizard's four remaining parts |
 | 10 | 8 | The thief and mugger warnings |
 | 9 | 2 | "End of Slow Motion", "Player Shoots Dragon" |
 | 8 | 37 | Most one-shot effects, and both chip tests |
-| 7 | 3 | Trailing voices of the transporter and thief warning, "Medium Tone Stun Tile" |
-| 6 | 1 | The trailing voice of "Trap / Walls Turn to Exits" |
+| 7 | 3 | Trailing parts of the transporter and thief warning, "Medium Tone Stun Tile" |
+| 6 | 1 | The trailing part of "Trap / Walls Turn to Exits" |
 | 3 | 10 | The four player exits, "Message Appears on Screen" |
 | 2 | 63 | Treasure-room music, food, keys, doors, monster hits, five POKEY effects |
 
@@ -425,14 +429,14 @@ survival. The treasure-room music sits at the bottom, at the same priority as
 picking up a key, which means every effect cuts straight through it: in the
 treasure room the effects are the point and the music is wallpaper.
 
-The bottom of that list is also where the multi-voice sounds give themselves an
+The bottom of that list is also where the multi-part sounds give themselves an
 internal ranking. The transporter is seven records at 8 and one at 7; the thief
-warning is seven at 10 and one at 7. A sound with a spare voice it can afford to
+warning is seven at 10 and one at 7. A sound with a spare part it can afford to
 lose says so in the table, and the arbitration in
 [Chapter 7](07_command_to_channel.md) does the rest.
 
 That is the whole design, in one collision. Thirty logical channels so that
-everything the game asks for is tracked. Twelve physical voices because that is
+everything the game asks for is tracked. Twelve voices because that is
 what the hardware has. A priority list per voice so the important thing is heard.
 And every member of every list updated on every sweep, at 120 sweeps a second on
 a 1.79 MHz processor, so that losing a voice costs you nothing but silence.

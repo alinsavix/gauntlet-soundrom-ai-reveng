@@ -208,8 +208,26 @@ independent functions. Row-level effects are in
 `generated/channel_engine_catalog.csv`. The consumer directly verifies 16-bit
 duration entries, three-byte frequency-envelope records, two-byte volume-
 envelope records, and `$FF` loop controls. `$5C8F-$5D0E` is now proven as an
-8×16 signed POKEY volume-shape table; selector rows derive from duration/control
-bits 3..5 and phase saturates at 15.
+8×16 signed POKEY volume-shape table; the row/phase index at `$03AE` is consumed
+only at `$4B0D-$4B11` (`LDY $03AE,X` / `ADC $5C8F,Y`) and phase saturates at 15.
+
+The selector is written on both arms of the `$4844` duration branch, and only
+one of those writes can ever be read (**Verified**):
+
+- Duration-table arm, `$48DF-$48E4`: `LDA $11 / AND #$38 / ASL A / STA $03AE,X`
+  derives the row from control bits 3..5. This arm is taken by YM2151-mode
+  channels, whose volume path never reads `$03AE`, so the derived row is dead.
+- POKEY arm, `$48EF`: `STA $03AE,X` with A already zero, because A was loaded
+  from `$0813` at `$484C` and the branch was not taken. Every POKEY-mode note or
+  rest therefore selects row 0.
+
+Since `SWITCH_POKEY` precedes the first event in all eleven POKEY records, no
+configured sound reaches a nonzero row, and the neutral row 0 means the table
+contributes nothing to any audible output. An earlier revision of
+`support_staging_audit.py` applied the bits 3..5 derivation to POKEY events and
+reported rows 0, 1, 4, 5, and 7 as reachable; that reading is **Contradicted**.
+`generated/volume_shape_catalog.csv` retains the discarded derivation in its
+`dead_ym_arm_selections` column.
 
 The engine is reached from IRQ-time physical-device consumers and therefore
 runs with the 6502 IRQ mask already set. Main-loop type-7 allocation keeps a

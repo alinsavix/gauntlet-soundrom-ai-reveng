@@ -16,12 +16,18 @@ ranges is not wired to a chip at all.
 | `$0000`–`$00FF` | 256 B | Zero page: frame counter, error flags, pointers, speech state, coin filters |
 | `$0100`–`$01FF` | 256 B | The 6502 stack |
 | `$0200`–`$020F` | 16 B | Incoming command ring buffer |
+| `$0210`–`$0211` | 2 B | The ring's read and write positions |
+| `$0212`–`$0213` | 2 B | Boot indirect-write index and mode; `$0213` is `$FF` in normal operation ([Chapter 17](17_open_questions.md)) |
 | `$0214`–`$0223` | 16 B | Outgoing reply buffer |
-| `$0228`–`$080F` | 1.5 KB | The thirty parallel logical-channel arrays, plus twelve physical list heads |
-| `$0811`–`$082F` | 31 B | Physical-output scratch: candidates, masks, the YM level transform chain, and the key event bits |
+| `$0224`–`$0227` | 4 B | Reply-buffer state and positions |
+| `$0228`–`$080F` | 1,512 B | The thirty parallel logical-channel arrays, ending with twelve physical list heads at `$0804`–`$080F` |
+| `$0810`–`$082F` | 32 B | Physical-output scratch: candidates, masks, the YM level-transform chain, and the key event bits |
+| `$0830`–`$0831` | 2 B | No documented consumer |
 | `$0832`–`$083B` | 10 B | Speech queue and its positions |
 | `$083C`–`$089F` | 100 B | YM2151 operator workspace |
-| `$093D`+ | 788 B | The pool of 197 four-byte context records |
+| `$08A0`–`$093C` | 157 B | No documented consumer |
+| `$093D`–`$0C58` | 796 B | The context-record pool: 199 four-byte records, of which the free list reaches 134 (see below) |
+| `$0C59`–`$0FFF` | 935 B | Unused |
 | `$1000`–`$1035` | 54 B | Main-CPU mailboxes, mixer, board status, coin counters |
 | `$1800`–`$180F` | 16 B | POKEY |
 | `$1810`–`$1811` | 2 B | YM2151 |
@@ -30,7 +36,16 @@ ranges is not wired to a chip at all.
 | `$2000`–`$3FFF` | 8 KB | Nothing wired up |
 | `$4000`–`$FFFF` | 48 KB | ROM |
 
-## D.2 The hardware window at `$1000`
+**The context pool is smaller than it looks.** Initialization walks `$093D`
+writing each record's "next" field, and its loop bound stops it after linking
+199 records. The instruction that then writes the list's terminating zero
+adjusts its pointer by 260 bytes rather than 4, so the zero lands on record 134
+instead of record 199. Records 135 to 199 are fully initialized and linked to
+each other, and nothing can ever reach them: the free list walked from its head
+is 134 records long, of which 133 can be allocated and the last is the sentinel.
+Executing the ROM's own initializer confirms it. Nothing in Gauntlet II comes
+close to needing 133 simultaneous contexts, so the shortfall has no audible
+consequence, and the surrounding code makes clear that 199 was the intent.
 
 Several of these addresses do unrelated things depending on the direction of the
 access. [Chapter 2](02_tour_of_the_board.md).
@@ -178,22 +193,21 @@ The note's control byte carries three more fields alongside that index:
 |---|---|---|---|---|---|---|---|---|
 | Field | sustain | dotted | division | division | duration | duration | duration | duration |
 
-**[needs verification]** The POKEY exception below conflicts with the generated
-timing-loop catalog's duration-table interpretation. See Chapters 8 and 17.
-
 A POKEY channel ignores all of this and takes the low seven bits of the control
-byte times 32.
+byte times 32. Which rule applies is decided at `$4844`, which tests two bits of
+the channel's status byte before any table is read; `SWITCH_POKEY` clears both,
+and every POKEY record executes it before its first event.
 
 ## D.8 The POKEY volume-shape table
 
-**[needs verification]** The selector source and configured row reachability are
-unresolved. The generated catalog marks rows 0, 1, 4, 5, and 7 reachable, while
-direct ROM execution appears to force row 0.
+Eight rows of sixteen signed bytes at `$5C8F`. One entry per sweep is added to
+the channel's volume accumulator, holding on the last entry. The row and the
+position within it share one byte per channel, at `$03AE`.
 
-Eight rows of sixteen signed bytes at `$5C8F`. A row is chosen by an index that
-travels with the distortion setting, and one entry per sweep is added to the
-channel's volume accumulator, holding on the last entry. The POKEY note path
-zeroes that index on every note, so every POKEY sound in this ROM selects row 0.
+That byte is written on both arms of the duration branch at `$4844`. The
+duration-table arm derives the row from control bits 3–5; the POKEY arm stores
+zero. Only the POKEY volume path ever reads it, so every POKEY sound in this ROM
+selects row 0 and the other seven rows are dormant.
 [Chapter 10](10_shaping_the_sound.md).
 
 | Row | Address | The sixteen steps | Shape |
@@ -314,7 +328,7 @@ reaches them. [Chapter 12](12_driving_the_ym2151.md).
 | 61 | C5 | `$4E` | 4 | 14 |
 
 Slots 3, 7, 11 and 15 never appear. A six-bit key fraction in a second register
-divides one semitone into sixty-four parts for fine tuning.
+divides one semitone into sixty-four steps for fine tuning.
 
 **The MIDI convention.** ROM note numbers sit eleven below MIDI's, so
 `MIDI = ROM note + 11`. ROM note 49 is MIDI 60, middle C. The ROM's sequences use
@@ -406,7 +420,7 @@ one go. One step of total level is about 0.75 dB.
 
 ## D.15 Type-7 priorities
 
-Every record carries one, and the highest value wins the physical voice. The
+Every record carries one, and the highest value wins the voice. The
 value belongs to the record rather than to the command, so a multi-record sound
 can occupy more than one row. All 182 records, by priority:
 [Chapter 7](07_command_to_channel.md).
@@ -420,14 +434,14 @@ can occupy more than one row. All 182 records, by priority:
 | 31 | 5 | 1 | `$42`, level-opening music |
 | 30 | 8 | 4 | `$18`–`$1B`, the four player heartbeats |
 | 20 | 2 | 1 | `$20` "Death Touches Player" |
-| 15 | 8 | 4 | `$09`–`$0C`, two voices each of the four "Joins In" sounds |
-| 14 | 5 | 3 | `$09` (1 voice), `$0A` (2), `$0B` (2) |
-| 13 | 4 | 1 | `$0B` "Wizard Joins In", its remaining four voices |
-| 10 | 8 | 2 | `$29` "Thief Warning" (7 voices), `$2D` "Mugger Warning" (1) |
+| 15 | 8 | 4 | `$09`–`$0C`, two parts each of the four "Joins In" sounds |
+| 14 | 5 | 3 | `$09` (1 part), `$0A` (2), `$0B` (2) |
+| 13 | 4 | 1 | `$0B` "Wizard Joins In", its remaining four parts |
+| 10 | 8 | 2 | `$29` "Thief Warning" (7 parts), `$2D` "Mugger Warning" (1) |
 | 9 | 2 | 2 | `$38` "End of Slow Motion", `$3A` "Player Shoots Dragon" |
 | 8 | 37 | 15 | Most one-shot effects, plus both chip tests `$04` and `$05` |
-| 7 | 3 | 3 | `$28` and `$29`, one trailing voice each; `$33` "Medium Tone Stun Tile" |
-| 6 | 1 | 1 | `$27` "Trap / Walls Turn to Exits", one trailing voice |
+| 7 | 3 | 3 | `$28` and `$29`, one trailing part each; `$33` "Medium Tone Stun Tile" |
+| 6 | 1 | 1 | `$27` "Trap / Walls Turn to Exits", one trailing part |
 | 3 | 10 | 5 | `$0E`–`$11`, the four player exits; `$1C` "Message Appears on Screen" |
 | 2 | 63 | 16 | Treasure-room music, food, keys, doors, monster hits, and `$45`–`$49` |
 

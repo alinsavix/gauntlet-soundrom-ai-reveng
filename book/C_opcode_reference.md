@@ -34,19 +34,11 @@ executes it. Thirty-three of the 59 carry a dash.
 
 ## Envelopes and shaping
 
-**[needs verification]** `$8A`'s relationship to the volume-shape selector is
-part of the unresolved shape-table disagreement in Chapters 10 and 17. Canonical
-docs currently derive the selector from duration/control bits 3–5, while direct
-execution appears to clear it to row 0.
-
-<!-- TODO: Replace "distortion nibble" with "three-bit distortion field" unless
-     a separate four-bit field is intended. -->
-
 | Opcode | Name | Operands | Scope | What it does | Uses |
 |---|---|---:|---|---|---:|
 | `$86` | SET_FREQ_ENV | 2 | Both | Point the channel at a frequency envelope in ROM | 13 |
 | `$87` | SET_VOL_ENV | 2 | Both | Point the channel at a volume envelope in ROM | 13 |
-| `$8A` | SET_DISTORTION | 1 | Differs | Set the distortion nibble that is OR'd into the POKEY control byte, and the shape-table selector | 18 |
+| `$8A` | SET_DISTORTION | 1 | Differs | Store the three-bit distortion field that is OR'd into the POKEY control byte. Two instructions; it does not touch the volume-shape selector | 18 |
 | `$97` | FADEOUT_ENV | 1 | Differs | Fade this channel out from here, by writing the same five fields the fade command writes. The operand is ignored | 5 |
 | `$A2` | YM_VOL_ENV_NEG | 1 | YM2151 | Move the volume-envelope position negative | — |
 | `$A3` | YM_VOL_ENV_SUB | 1 | YM2151 | Subtract from the YM volume with clamping | 14 |

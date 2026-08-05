@@ -3,7 +3,7 @@
 *Before this chapter: [Chapters 1](01_two_computers.md) to
 [7](07_command_to_channel.md).*
 
-Every level of Gauntlet II opens with the same short fanfare: five voices, a
+Every level of Gauntlet II opens with the same short fanfare: five parts, a
 rising figure over a held chord, about four and a half seconds long. Somewhere in
 the 48 KB of ROM there has to be a description of that fanfare. What is actually
 there is a program, written in a language that exists nowhere else, executed by a
@@ -54,7 +54,7 @@ The pitch byte is `$20`. The control byte `$83` breaks down as duration index 3,
 division field 0, dotted bit clear, sustain bit set. So: a quarter note, held
 rather than released.
 
-And one from the food blip, on the first of its two voices:
+And one from the food blip, on the first of its two parts:
 
 ```
 13 49     NOTE F#1, dotted sixteenth
@@ -118,12 +118,6 @@ described below, under articulation.
 
 ## POKEY notes count differently
 
-**[needs verification]** The POKEY-only duration rule in this section conflicts
-with `docs/generated/timing_loop_trace_catalog.csv`: direct ROM execution gives
-the effects chip test a 250-sweep period, while duration-table interpretation
-gives 30 sweeps. Resolve that disagreement before treating the examples below as
-settled timing.
-
 A channel attached to one of the POKEY's four voices never touches the duration
 table. It masks off the top bit of the control byte and multiplies what is left
 by 32.
@@ -136,6 +130,12 @@ No table, no dotted bit, no division field. The sword's two events read `00 05`
 and `00 87`, giving 5 times 32 and 7 times 32, so at the default tempo of 16 the
 sword is ten sweeps of one thing and fourteen of another: about a fifth of a
 second in total, which is what it sounds like.
+
+Which rule a channel gets is decided by two bits of its status byte, and the
+engine tests them before it looks at anything else. A freshly allocated channel
+has one of those bits set, so the duration table is the default; the
+`SWITCH_POKEY` instruction clears both, and every one of the eleven POKEY
+records executes it before its first event. Nothing switches back.
 
 The rule makes sense for what the POKEY is used for here. All eleven POKEY
 records are short effects whose shape comes from the envelopes in
@@ -238,7 +238,7 @@ marker returns to whoever called it. Otherwise it stops the channel, and stoppin
 is thorough: the status, volume, current note, and fade state are all cleared, a
 key-off is requested so the chip actually goes quiet, both context chains go back
 to the free list from [Chapter 7](07_command_to_channel.md), and the channel
-unlinks itself from its physical voice's list. The slot is immediately available
+unlinks itself from its voice's list. The slot is immediately available
 for the next sound that needs it.
 
 A first byte of `$BB` or higher stops the channel too, without the second byte

@@ -50,7 +50,7 @@ chip's actual pitch falls from equal temperament.
 [Chapter 11](11_driving_the_pokey.md).
 
 **Chain.** The linked run of records that makes up one sound. A chain is between
-one and eight records long, and each record becomes one voice.
+one and eight records long, and each record becomes one **part**.
 [Chapter 7](07_command_to_channel.md).
 
 **Chip test.** One of the three diagnostic sounds a technician can trigger from
@@ -118,7 +118,11 @@ couple of instructions with no searching.
 the convention of 6502 assembly language. `$3B` means the same as `0x3B`.
 [Chapter 1](01_two_computers.md).
 
-**Instrument.** See **voice**.
+**Instrument.** A 42-byte YM2151 patch definition. Twenty-eight of its bytes are
+copied straight into chip registers and the rest is bookkeeping the ROM keeps for
+itself. The ROM holds 55, of which 40 are ever reached. The sequence instruction
+that loads one is named `SET_VOICE` in the disassembler, which is the one place
+the older name survives. [Chapter 12](12_driving_the_ym2151.md).
 
 **Interrupt.** A hardware signal that makes the CPU stop what it is doing, run a
 fixed routine, and then resume exactly where it was, with no register or flag
@@ -143,18 +147,16 @@ semitone, with four codes per octave unused.
 [Chapter 12](12_driving_the_ym2151.md).
 
 **Key fraction.** The YM2151's fine-tuning register, six bits dividing one
-semitone into sixty-four parts. [Chapter 12](12_driving_the_ym2151.md).
+semitone into sixty-four steps. [Chapter 12](12_driving_the_ym2151.md).
 
 **Key on, key off.** Striking and releasing a YM2151 note. Striking restarts every
 operator's envelope; releasing lets them run down.
 [Chapter 12](12_driving_the_ym2151.md).
 
-**Logical channel.** One of thirty sounds-in-progress tracked in RAM. Logical
-channels compete for twelve physical ones.
+**Logical channel.** One of thirty RAM slots, each running one **part** of a
+sound in progress. A one-part sound occupies one; the theme occupies eight. Thirty
+logical channels compete for twelve **voices**.
 [Chapter 7](07_command_to_channel.md).
-
-<!-- TODO: Define this as an in-progress voice or type-7 record instance, not a
-     whole sound. One sound may occupy several logical channels. -->
 
 **LPC.** Linear predictive coding, the speech compression scheme the TMS5220 uses.
 Instead of a waveform it stores a frame-by-frame description of a vocal tract.
@@ -195,6 +197,11 @@ own envelope, frequency multiple, and total level.
 to the handler-type table. Its meaning depends entirely on the handler type.
 [Chapter 6](06_taking_orders.md).
 
+**Part.** One strand of a sound: one **record** of a chain, running its own
+sequence in its own **logical channel** and wanting one **voice**. Most sounds
+are one or two parts; the theme is eight. Not to be confused with the voice it
+plays on, which is hardware. [Chapter 7](07_command_to_channel.md).
+
 **Phase accumulator.** A timing technique in which the leftover from one interval
 is carried into the next rather than discarded, so a long run of intervals holds
 an exact average even when no single interval is exact.
@@ -203,9 +210,9 @@ an exact average even when no single interval is exact.
 **Phrase.** One recorded speech utterance. The ROM holds 141 of them.
 [Chapter 13](13_speaking.md).
 
-**Physical channel.** One of the twelve real chip voices: four on the POKEY,
-numbered 0 to 3, and eight on the YM2151, numbered 4 to 11.
-[Chapter 7](07_command_to_channel.md).
+**Physical channel.** The formal name for a **voice**, used when the numbering
+matters: four on the POKEY, numbered 0 to 3, and eight on the YM2151, numbered 4
+to 11. [Chapter 7](07_command_to_channel.md).
 
 **POKEY.** Atari's four-channel sound chip, which makes tones by counting a clock
 down and flipping an output. It also supplies the board's hardware random number
@@ -240,8 +247,9 @@ rests, and opcodes interpreted one instruction at a time by a routine inside the
 interrupt. [Chapter 8](08_sequence_language_time.md).
 
 **Shape table.** Eight rows of sixteen signed values in ROM, added to a POKEY
-channel's volume accumulator one step per sweep. The note path zeroes the row
-index, so every POKEY sound in this ROM selects the row that is all zeros.
+channel's volume accumulator one step per sweep. The row index is only ever read
+on the POKEY side and only ever set to something interesting on the YM2151 side,
+so every POKEY sound in this ROM selects row 0, which is all zeros.
 [Chapter 10](10_shaping_the_sound.md).
 
 **Speak External.** The TMS5220 command, byte `$60`, that tells the chip to expect
@@ -260,13 +268,11 @@ else stops it. [Chapter 8](08_sequence_language_time.md).
 POKEY and the YM2151 get alternate interrupts, so each is swept about 120 times a
 second. [Chapter 4](04_heartbeat.md).
 
-**Tick.** One sweep interval, 8.344 ms. Nothing in any sound can start, stop, or
-change at any moment other than a tick boundary.
+**Tick.** One sweep interval, 8.344 ms. Nothing a sequence controls on the POKEY
+or the YM2151 can start, stop, or change at any moment other than a tick
+boundary. Speech is serviced four times per interrupt and is not bound by it,
+and all three chips go on producing sound between the CPU's writes.
 [Chapter 4](04_heartbeat.md).
-
-<!-- TODO: Scope the timing restriction to sequence-driven POKEY/YM control
-     changes. Speech service and autonomous chip output are not limited to one
-     event per 8.344-ms tick. -->
 
 **TMS5220.** The Texas Instruments speech chip, which reconstructs speech from an
 LPC description of a vocal tract at 8,000 samples a second.
@@ -286,14 +292,10 @@ pieces of music. [Chapters 7](07_command_to_channel.md) to
 **Type 11.** The handler type that speaks a phrase, covering 141 commands.
 [Chapter 13](13_speaking.md).
 
-**Voice.** A 42-byte YM2151 patch definition. Twenty-eight of its bytes are copied
-straight into chip registers and the rest is bookkeeping the ROM keeps for itself.
-The ROM holds 55, of which 40 are ever reached. Also called an **instrument** in
-this book. [Chapter 12](12_driving_the_ym2151.md).
-
-<!-- TODO: "Voice" is also used throughout the chapters for a physical chip
-     channel and for one part of a multi-record sound. Split these senses or
-     reserve "instrument" for the 42-byte patch definition. -->
+**Voice.** One of the twelve real chip channels: four on the POKEY and eight on
+the YM2151. This book uses "voice" for hardware and nothing else — a **part** is
+a strand of a sound, and an **instrument** is a stored patch.
+[Chapter 7](07_command_to_channel.md).
 
 **Walking-bit test.** A RAM test that writes a value with exactly one bit set,
 reads it back, then repeats with the bit rotated and with everything inverted. It

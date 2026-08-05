@@ -207,9 +207,11 @@ volume_env    [channel] = 0x68D6 # which volume curve it is following
 ```
 
 [Chapter 7](07_command_to_channel.md) takes those arrays apart properly. For
-now, the useful number is thirty: the sound board tracks up to thirty sounds at
-once, and it has twelve chip voices to play them on. Reconciling those two
-numbers is the most interesting thing this ROM does.
+now, the useful number is thirty: the sound board tracks up to thirty strands of
+sound at once, and it has twelve chip voices to play them on. Thirty is not
+thirty *sounds* — one command can ask for eight strands at once, as the theme
+does — and [Chapter 7](07_command_to_channel.md) gives them their proper name.
+Reconciling those two numbers is the most interesting thing this ROM does.
 
 > **Try it yourself**
 >
@@ -234,7 +236,8 @@ numbers is the most interesting thing this ROM does.
 - Four status bits at `$1030` are the sound board's entire awareness of the
   outside world.
 - One byte at `$1020` carries three separate volume levels into an analog mixer.
-- RAM holds thirty parallel arrays describing up to thirty sounds in progress.
+- RAM holds thirty parallel arrays describing up to thirty strands of sound in
+  progress, which is fewer than thirty sounds.
 
 ## Where this leads
 

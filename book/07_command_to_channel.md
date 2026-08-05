@@ -28,8 +28,12 @@ gave, but they read as a table:
 | Next | The record that continues this sound, or zero to stop |
 
 There are 182 records. Following the "next" column from a starting record gives
-a **chain**, and the chain is the whole sound. Each record in it will become one
-voice, playing its own sequence, starting at the same instant as its siblings.
+a **chain**, and the chain is the whole sound. Each record in it becomes one
+**part**: its own sequence, playing on its own chip voice, starting at the same
+instant as its siblings. Three words are about to do a lot of work in this book,
+so it is worth fixing them now. A **sound** is what one command plays. A **part**
+is one strand of it. A **voice** is a chip channel, of which there are twelve and
+no more.
 
 ```mermaid
 flowchart LR
@@ -55,7 +59,7 @@ The distribution of chain lengths says a lot about what this ROM contains:
 | 5 | 1 |
 | 8 | 12 |
 
-Forty-six of the 62 sounds are one or two voices. The twelve eight-record chains
+Forty-six of the 62 sounds are one or two parts. The twelve eight-record chains
 are the theme, the four treasure-room variants, the music chip test, and six
 elaborate effects such as the transporter and the doors opening. Eight is the
 ceiling because eight is what the YM2151 has.
@@ -63,7 +67,7 @@ ceiling because eight is what the YM2151 has.
 A detail worth noticing: 182 records share only 153 distinct sequence pointers.
 Several records within one chain point at the same music. Four of the eight
 records for "Wizard Joins In" name the same sequence, and the eight records for
-"Doors Open" alternate between two sequences, four voices each. One piece of
+"Doors Open" alternate between two sequences, four parts each. One piece of
 written music, played simultaneously on several voices, is a thicker sound for no
 extra ROM.
 
@@ -73,15 +77,15 @@ The chips have twelve voices between them: four POKEY channels and eight YM2151
 channels. This book calls those the **physical channels**, and the number is
 fixed by the hardware.
 
-RAM holds room for thirty sounds in progress. This book calls those the
+RAM holds room for thirty parts in progress. This book calls those the
 **logical channels**, and the number was a choice. Thirty parallel arrays,
-thirty entries each, hold everything about a sound that is currently playing:
+thirty entries each, hold everything about a part that is currently playing:
 where it has got to in its sequence, its tempo, its volume, its two timers, its
 envelope positions, its priority.
 
-<!-- TODO: Replace "thirty sounds" with "thirty in-progress voices" or
-     "thirty record instances." A multi-record chain is one sound but consumes
-     one logical channel per record, as the theme example above demonstrates. -->
+Thirty is not thirty *sounds*. The theme alone is eight parts and therefore eats
+eight logical channels; a one-part effect eats one. In the worst case the board
+could be tracking four eight-part sounds at once and have room for nothing else.
 
 Reconciling thirty with twelve is the central idea of the whole ROM.
 
@@ -108,7 +112,7 @@ flowchart LR
     List -->|"highest priority only"| Chip["YM2151 channel 0"]
 ```
 
-*Three sounds can be in progress on one chip voice. All three keep running; one
+*Three parts can be in progress on one chip voice. All three keep running; one
 is heard.*
 
 ## What a logical channel holds
@@ -129,9 +133,9 @@ changes one of these fields:
 | Two envelope pointers, plus cursors | Where it is in each stored curve |
 | Repeat and return links | Which pool records this channel has borrowed |
 | Status bits | Which chip it belongs to, and whether it is live |
-| Next link | The next logical channel on this physical voice's list |
+| Next link | The next logical channel on this voice's list |
 
-The last row is the one to notice. The physical voice's list is not a separate
+The last row is the one to notice. The voice's list is not a separate
 data structure. It is threaded through the channels themselves, one byte each,
 which is why a list insertion is two byte writes and why those two writes have to
 be protected.
@@ -145,10 +149,10 @@ Consider the treasure room. The music is playing on all eight YM voices. A
 player picks up a potion, and the potion sound takes one of those voices for a
 second. When the potion sound ends, the music has to come back. If the losing
 channel had been frozen, it would resume a second behind everything else, on the
-wrong note, out of time with the seven voices that kept going. Instead it has
+wrong note, out of time with the seven parts that kept going. Instead it has
 been advancing all along, silently, and the moment the potion sound releases the
 voice the music is exactly where it should be. The listener hears one bar of a
-seven-voice arrangement and then an eight-voice one.
+seven-part arrangement and then an eight-part one.
 
 The cost is real: twelve voices at 120 sweeps a second, with every logical
 channel on every list updated, on a 1.79 MHz processor.
@@ -161,7 +165,7 @@ between 2 and 63.
 
 The priority belongs to the *record*, not to the command, so a chain several
 records long can spread itself across several levels. Six of the 62 sounds do.
-"Wizard Joins In" is the clearest: two of its eight voices sit at 15, two at 14,
+"Wizard Joins In" is the clearest: two of its eight parts sit at 15, two at 14,
 and the remaining four at 13, so when something has to give, the arrangement
 thins from the inside out instead of disappearing all at once.
 
@@ -174,14 +178,14 @@ thins from the inside out instead of disappearing all at once.
 | 31 | 5 | Level-opening music |
 | 30 | 8 | The four player heartbeats |
 | 20 | 2 | "Death Touches Player" |
-| 15 | 8 | The lead voices of the four "Joins In" sounds |
-| 14 | 5 | Inner voices of the Warrior, Valkyrie, and Wizard joining |
-| 13 | 4 | The Wizard's four remaining voices |
+| 15 | 8 | The lead parts of the four "Joins In" sounds |
+| 14 | 5 | Inner parts of the Warrior, Valkyrie, and Wizard joining |
+| 13 | 4 | The Wizard's four remaining parts |
 | 10 | 8 | "Thief Warning" and "Mugger Warning" |
 | 9 | 2 | "End of Slow Motion", "Player Shoots Dragon" |
 | 8 | 37 | Most one-shot effects, and both chip tests |
-| 7 | 3 | The last voice of the transporter and of the thief warning, plus "Medium Tone Stun Tile" |
-| 6 | 1 | The last voice of "Trap / Walls Turn to Exits" |
+| 7 | 3 | The last part of the transporter and of the thief warning, plus "Medium Tone Stun Tile" |
+| 6 | 1 | The last part of "Trap / Walls Turn to Exits" |
 | 3 | 10 | The four player exits, "Message Appears on Screen" |
 | 2 | 63 | Treasure-room music, food, keys, doors, monster hits, and five of the seven POKEY effects |
 
@@ -199,18 +203,18 @@ for each record in the chain:
     find a free logical channel
     if none is free:
         look at the lowest-priority channel already on the
-        requested physical voice
+        requested voice
         if this record's priority is at least as high:
             evict it
         else:
             give up
     fill in the logical channel from the record
-    insert it into the physical voice's list, in priority order
+    insert it into the voice's list, in priority order
 ```
 
 Two details in that sketch have audible consequences.
 
-The eviction rule only ever looks at the physical voice this record wants. A
+The eviction rule only ever looks at the voice this record wants. A
 low-priority sound sitting on POKEY channel 2 is safe from a YM2151 sound that
 has run out of slots, however important that YM sound is. The thirty slots are
 shared, but the competition is per voice.
@@ -254,11 +258,16 @@ something: where to come back to after a repeated phrase, and how many
 repetitions are left. That storage cannot live in the thirty parallel arrays,
 because a channel can nest such things.
 
-The ROM keeps a pool of 197 four-byte blocks and hands them out on demand. The
+The ROM keeps a pool of four-byte blocks and hands them out on demand. The
 technique is the **free list** from [Chapter 5](05_waking_up.md): every unused
 block points at the next unused one, and a single variable points at the first.
 Taking one and giving one back are each a handful of instructions with no
 searching, which matters because both happen inside the interrupt.
+
+The pool is 199 records long and the free list reaches 134 of them, because the
+routine that terminates the list writes its zero in the wrong place.
+[Appendix D](D_reference_tables.md) has the arithmetic. It costs nothing: the
+most this ROM ever needs at once is a handful.
 
 Each logical channel owns two such chains, one for subroutine returns and one for
 repeat counters. When a channel ends, whether because its music finished or
@@ -291,7 +300,7 @@ The ROM uses the second.
 ## Where the sound goes next
 
 At the end of allocation, each record in the chain has become one logical
-channel, sitting in the priority-sorted list of one physical voice, with its
+channel, sitting in the priority-sorted list of one voice, with its
 tempo set to a default of 16, its timers at zero, and its sequence pointer aimed
 at an address in ROM.
 
@@ -319,11 +328,11 @@ the next two chapters.
 ## What you now know
 
 - A type-7 command's parameter selects the first of up to eight linked records,
-  and each record becomes one voice.
+  and each record becomes one part.
 - A record carries a priority, a physical channel, a sequence pointer, and a
   link to the next record.
-- Thirty logical channels compete for twelve physical voices, and every physical
-  voice keeps a priority-sorted list of the logical channels that want it.
+- Thirty logical channels, one per part in progress, compete for twelve voices,
+  and every voice keeps a priority-sorted list of the logical channels that want it.
 - Every member of every list is updated on every sweep; only the highest-priority
   member reaches the chip, so a sound that loses its voice keeps its place in the
   music.
@@ -331,8 +340,8 @@ the next two chapters.
   is why retriggering an effect restarts it.
 - A low-priority effect asked for during the theme is admitted, tracked, and
   never heard.
-- A free list of 197 four-byte blocks supplies the scratch storage that repeats
-  and subroutine returns need.
+- A free list of four-byte blocks supplies the scratch storage that repeats and
+  subroutine returns need; 199 are built and 134 are reachable.
 - Every list change happens with interrupts held off, and new channels are fully
   built before they become visible.
 

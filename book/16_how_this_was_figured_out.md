@@ -165,16 +165,15 @@ this book says a thing happens, `docs/` says it is verified or strongly
 supported, and the "Going deeper" list at the end of each chapter points at the
 place where the case is argued.
 
-Two places in those chapters still carry an unresolved disagreement between the
-generated catalogs and a direct execution of the ROM, and both are marked in the
-source of the book rather than smoothed over. The rest is settled.
-
-<!-- TODO: Reconcile this paragraph with the preceding claim that Chapters
-     1–15 contain only Verified and Strong-inference material. The two
-     disagreements are the POKEY duration rule (chapters 8, 9, 14, appendix D.7)
-     and the volume-shape selector (chapter 10, appendices C and D.8). Until
-     both are resolved, qualify the confidence promise here and in the book
-     README. -->
+Two places in those chapters once carried an unresolved disagreement between the
+generated catalogs and a direct execution of the ROM. Both were marked in the
+source of the book rather than smoothed over, and both have since been resolved
+against the 6502 code that decides the question — the POKEY duration rule and
+the volume-shape row selector, described in
+[Chapter 17](17_open_questions.md). In both cases the generated catalog was
+wrong and has been regenerated. That is the pattern to expect: a disagreement
+between two derived views is a defect in one of them, not a permanent state to
+live with.
 
 Nine of the ROM's 26 envelopes have a terminator that a consumer has been proven
 to read. The other seventeen are bounded by the next object that something else

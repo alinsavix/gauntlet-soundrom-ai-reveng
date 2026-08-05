@@ -62,16 +62,21 @@ priority 4 is used only by `$BC`.
 | YM algorithm carrier masks | `$57A0-$57A7` | 8 one-byte operator masks | Verified |
 | Duration table | `$5C5F-$5C7E` | 16 LE words | Verified |
 | Fade/ramp rate control | `$5C7F-$5C8E` | 16 shift/control bytes | Verified |
-| POKEY volume shapes | `$5C8F-$5D0E` | 8 rows × 16 signed bytes | Verified; rows 0,1,4,5,7 configured |
+| POKEY volume shapes | `$5C8F-$5D0E` | 8 rows × 16 signed bytes | Verified; only row 0 configured (POKEY arm `$48EF` stores zero) |
 | POKEY note lookup view | `$5A35-$5B34` | 128 LE words | Consumer extent verified; entries 1..97 are chromatic divider prefix |
 | YM key-code view | `$5AF9-$5B78` | 128 bytes | Note → KC; tail overlaps total-level scale table |
 
 `generated/channel_engine_catalog.csv` records the bounded consumers: duration
 lookup at `$485B`, frequency-envelope initialization/stepping at `$4954/$49C5`,
 and volume-envelope initialization/stepping at `$4981/$4A90`. `$4B0D` indexes
-`$5C8F,Y`; `$03AE=(event_control&$38)<<1` selects one of eight rows and the
-low-nibble phase saturates at 15. POKEY-configured instruction states reach rows
-0,1,4,5,7; rows 2,3,6 remain dormant.
+`$5C8F,Y`; `$03AE` holds a row in its high nibble and a phase in its low nibble,
+and the phase saturates at 15. The derivation `$03AE=(event_control&$38)<<1` at
+`$48E4` belongs to the duration-table arm of the `$4844` branch, which only
+YM2151-mode channels take; the POKEY arm at `$48EF` stores zero. Because `$4B0D`
+reads `$03AE` on the POKEY volume path alone, every configured POKEY instruction
+state selects row 0 and rows 1-7 are dormant. See `04_subsystems.md` for the
+branch listing and `generated/volume_shape_catalog.csv` for the discarded
+YM-arm derivation.
 
 Mode-aware traversal finds all 13 configured SET_FREQ_ENV `$86` operations in
 POKEY mode and none in YM mode. It finds no configured SET_VIBRATO `$8C` at

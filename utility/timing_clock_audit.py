@@ -164,6 +164,10 @@ def trace_duration(rom, start, service_hz, branch_decisions=None,
                     if not i.is_marker]
     tempo = 0x10
     timer = -tempo  # first physical-device service subtracts the zeroed timer
+    # Allocation ($45A3: LDA $6024,X / ASL A / SEC / ROL A / STA $0390,Y) leaves
+    # status bit 0 set on every new channel, so the duration-table arm at $4854
+    # is the default.  Only SWITCH_POKEY clears it.
+    pokey_duration_rule = False
     update = 1
     waiting = False
     first_event_update = None
@@ -258,11 +262,25 @@ def trace_duration(rom, start, service_hz, branch_decisions=None,
                 raise SystemExit(f"loop target ${target:04X} absent from trace")
             index = target_index
             continue
+        elif inst.mnemonic in ("SWITCH_POKEY", "FORCE_POKEY"):
+            # $54CC: AND #$FC clears status bits 0 and 1 and zeroes $0813,
+            # which is what the branch at $4844 tests.  $54E5 (FORCE_POKEY)
+            # sets $0813 to 1 instead, keeping the duration-table arm.
+            pokey_duration_rule = inst.mnemonic == "SWITCH_POKEY"
+        elif inst.mnemonic == "SWITCH_YM2151":
+            # $54B8: AND #$FC / ORA #$02 -- bit 1 set selects the table arm.
+            pokey_duration_rule = False
         elif inst.mnemonic in ("NOTE", "REST"):
             control = inst.raw[1]
-            duration = rom.read_word(0x5C5F + 2 * (control & 0x0F))
-            if control & 0x40:
-                duration += duration // 2
+            if pokey_duration_rule:
+                # $48F9-$4903: AND #$7F then three LSR A / ROR $11 pairs, which
+                # forms the 16-bit value (control & $7F) * 32.  No table, no
+                # dotted bit, no division field.
+                duration = (control & 0x7F) * 32
+            else:
+                duration = rom.read_word(0x5C5F + 2 * (control & 0x0F))
+                if control & 0x40:
+                    duration += duration // 2
             timer += duration
             waiting = True
             if first_event_update is None:
@@ -787,8 +805,13 @@ def main():
     loop_specs = [
         ("0x2E", 1, 0x674F, 0x6756, 0x6754, 480, 480, "YM sustained F2"),
         ("0x37", 1, 0x67FC, 0x6803, 0x6801, 15, 15, "YM sustained C0"),
-        ("0x05", 1, 0x6838, 0x6858, 0x6854, 60, 30, "POKEY chip-test channel 1"),
-        ("0x05", 2, 0x686D, 0x688D, 0x6889, 60, 30, "POKEY chip-test channel 2"),
+        # POKEY-mode rests use (control & $7F) * 32, not the duration table:
+        # REST $60 = 96*32 = 3072 units = 192 sweeps at tempo 16, and
+        # REST $7D = 125*32 = 4000 units = 250 sweeps.  The prefix reaches the
+        # backward jump after 192 + 250 + 250 = 692 sweeps; the loop target
+        # itself is first reached at 442.
+        ("0x05", 1, 0x6838, 0x6858, 0x6854, 692, 250, "POKEY chip-test channel 1"),
+        ("0x05", 2, 0x686D, 0x688D, 0x6889, 692, 250, "POKEY chip-test channel 2"),
         ("0x04", 8, 0x6985, 0x69A7, 0x69A5, 1500, 480, "YM chip-test sustained C5"),
     ]
     for command, channel, start, site, target, expected_prefix, expected_period, scope in loop_specs:

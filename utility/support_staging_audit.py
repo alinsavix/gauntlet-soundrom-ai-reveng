@@ -27,7 +27,25 @@ ANCHORS = {
     0x5C8F: bytes.fromhex("00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00"),
 }
 
-EXPECTED_POKEY_SHAPE_COUNTS = {0: 6, 1: 2, 4: 4, 5: 2, 7: 4}
+# The shape-row index at $03AE is written on two mutually exclusive arms of the
+# note/duration decoder, selected by the branch at $4844:
+#
+#   $4845 LDA $0390,X / AND #$02 / BNE $4854   ; YM2151 mode
+#   $484C LDA $0813    / BNE $4854             ; status bit 0
+#   $4851 JMP $48EF                            ; both clear -> POKEY arm
+#
+# On the duration-table arm, $48DF-$48E4 derives the row from control bits 3..5
+# (LDA $11 / AND #$38 / ASL A / STA $03AE,X).  On the POKEY arm, $48EF stores
+# the accumulator, which is zero because it was just loaded from $0813 and found
+# clear, so a POKEY-mode note or rest always selects row 0.
+#
+# $03AE is consumed only by the POKEY volume path ($4B0D LDY $03AE,X /
+# $4B11 ADC $5C8F,Y), so the bits 3..5 derivation writes an index nothing reads,
+# and the reads only ever see row 0.  Every POKEY record executes SWITCH_POKEY
+# ($54CC, AND #$FC) before its first note or rest, which clears both branch bits.
+EXPECTED_POKEY_SHAPE_COUNTS = {0: 18}
+# Rows the dead YM-arm derivation would name, kept as evidence for the CSV.
+EXPECTED_YM_ARM_SHAPE_WRITES = {0: 6, 1: 2, 4: 4, 5: 2, 7: 4}
 EXPECTED_YM_NOTE_GROUPS = {0x00, 0x10, 0x20, 0x30}
 
 
@@ -107,6 +125,7 @@ def mode_shape_counts(rom):
     queue = deque((r["sequence_pointer"], r["chip"]) for r in records)
     seen = set()
     counts = Counter()
+    ym_arm_writes = Counter()
     ym_note_groups = set()
     operations = defaultdict(set)
     while queue:
@@ -124,7 +143,11 @@ def mode_shape_counts(rom):
         if mode == "POKEY" and item["mnemonic"] in ("NOTE", "REST"):
             raw = bytes.fromhex(item["raw_hex"])
             if len(raw) > 1 and raw[1]:
-                counts[(raw[1] & 0x38) >> 3] += 1
+                # $48EF stores zero on the POKEY arm regardless of the control
+                # byte.  Record what the dead YM-arm rule would have picked so
+                # the discarded derivation stays visible in the evidence.
+                counts[0] += 1
+                ym_arm_writes[(raw[1] & 0x38) >> 3] += 1
         if mode == "YM2151" and item["mnemonic"] == "NOTE":
             ym_note_groups.add(item["opcode"] & 0x30)
         target = item["target"] if item["target"] != "" else None
@@ -140,11 +163,13 @@ def mode_shape_counts(rom):
                 queue.append((target, mode))
     if dict(counts) != EXPECTED_POKEY_SHAPE_COUNTS:
         raise SystemExit(f"POKEY shape domain changed: {dict(counts)}")
+    if dict(ym_arm_writes) != EXPECTED_YM_ARM_SHAPE_WRITES:
+        raise SystemExit(f"dead YM-arm shape derivation changed: {dict(ym_arm_writes)}")
     if 0x8C in operations["POKEY"] | operations["YM2151"]:
         raise SystemExit("configured SET_VIBRATO unexpectedly reachable")
     if ym_note_groups != EXPECTED_YM_NOTE_GROUPS:
         raise SystemExit(f"YM note high-bit groups changed: {ym_note_groups}")
-    return counts, ym_note_groups, len(seen)
+    return counts, ym_arm_writes, ym_note_groups, len(seen)
 
 
 def fade_rate_rows(rom):
@@ -167,7 +192,7 @@ def fade_rate_rows(rom):
         }
 
 
-def volume_shape_rows(rom, configured_counts):
+def volume_shape_rows(rom, configured_counts, ym_arm_writes):
     for shape in range(8):
         start = 0x5C8F + 16 * shape
         values = [rom.read_byte(start + phase) for phase in range(16)]
@@ -186,8 +211,11 @@ def volume_shape_rows(rom, configured_counts):
             "signed_values": " ".join(str(value) for value in signed),
             "configured_pokey_instruction_states": configured_counts[shape],
             "configured_pokey_reachable": bool(configured_counts[shape]),
+            "dead_ym_arm_selections": ym_arm_writes[shape],
             "behavior": behavior,
-            "confidence": "Verified consumer/index domain",
+            "confidence": (
+                "Verified consumer/index domain; POKEY arm $48EF stores row 0, "
+                "bits 3..5 derivation at $48E4 is YM-arm only and never read"),
         }
 
 
@@ -244,7 +272,7 @@ def main():
     if writes17 != [0x4658]:
         raise SystemExit(f"unexpected direct $17 writes: {[hx(v) for v in writes17]}")
     rom = gd.GauntletROM(str(args.rom))
-    shape_counts, ym_note_groups, mode_states = mode_shape_counts(rom)
+    shape_counts, ym_arm_writes, ym_note_groups, mode_states = mode_shape_counts(rom)
     code = code_rows()
     if code[0]["start"] != "0x4B6B" or code[-1]["end_inclusive"] != "0x4D01":
         raise SystemExit("support code coverage endpoints changed")
@@ -256,7 +284,8 @@ def main():
         path.parent.mkdir(parents=True, exist_ok=True)
     write_csv(args.code_csv, code)
     write_csv(args.fade_rate_csv, fade_rate_rows(rom))
-    write_csv(args.volume_shape_csv, volume_shape_rows(rom, shape_counts))
+    write_csv(args.volume_shape_csv,
+              volume_shape_rows(rom, shape_counts, ym_arm_writes))
     write_csv(args.ym_tl_bias_csv, ym_tl_bias_rows(rom, ym_note_groups))
     print(f"support staging: {len(code)} blocks, {len(ANCHORS)} anchors, "
           f"16 fade rates, 8x16 volume shapes, 8 YM TL-bias states, "

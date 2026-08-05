@@ -193,7 +193,7 @@ rest of the book measures in, so it is the one chapter to read slowly.
 arriving byte into a decision about what to play.
 
 **Making a sound ([7](07_command_to_channel.md) to [13](13_speaking.md)).** The
-heart of it. How a command becomes a set of voices, the small programming
+heart of it. How a command becomes a set of parts, the small programming
 language that describes every sound in the game, the envelopes that shape it,
 and the last few inches into each of the three chips.
 

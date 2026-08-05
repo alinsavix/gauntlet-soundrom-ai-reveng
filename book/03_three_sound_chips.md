@@ -220,12 +220,16 @@ of its own.
 
 Each chip was picked for something it does cheaply. POKEY makes noise and grit
 with four registers and no arithmetic. The YM2151 turns a 42-byte description
-into a complex, evolving timbre without the CPU touching it again. The TMS5220
-turns 200 bytes into a spoken sentence.
+into a complex timbre whose four operator envelopes then rise and fall on their
+own, with no further help from the CPU. The TMS5220 turns 200 bytes into a
+spoken sentence.
 
-<!-- TODO: Narrow "without the CPU touching it again" to the YM2151's internal
-     operator-envelope evolution. Chapter 12 shows continuing CPU pitch, level,
-     key, and refresh writes on every YM sweep. -->
+That last point about the YM2151 is worth keeping narrow. The chip evolves each
+note's envelopes by itself, which is the expensive part and the reason FM was
+affordable. It does not play a sound unattended:
+[Chapter 12](12_driving_the_ym2151.md) shows the engine still writing pitch,
+operator levels, and key on and off, every sweep, for as long as the sound
+lasts.
 
 The common thread is that none of them plays back audio. There is no sampler on
 this board and nowhere to put samples if there were. Every sound Gauntlet II

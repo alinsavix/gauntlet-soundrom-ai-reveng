@@ -86,7 +86,7 @@ one of the thirty parallel arrays. They are best read as groups.
 | Envelopes | Which stored curve shapes volume and pitch |
 | Timbre | Distortion shape and the chip control bits |
 | Mode | Whether this channel behaves as POKEY or YM2151 |
-| Instrument | Which of the 55 YM2151 voice definitions is loaded |
+| Instrument | Which of the 55 YM2151 instrument definitions is loaded |
 | Working storage | The channel's register, the shared workspace, ramps |
 
 Most of them come in "set" and "add" pairs, and the add variants are what make
@@ -132,17 +132,17 @@ note, which is how one instruction produces fifty-three seconds of sound.
 16-bit address. There are five of them in the whole ROM, and every one of them
 jumps backwards to form a loop:
 
-**[needs verification]** The effects-chip-test figures below use the direct
-execution result. The generated timing-loop catalog instead reports a 60-sweep
-prefix and a 30-sweep period for both channels; see Chapter 17.
-
-| Sound | Reaches the loop after | Repeats every |
+| Sound | Reaches the jump after | Repeats every |
 |---|---:|---:|
 | Player Touches Force Field | 480 sweeps | 480 sweeps |
 | Slow Motion | 15 sweeps | 15 sweeps |
-| Effects chip test, channel 1 | 442 sweeps | 250 sweeps |
-| Effects chip test, channel 2 | 442 sweeps | 250 sweeps |
+| Effects chip test, channel 1 | 692 sweeps | 250 sweeps |
+| Effects chip test, channel 2 | 692 sweeps | 250 sweeps |
 | Music chip test, channel 8 | 1,500 sweeps | 480 sweeps |
+
+The first column counts sweeps until the backward jump is taken for the first
+time, so it includes one pass through the loop body. The effects chip test
+spends 192 sweeps on its opening rest and 250 on each of the two that follow.
 
 Five back edges are the complete set of looping sound in Gauntlet II. Three of
 them are the two chip tests, which loop so a technician can leave them running.
@@ -240,7 +240,7 @@ Eight instructions are YM2151-only, and they are the ones
 [Chapter 12](12_driving_the_ym2151.md) needs: load an instrument, load a block of
 registers, adjust the carrier levels, offset the pitch. The most used of all 59
 instructions is the instrument load, which appears 147 times and selects one of
-39 distinct voice definitions.
+39 distinct instrument definitions.
 
 One instruction crosses subsystems entirely. It triggers a speech command from
 inside a sequence, so a piece of music could speak. Nothing in this ROM uses it.
@@ -287,7 +287,7 @@ that go unused are not stubs; they are finished, working code with no callers.
 > `$80FB` and `POP_SEQ` at `$810D` with eight events between them, the counted
 > repeat block. `$2C` is only four instructions long before it reaches
 > `COND_JUMP_REG_Z` with sixteen targets printed out, and the tool labels it
-> `computed table, mask $0F`: the random branch. `$2E` sets a voice, a volume, and
+> `computed table, mask $0F`: the random branch. `$2E` sets an instrument, a volume, and
 > a sustained whole note, then jumps back onto that note forever, and the tool
 > prints `LOOP -> $6754` and stops. Notice that the disassembler reports `$2E` as
 > a "decoded loop prefix" of 4.0 seconds rather than a play time, because the

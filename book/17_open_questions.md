@@ -63,7 +63,7 @@ Type 12 is the ambitious one. It reads four fields from a support table, checks
 that the named target is a type-7 sound, walks the physical list, and executes a
 chosen bytecode instruction against every channel it finds. It restricts itself to
 a safe range of opcodes, excluding the ones that would move a sequence pointer or
-load a voice, so it can change tempo, volume, transpose, or control bits on a
+load an instrument, so it can change tempo, volume, transpose, or control bits on a
 running sound from outside. A game could duck the music under a spoken line with
 it. The support table it reads is six bytes at `$6559`, all of them zero, so type
 12 fails its own validation before doing anything.
@@ -99,17 +99,17 @@ recording. So would the main CPU's initialization code.
 
 ## Small unexplained things
 
-**One byte in every instrument.** Offset `$1C` of the 42-byte voice record from
+**One byte in every instrument.** Offset `$1C` of the 42-byte instrument record from
 [Chapter 12](12_driving_the_ym2151.md) is skipped. The register-image copy stops
 one byte short of it, the level-transform reader starts one byte past it, and no
 other code in the ROM indexes it. Across the 55 records it takes exactly two
 values, `$00` and `$80`, which is the shape of a flag that meant something to
-whoever built the voice data.
+whoever built the instrument data.
 
 **Fifteen instruments with no name.** Of the 55 records, 39 are loaded by
 sequences and one more is reached only through the auxiliary-block instruction.
 The remaining fifteen are structurally valid, sit on the same grid, and are never
-selected. They may be voices for sounds that were cut, or alternates kept for
+selected. They may be instruments for sounds that were cut, or alternates kept for
 comparison, or a library the tooling emitted whether or not the game wanted them.
 
 **The sequence at `$80DA`.** Nine bytes, four instructions, unreachable. It reads
@@ -203,34 +203,34 @@ those endings has been traced and is finite. Which one you hear depends on where
 the free-running counter happens to be, which depends on how long the board has
 been powered up.
 
-## Two places this book disagrees with itself
+## Two places this book used to disagree with itself
 
-Honesty about the ledger includes the ledger's own inconsistencies.
+An earlier draft carried two unresolved disagreements, where a static reading of
+the generated catalogs and a direct execution of the ROM gave different answers.
+Both are now settled, and both turned out the same way: the static reading had a
+state assumption wrong.
 
-**[needs verification]** The two disagreements below propagate into Chapters 8,
-9, 10, 11, and 14 and Appendices C and D. Do not treat either interpretation as
-settled until the static catalogs and direct execution agree.
+The first was the effects chip test's loop period. The catalogs read its rest
+durations through the duration table of
+[Chapter 8](08_sequence_language_time.md) and got 30 sweeps; execution gave 250.
+The decisive evidence is the branch at `$4844`, which tests two bits of the
+channel's status byte and only then decides which rule applies. The catalog
+generator was applying the table unconditionally. It has been corrected.
 
-The generated catalogs give the effects chip test a thirty-sweep loop period,
-computed by reading its rest durations through the duration table of
-[Chapter 8](08_sequence_language_time.md). Executing the ROM's own interrupt
-service gives 250 sweeps, which is what the POKEY rule of "control byte times 32"
-produces. [Chapter 9](09_sequence_language_opcodes.md)'s loop table prints the
-executed figures. The two readings have not been reconciled, and one of them is
-wrong.
+The second was the volume-shape table. A static enumeration of note control
+bytes said five of the eight rows were reachable on POKEY channels; execution
+showed the index being zeroed on every POKEY event. Both readings were describing
+real code — the row derivation exists, on the arm of that same branch that POKEY
+channels never take — and the index is only ever read on the POKEY side. The
+generator has been corrected, and
+[`docs/generated/volume_shape_catalog.csv`](../docs/generated/volume_shape_catalog.csv)
+now carries the discarded derivation in a column of its own, because a rule that
+runs and is thrown away is worth recording.
 
-The second is the shape table. A static enumeration of note control bytes says
-five of the eight rows are reachable on POKEY channels. Executing the ROM shows
-the POKEY note path storing zero into the shape index every time, which would make
-row 0 the only row anything ever selects. [Chapter 10](10_shaping_the_sound.md)
-reports the executed result.
-
-Both are cases of a static reading and a dynamic reading of the same code
-producing different answers, which usually means one of them has a state
-assumption wrong. Neither changes anything a listener would hear.
-
-<!-- TODO: Revisit the final sentence after resolving shape-row reachability;
-     non-neutral configured shape rows could affect audible POKEY output. -->
+Neither correction changes anything a listener would hear: row 0 is sixteen
+zeroes, and the chip test loops either way. What they changed is the confidence
+this book can claim, which is why they are written up here rather than quietly
+fixed.
 
 ## How you could help
 

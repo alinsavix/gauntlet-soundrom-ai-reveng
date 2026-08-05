@@ -91,4 +91,27 @@ One more file is a pointer rather than a source.
 it to find which `docs/` chapter is authoritative on a topic, not as an authority
 itself.
 
-If `docs/` and anything else disagree, `docs/` wins.
+## When two sources disagree
+
+`docs/` is the most carefully argued account in this repository, but it is not an
+authority to defer to. It is a derived view of a 48 KB binary, and so is this
+book, and so is every CSV under `docs/generated/`. When two of them disagree,
+neither one wins by rank. **Work out which is wrong and fix it.**
+
+The ROM decides. Find the code that produces or consumes the value in question
+and read it — that is the method
+[Chapter 16](16_how_this_was_figured_out.md) describes, and it has settled every
+disagreement this project has had so far. A generated catalog can be wrong
+because its script models the ROM incorrectly; a chapter can be wrong because it
+was written from a catalog that was. Both have happened. Both were fixed by
+disassembling the deciding branch.
+
+Two worked examples are in [Chapter 17](17_open_questions.md), under *Two places
+this book used to disagree with itself*. In each case the catalog and a direct
+execution of the ROM gave different answers, the catalog's script turned out to
+have a state assumption wrong, and the fix was to correct the generator and
+regenerate — not to pick the more authoritative-looking document.
+
+If you find a disagreement you cannot settle from the ROM, say so where it
+appears rather than choosing a side. A `**[needs verification]**` marker in the
+text is the project's convention for that, and it is meant to be temporary.

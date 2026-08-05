@@ -105,8 +105,14 @@ chip is fully refreshed 119.8454952 times a second, which is once every
 **8.344077 ms**. That interval is the **tick**, and it is the unit the rest of
 this book counts in.
 
-The tick is a hard floor on musical resolution. No note can start, stop, change
-pitch, or change volume at any moment other than a tick boundary. A sequence that
+The tick is a hard floor on musical resolution. Nothing a sequence asks for can
+happen at any moment other than a tick boundary: no note can start, stop, change
+pitch, or change volume in between. That floor applies to the two synthesis
+chips, not to everything the board does. Speech is fed four times per interrupt,
+on the schedule later in this chapter, and all three chips go on making sound
+between the CPU's writes — a YM2151 operator envelope decays continuously, and a
+POKEY counter keeps counting. The tick governs when the *program* can intervene.
+A sequence that
 wants a note to last exactly one second gets 120 ticks and no finer control than
 that. Every duration in [Chapter 8](08_sequence_language_time.md), every envelope
 step in [Chapter 10](10_shaping_the_sound.md), and every key-on in
@@ -253,10 +259,9 @@ written to make that work.
   times a second.
 - Each interrupt sweeps one chip, alternating, so each chip is refreshed about
   120 times a second: one **tick**, 8.344 ms.
-- Nothing in any sound can change faster than one tick.
-  <!-- TODO: Scope this to sequence-driven POKEY/YM control changes. Speech is
-       serviced four times per IRQ, and all three chips evolve autonomously
-       between CPU writes. -->
+- Nothing a sequence controls on the POKEY or the YM2151 can change faster than
+  one tick. Speech runs on its own schedule, and all three chips keep evolving
+  between the CPU's writes.
 - The speech chip gets four service attempts per interrupt, most of which the
   chip refuses.
 - The same interrupt filters the coin switches, stretches the coin-counter

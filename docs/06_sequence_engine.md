@@ -136,7 +136,7 @@ markers `$BB-$FF` instead store `$FF` in `$0228,X` and return carry clear. All
 | `$87` | `$5154` | SET_VOL_ENV | 2 | Set volume-envelope pointer |
 | `$88` | `$50F1` | RESET_TIMER | 1 | Reset timer/repeat state |
 | `$89` | `$514B` | SET_REPEAT | 1 | Set repeat counter |
-| `$8A` | `$51B3` | SET_DISTORTION | 1 | Set distortion shape/mask input |
+| `$8A` | `$51B3` | SET_DISTORTION | 1 | Store the AUDC distortion field to `$0642,X`. Two instructions; it does not touch the `$03AE` volume-shape index |
 | `$8B` | `$51B7` | SET_CTRL_BITS | 1 | Chip-specific OR/control operation |
 | `$8C` | `$51E2` | SET_VIBRATO | 1 | Set vibrato depth |
 | `$8D` | `$51E6` | PUSH_SEQ | 2 | Call 16-bit subsequence |
@@ -269,6 +269,35 @@ Using the implementation clock configuration independently confirmed by a
 schematic calculation, that is 119.8454952 Hz or 8.344077 ms per update. The
 rate and alternating ROM scheduler are **Verified**.
 
+### Two duration rules, selected by the channel status byte
+
+`$4844` chooses between two mutually exclusive duration rules before any table
+is read (**Verified**):
+
+```
+$4845  LDA $0390,X / AND #$02 / BNE $4854   ; bit 1 = YM2151 mode
+$484C  LDA $0813    / BNE $4854             ; $0813 = a copy of status bit 0
+$4851  JMP $48EF                            ; both clear -> POKEY arm
+```
+
+On the duration-table arm at `$4854`, the low nibble indexes `$5C5F` and bit 6
+adds half again. On the POKEY arm at `$48EF`, `AND #$7F` drops the sustain bit
+and three `LSR A / ROR $11` pairs form the 16-bit value `(control & $7F) * 32`;
+the duration table, the dotted bit, and the division field are all bypassed.
+
+Allocation at `$45A3` (`LDA $6024,X / ASL A / SEC / ROL A / STA $0390,Y`) leaves
+status bit 0 **set**, so the table arm is the default for every new channel.
+`SWITCH_POKEY` at `$54CC` (`AND #$FC`, then `STY $0813`) is the only configured
+instruction that clears both branch bits, and all eleven POKEY records execute
+it before their first note or rest. YM records never clear it. The chip-test
+figures follow directly: `REST $60` is `96*32 = 3072` units (192 intervals at
+tempo 16) and `REST $7D` is `125*32 = 4000` units (250 intervals).
+
+An earlier revision of `timing_clock_audit.py` applied the duration table
+unconditionally and reported a 60/30 prefix and period for command `$05`; that
+reading is **Contradicted** by the branch above and by direct execution, and the
+generator now models the status bit.
+
 The bounded consumer verifies the arithmetic staging:
 `$4651` subtracts `$05CA,X` from both 16-bit timers; `$4844` adds the selected
 16-bit duration and optionally half of it for bit 6; with sustain bit 7 clear,
@@ -397,8 +426,8 @@ the first three replay periods are identical while retaining residue -16:
 |---|---:|---:|
 | `$2E` | 480 intervals | 480 intervals |
 | `$37` | 15 intervals | 15 intervals |
-| `$05` channel 1 | 60 intervals | 30 intervals |
-| `$05` channel 2 | 60 intervals | 30 intervals |
+| `$05` channel 1 | 692 intervals | 250 intervals |
+| `$05` channel 2 | 692 intervals | 250 intervals |
 | `$04` channel 8 | 1,500 intervals | 480 intervals |
 
 The prefix includes the first loop-body note/rest before reaching `$99`.

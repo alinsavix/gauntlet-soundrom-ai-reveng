@@ -154,22 +154,28 @@ the last entry and staying there. Rows 4 and 6 are a slow decay at two different
 strengths, rows 5 and 7 are a fast one, and rows 2 and 3 are a delayed cut that
 takes the volume down rather than up.
 
-**[needs verification]** The selector and reachability described below conflict
-with the generated volume-shape catalog and canonical subsystem documentation,
-which derive the selector from duration/control bits 3–5 and mark rows 0, 1, 4,
-5, and 7 reachable. Direct ROM execution instead appears to clear the selector
-to row 0. Resolve the state assumption before treating either result as settled.
+One byte per channel holds both the row and the position within it: the high
+nibble picks the row, the low nibble counts along it and stops at 15.
 
-<!-- TODO: "Distortion nibble" is also inconsistent with the three-bit AUDC
-     distortion field. Use "distortion field" unless four bits are intended. -->
+That byte gets written in two places, and which one runs depends on the same
+status bits that chose the duration rule in
+[Chapter 8](08_sequence_language_time.md). A channel on the duration-table side
+takes the row from bits 3 to 5 of the note's control byte. A channel on the
+POKEY side has the byte set to zero, every time it starts a note or a rest.
 
-The row index travels with the distortion nibble that the distortion instruction
-of [Chapter 9](09_sequence_language_opcodes.md) sets, and each channel tracks its
-own position within the row. The POKEY note path writes zero into that index
-every time it starts a note, so every POKEY channel in this ROM selects row 0,
-which is sixteen zeroes, and the table changes nothing about any sound Gauntlet
-II makes. The mechanism is complete and the curves are real; nothing reaches
-them.
+The consequence is a small joke at the ROM's expense. The row index is only ever
+*read* on the POKEY volume path — it is added to the volume accumulator, which
+only POKEY channels have. So the write that could select an interesting row
+happens on channels that never read it, and the channels that do read it are
+guaranteed to find row 0, which is sixteen zeroes. The table changes nothing
+about any sound Gauntlet II makes. The mechanism is complete and the curves are
+real; the two halves of it never meet.
+
+It is worth saying what does *not* select the row, because the name invites the
+guess: the distortion instruction of
+[Chapter 9](09_sequence_language_opcodes.md) has nothing to do with it. That
+handler is two instructions long and stores one byte, the distortion field that
+gets OR'd into the POKEY control byte. It never touches the shape index.
 
 ## Fades and ramps
 
@@ -218,7 +224,7 @@ remainder byte the fade would move one step each time and take half as long
 again, or two steps each time and be over too soon.
 
 The same machinery serves the ramp instruction inside a sequence. The theme's
-lead voice uses one to push its own level up before a phrase, which is a
+lead part uses one to push its own level up before a phrase, which is a
 crescendo written in three bytes.
 
 There is a third way in, and it is the tidiest thing in this chapter. One
@@ -227,9 +233,9 @@ values the fade command writes: amount zero, remainder zero, ramp −48, a
 countdown of two, and the marker that says this channel is fading. A sequence
 that executes it fades itself out from that point, using the identical machinery
 the game would have used to fade it from outside. The level-opening fanfare uses
-it: each of its five voices reaches that instruction two thirds of the way
+it: each of its five parts reaches that instruction two thirds of the way
 through, so the last phrase of the fanfare is already dying away while it plays.
-All five uses of that instruction in the entire ROM are the five voices of that
+All five uses of that instruction in the entire ROM are the five parts of that
 one fanfare, two bytes each.
 
 ## Where the shaping lands

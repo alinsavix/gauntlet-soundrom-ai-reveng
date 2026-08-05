@@ -64,7 +64,25 @@ post-length drain.
 | `$0832/$0833` | Eight-entry speech queue read/write positions |
 | `$0834-$083B` | Speech command queue |
 | `$083C-$089F` | YM2151 operator/output workspace |
-| `$093D+4(n-1)` | 199 four-byte records used by sequence push/pop chaining |
+| `$093D+4(n-1)` | 199 four-byte records used by sequence push/pop chaining; the free list built at `$4295` reaches only records 1..134 (see below) |
+
+### Context-pool free-list extent
+
+`$4295` links the pool by writing each record's next-ID field and advancing a
+16-bit pointer by 4. Its count guard (`CMP #$C8` at `$42B4`) stops after record
+199 has been linked. The epilogue at `$42B8` then executes `DEC $16` before
+`SBC #$04`, which is correct only on the `$42B1` exit, where the matching
+`INC $16` has just run. On the count exit taken here, `INC $16` did not run in
+the final iteration, so the pointer is adjusted by 260 rather than 4 and the
+terminating zero is stored at `$0B51` — record 134 — instead of record 199.
+
+Direct execution of `$4295` confirms the result: `$14` = 1, the chain
+1→2→…→134 terminates at 134, and records 135..199 retain valid next-IDs while
+being unreachable. Allocatable capacity is therefore 133 records with 134 as the
+sentinel (**Verified** by execution and by the bounded listing). Configured
+demand never approaches that, so there is no functional effect. The 199-record
+intent is **Strong inference** from the count guard and the fully initialized
+tail.
 
 ## Logical channel arrays
 

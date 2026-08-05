@@ -49,7 +49,7 @@ last one to stop. Every priority is the same, which is deliberate: none of these
 eight voices should ever preempt another.
 
 The allocator runs eight times. Each pass finds a free logical channel, fills it
-in from the record, and links it into that physical voice's list under an
+in from the record, and links it into that voice's list under an
 interrupt mask. Tempo starts at the default 16, both timers start at zero, and
 the sequence pointer aims at the address in the table.
 
@@ -193,13 +193,12 @@ whether it can hiss convincingly.
 Channels 3 and 4 play one rest each and end. Channels 1 and 2 keep going: after
 an opening phase they reach a two-instruction loop and stay in it.
 
-**[needs verification]** These timings inherit Chapter 8's unresolved POKEY
-duration interpretation. Direct ROM execution gives 442/250 sweeps, while the
-generated timing-loop catalog gives a 60-sweep prefix and 30-sweep period.
-
 Chapter 9's table gave the numbers. Both looping channels reach their backward
-jump after 442 sweeps and repeat every 250 sweeps after that, which is 3.7
-seconds to the loop and 2.1 seconds per cycle. Nothing in the command set stops
+jump after 692 sweeps and repeat every 250 sweeps after that, which is 5.8
+seconds to the first jump and 2.1 seconds per cycle. Those come straight from
+the POKEY duration rule of [Chapter 8](08_sequence_language_time.md): the
+opening `REST $60` is 96 × 32 units, or 192 sweeps at the default tempo, and
+each `REST $7D` is 125 × 32 units, or 250 sweeps. Nothing in the command set stops
 them. The three named stop commands in the ROM target other sounds, and the only
 way out is the global reset that command `$00` performs. That is fine for a test
 you leave running while you work.

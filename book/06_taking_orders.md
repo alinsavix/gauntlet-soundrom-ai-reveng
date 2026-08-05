@@ -291,7 +291,7 @@ commands, one byte of RAM, and no new machinery.
 ## Where this leads
 
 [Chapter 7](07_command_to_channel.md) picks up the moment the type-7 handler
-starts work. One parameter has to become up to eight simultaneous voices, spread
+starts work. One parameter has to become up to eight simultaneous parts, spread
 across a chip that only has eight, while whatever was already playing keeps
 playing or gets thrown off.
 

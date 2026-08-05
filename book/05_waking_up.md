@@ -207,7 +207,7 @@ Then, in order:
 The audio reset is the substantial one, and the game can ask for it again at any
 time by sending command `$00`. It does four things.
 
-It rebuilds a pool of 197 small records. These are four-byte scratch blocks that
+It rebuilds a pool of small records. These are four-byte scratch blocks that
 sequences borrow when they need to remember something, such as where to return
 after a repeated phrase. Rather than searching for a spare block when one is
 wanted, the ROM uses a **free list**: at boot, every record is written to point

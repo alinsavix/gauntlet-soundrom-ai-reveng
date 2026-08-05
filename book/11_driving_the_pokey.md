@@ -6,12 +6,8 @@
 Swing the sword. Fire an arrow. Watch a Lobber's rock arc across the room. Those
 three noises, and four more, are the whole of what the POKEY contributes to
 Gauntlet II. Seven effects and one diagnostic, out of 219 commands. This chapter
-follows the last few inches of the path they take: from four prepared logical
-channels to nine numbers written into a chip.
-
-<!-- TODO: "Four prepared logical channels" conflicts with Chapter 7's
-     priority lists, which may contain many logical channels. If this means the
-     four winning physical-channel candidates, name them that way. -->
+follows the last few inches of the path they take: from four winning candidates,
+one per POKEY voice, to nine numbers written into a chip.
 
 ## The sweep
 
@@ -58,13 +54,10 @@ volume envelope plus shape, divided by eight and clamped to 0 through 15, OR'd
 with the distortion setting, gives the control byte. Base frequency plus
 frequency envelope gives the divider.
 
-<!-- TODO: "Distortion nibble" here contradicts the candidate table three lines
-     above, which says the top three bits of AUDC. Same wording appears in
-     chapter 10 and appendix C. Settle on "three-bit distortion field"
-     throughout unless four bits are genuinely intended. -->
-
-The distortion nibble is worth a table of its own, because it is the POKEY's
-whole palette of timbre and Gauntlet II uses seven of the eight settings:
+The distortion field is worth a table of its own, because it is the POKEY's
+whole palette of timbre and Gauntlet II uses seven of its eight settings. It is
+three bits wide, sitting at the top of the control byte, so the values below all
+end in five zero bits:
 
 | Value | What the chip does | Used by |
 |---|---|---|
@@ -148,12 +141,14 @@ would be a second unwanted voice.
 
 Joined mode is selected by bits in the POKEY's mode register, AUDCTL, and so is
 the choice of clock, and so are the high-pass filters and the polynomial length.
-One byte, eight independent switches, and up to eight logical channels with
-opinions about it.
+One byte, eight independent switches, and four voices with opinions about it.
 
-<!-- TODO: Verify the "up to eight logical channels" count and distinguish
-     logical channels from the four prepared physical candidates. Chapter 7
-     permits up to thirty live logical channels across the lists. -->
+Four, but the opinions come from more than four places. The engine keeps one
+pair of accumulators per voice, and every logical channel queued on that voice
+contributes to them as the sweep walks the list — not just the winner. So a
+sound that loses the arbitration and is never heard still gets a say in the mode
+register. Since the channels sharing a voice are usually asking for the same
+thing, that rarely matters, and in this ROM it never does.
 
 The engine solves this with **mask accumulation**, a pattern worth learning once
 because it turns up wherever independent parties have to agree on a shared set
@@ -353,7 +348,7 @@ to full volume in two sweeps and stops dead.
 
 [Chapter 12](12_driving_the_ym2151.md) takes the other branch of the same
 dispatcher. Eight channels instead of four, a 42-byte instrument definition
-instead of a distortion nibble, a chip that has to be asked before every single
+instead of a three-bit distortion field, a chip that has to be asked before every single
 write, and a volume control that is not a volume control.
 
 ## Going deeper

@@ -37,9 +37,9 @@ unit of time the rest of the book counts in, so it is the one to read slowly.
 **Waking up and taking orders.** Chapters 5 and 6. Power-on, self-test, and the
 pipeline that turns an arriving byte into a decision about what to play.
 
-**Making a sound.** Chapters 7 to 13. The heart of it. How a command becomes a set
-of voices, the language that describes every sound in the game, the curves that
-shape it, and the last few inches into each of the three chips.
+**Making a sound.** Chapters 7 to 13. The heart of it. How a command becomes a
+set of parts, the language that describes every sound in the game, the curves
+that shape it, and the last few inches into each of the three chips.
 
 **Watching it happen.** Chapters 14 and 15. Complete walkthroughs: first the three
 self-test sounds, which were written to be obvious, then three real game sounds
@@ -70,7 +70,7 @@ you can dip into at any point.
 
 | | |
 |---|---|
-| **[7. From Command to Channel](07_command_to_channel.md)** | Thirty sounds in progress, twelve chip voices, and what happens when they collide |
+| **[7. From Command to Channel](07_command_to_channel.md)** | Thirty parts in progress, twelve chip voices, and what happens when they collide |
 | **[8. Notes, Rests, and Time](08_sequence_language_time.md)** | The sequence language, first half: a note is two bytes, and time never drifts |
 | **[9. The Opcodes](09_sequence_language_opcodes.md)** | The sequence language, second half: 59 instructions, control flow, and a hardware random number generator |
 | **[10. Shaping the Sound](10_shaping_the_sound.md)** | Envelopes, loop records, fades, and what happens on the ticks between notes |
@@ -139,13 +139,6 @@ is established, and these chapters were filtered to admit only the two strongest
 levels. Anything weaker was left out or handed to
 [Chapter 17](17_open_questions.md), where the uncertainty is the subject.
 
-<!-- TODO: Qualify this confidence statement. Two disagreements between the
-     generated catalogs and direct ROM execution are still open, and are marked
-     [needs verification] where they appear:
-       - the POKEY duration rule: chapters 8, 9, 14 and appendix D.7
-       - the volume-shape selector: chapter 10 and appendices C and D.8
-     Chapter 17 states both. Either resolve them or say here that the
-     verified/strong-inference filter has two documented exceptions. -->
 
 So if a sentence here makes you suspicious, there is somewhere specific to go.
 The **Going deeper** list at the end of each chapter names the `docs/` chapter and

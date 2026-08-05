@@ -67,10 +67,12 @@ end of this chapter decide which work happens.
 [Chapter 3](03_three_sound_chips.md) described FM synthesis in the abstract: four
 operators, each a sine oscillator with its own envelope, wired together in one of
 eight arrangements. Turning that into sound means filling in about thirty
-numbers, and the ROM stores each set as a fixed-size **voice** record.
+numbers, and the ROM stores each set as a fixed-size **instrument** record.
+The sequence instruction that loads one is called `SET_VOICE`, which is the one
+place the older name survives; everywhere else this book says instrument.
 
 There are 55 of them, laid out end to end from `$69D6`, 42 bytes each. Here is a
-real one, the lead voice of the treasure-room music, read out field by field:
+real one, the lead instrument of the treasure-room music, read out field by field:
 
 | Offset | Field | Value | Meaning |
 |---:|---|---:|---|
@@ -103,7 +105,7 @@ fields are always the same:
 | 4 | Second detune and second decay rate |
 | 5 | Sustain level and release rate |
 
-Read the treasure-room voice with that key and it tells you something. All three
+Read the treasure-room instrument with that key and it tells you something. All three
 of M1, M2 and C1 have an attack byte of `$DF`, which is the fastest attack with
 the strongest key scaling. C2, the operator you actually hear, has `$9F`: same
 fast attack, less key scaling. The three modulators have their levels set to
@@ -117,16 +119,16 @@ subject of a later section.
 
 Of the 55 records, 39 are named by a sequence somewhere in the ROM and one more
 is reached only through the auxiliary-block instruction. The busiest is the
-treasure room's second voice, loaded 24 times across the game; the remaining
+treasure room's second instrument, loaded 24 times across the game; the remaining
 fifteen are never named at all.
 
-## Loading a voice
+## Loading an instrument
 
 One instruction does the whole thing. `SET_VOICE` takes a 16-bit address, copies
 the first 28 bytes of that record into the chip's registers, and initializes the
 channel's bookkeeping from the rest.
 
-Three bytes of sequence completely redefine what a voice sounds like. That is why
+Three bytes of sequence completely redefine what a channel sounds like. That is why
 `SET_VOICE` is the most common instruction in the entire ROM, appearing 147
 times: nearly every sequence starts by choosing an instrument, and several change
 instrument partway through.
@@ -187,7 +189,7 @@ to touch:
 Every volume change on a YM channel looks up that row first. The instruction
 takes a signed amount, negates it, and adds it to the base level of each carrier
 with saturation at both ends, leaving the modulators alone. Seventeen of the 39
-voices this game uses have exactly one carrier, so for those the whole operation
+instruments this game uses have exactly one carrier, so for those the whole operation
 touches one number.
 
 The sequence language reaches this through two instructions.
@@ -253,7 +255,7 @@ with a different weight without loading a different instrument.
 
 Almost nothing uses it. Of the ROM's 1,124 note and rest events, 1,097 select one
 of the two zero entries. Ten of the remainder are on POKEY channels, which ignore
-the field entirely. Sixteen are the low grinding D that four voices hold when a
+the field entirely. Sixteen are the low grinding D that four parts hold when a
 door opens, and one is a single note in the food blip.
 
 ## Pitch: key code and key fraction
@@ -285,7 +287,7 @@ of octave block 3 and D4 is near the start of block 4, so the chip's octaves run
 from C-sharp to C rather than from C to B.
 
 Register `$30` holds the **key fraction**, six bits that divide one semitone into
-sixty-four parts. Every voice record carries a base fraction, and although all 55
+sixty-four steps. Every instrument record carries a base fraction, and although all 55
 in this ROM leave it at zero, the engine adds an offset of its own on top, which
 is how two voices playing the same note can be detuned slightly against each
 other to thicken the sound.
@@ -347,10 +349,10 @@ and loops forever so a technician can leave it running.
 >
 > The first prints eight channels. Every one begins with `SET_VOICE`, and five of
 > them name the same instrument at `$6DC6`; the lead at `$6D72` and the two upper
-> voices at `$6F40` and `$6AD2` are the exceptions. Every one of the eight sets
+> parts at `$6F40` and `$6AD2` are the exceptions. Every one of the eight sets
 > `SET_TEMPO $4F`, so the whole arrangement runs off one tempo. Six of them play
 > `YM_CARRIER_TL_DELTA $F1`, the eleven-decibel step down described above. The
-> staggered rests near the top of channels 2 through 6 are what make those voices
+> staggered rests near the top of channels 2 through 6 are what make those parts
 > enter one after another instead of together.
 >
 > The second reports `87723 register writes` across `6704 IRQ services` and
@@ -394,7 +396,7 @@ here. It is a queue and a byte pump, and it takes up two thirds of the ROM.
   wait, winner staging, and measured cycle costs.
 - [`docs/05_data_reference.md`](../docs/05_data_reference.md) — the algorithm mask
   table, the attenuation curve, the key-code view, and the transform tables.
-- [`docs/06_sequence_engine.md`](../docs/06_sequence_engine.md) — the voice and
+- [`docs/06_sequence_engine.md`](../docs/06_sequence_engine.md) — the instrument and
   auxiliary loaders, and the mode-overloaded channel arrays.
 - [`hw_docs/YM2151.md`](../hw_docs/YM2151.md) — the chip's own register map.
 - [`docs/generated/ym_voice_field_catalog.csv`](../docs/generated/ym_voice_field_catalog.csv)
