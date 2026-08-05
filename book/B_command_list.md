@@ -1,6 +1,8 @@
 # Appendix B — The Complete Command List
 
-All 219 command values the main CPU can send, in order.
+All 219 command values the main CPU can send, in order. The reverse
+direction — the handful of bytes the sound CPU sends *back* — is tabulated at
+the end, under [Replies to the main CPU](#replies-to-the-main-cpu).
 
 **Command** is the byte written to the sound board's mailbox.
 [Chapter 1](01_two_computers.md) explains the `$` notation and
@@ -264,6 +266,37 @@ whether the game program ever emits it.
 
 Of the 62 sounds, eight go to the POKEY (`$05` and `$43` through `$49`) and the
 other 54 go to the YM2151. No sound uses both chips.
+
+## Replies to the main CPU
+
+The command list above is one direction of the mailbox. The other direction is
+much narrower: the sound CPU sends bytes back through `$1000`, the write that
+hands the main CPU a byte and interrupts it. Board-status bit 6 at `$1030` reads
+1 while a reply is still waiting to be collected, so the two sides never
+overwrite each other. See [Chapter 6](06_taking_orders.md) for the mechanism and
+[Appendix D](D_reference_tables.md) sections D.2 and D.4 for the `$1000` window
+and the error-flag byte.
+
+Two paths feed `$1000`. The **three direct questions** are answered on the spot
+from inside the interrupt. Everything else is queued in the 16-byte outgoing
+reply buffer at `$0214` and drained one byte per pass by the main loop.
+
+| Reply | Meaning | Triggered by | Path |
+|---|---|---|---|
+| four input fields | Coin-door and switch state, cached | Command `$03` | Interrupt, direct |
+| `$DB` | This ROM's identity ("which sound ROM are you?") | Command `$06` | Interrupt, direct |
+| error-flag byte | Health report; the bitfield decoded in [D.4](D_reference_tables.md) | Command `$07` | Interrupt, direct |
+| `$55` | Proof of life — a byte that travelled the ring, dispatcher, and reply queue | Command `$DA` | Reply buffer |
+| `$FF` | The first reply sent once boot completes | Boot | Reply buffer |
+| `$0F` | Last of five fixed values written during the board handshake | Boot | Board register |
+| any byte | `QUEUE_OUTPUT` opcode `$96`, so a sequence could signal the game; no sound in this ROM uses it | Sequence engine | Reply buffer |
+
+The `$0F` at the end of the boot handshake is written to a board register rather
+than to the `$1000` mailbox, and its exact meaning is still open
+([Chapter 17](17_open_questions.md)). Every other row above is a byte the main
+CPU reads from the mailbox. Of the buffered replies, only `$DA` is exercised in
+normal operation; the `$96` opcode path exists in the sequence language but is
+dormant in this ROM.
 
 ## Where this comes from
 

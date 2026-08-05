@@ -50,7 +50,9 @@ contexts, so the shortfall has no audible consequence.
 ## D.2 The hardware window at `$1000`
 
 Several of these addresses do unrelated things depending on the direction of the
-access. [Chapter 2](02_tour_of_the_board.md).
+access. [Chapter 2](02_tour_of_the_board.md). For the set of *values* the sound
+CPU sends back through `$1000`, see
+[Appendix B, Replies to the main CPU](B_command_list.md#replies-to-the-main-cpu).
 
 | Address | Read | Write |
 |---|---|---|

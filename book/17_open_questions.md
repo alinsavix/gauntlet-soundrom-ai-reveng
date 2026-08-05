@@ -123,6 +123,14 @@ The most likely reading is a tool emitting an end marker after every stream
 whether the stream needed one or not, but that is a guess about a build process
 nobody has a record of.
 
+**What `$DB` means.** Command `$06` asks "which sound ROM are you?" and the
+interrupt answers with the fixed byte `$DB` (see
+[Appendix B](B_command_list.md#replies-to-the-main-cpu)). That the byte is a
+constant identity stamp is clear from the code; what value the main CPU expects,
+and whether `$DB` encodes a revision, a board type, or just "Gauntlet II sound",
+is a question only the 68010's side can answer. This ROM emits the byte without
+ever reading it back.
+
 **About 300 bytes of unused ROM.** Four regions have no consumer anywhere: two
 bytes at `$8447` reading `$94 $FF`, a single `$FF` at `$FECD` just past the end of
 the speech corpus, 296 zero bytes filling the gap before the interrupt vectors,
@@ -243,8 +251,8 @@ at once. A capture of the first few milliseconds after power-on would additional
 resolve the boot NMI window.
 
 The **main CPU's disassembly** would name the boot handshake bytes, confirm which
-commands the game actually emits, and explain the `$0F` reply. Gauntlet II's game
-ROMs are as available as its sound ROM.
+commands the game actually emits, and explain the `$0F` reply and the `$DB`
+identity byte. Gauntlet II's game ROMs are as available as its sound ROM.
 
 **Another revision of this sound ROM**, or the equivalent ROM from another Atari
 title on related hardware, would distinguish development leftovers from features
