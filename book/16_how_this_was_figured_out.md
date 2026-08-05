@@ -211,13 +211,69 @@ to list:
 
 Three of those four are the same kind of thing: evidence that does not exist
 inside the file. A ROM cannot tell you what its outputs are wired to, and it
-cannot tell you what its music is supposed to sound like. Everything that *is*
-inside the file was recoverable from the file, and it was recovered.
+cannot tell you what its music is supposed to sound like.
 
-The honest summary is that the analysis was very good at the mechanical part and
-had no access at all to the parts that require having been in the room. That
-division is worth remembering the next time somebody claims either that this kind
-of work is now solved or that it cannot be automated.
+## The audit that came afterwards
+
+That list stayed at four for as long as nobody went looking. Later, this book was
+read end to end against itself and against the ROM, with one instruction: find
+the contradictions. That pass found a great many more, and the honest account of
+this project has to include them.
+
+They fell into four kinds.
+
+**Prose that outran its evidence.** Chapter 6 claimed the three sounds with a
+stop command are the three that never end; one of them, "Death Touches Player",
+runs 53 seconds and stops. The priority table printed in three places listed
+eight levels as though that were all of them, when the ROM uses seventeen and
+the missing rows cover 43 of the 182 records. Chapter 12 described a volume
+curve as evenly spaced in a sentence sitting directly above a table that
+contradicted it. Chapter 3 said the YM2151 needs no further attention once
+loaded, five chapters before Chapter 12 shows the writes that continue every
+sweep. None of these needed new evidence. They needed somebody to read two
+adjacent claims at once.
+
+**Arithmetic that did not close.** A register-write count was explained as
+"nine per sweep plus the eleven the reset performs" and came out one short every
+time; the reset does twelve. A frequency table's cents column had been computed
+against a nominal 1.790 MHz clock while the clock tree three sections earlier
+gave 1,789,772.625 Hz, which put every note 0.22 cents out. An envelope was
+described as fifteen bytes and printed as nine.
+
+**Errors in the evidence layer itself.** This is the uncomfortable one. Two of
+the generated catalogs — the things this book points at when it wants to be
+believed — were wrong, and the book was right. `timing_clock_audit.py` read
+POKEY rest durations through the duration table without checking the branch at
+`$4844` that decides whether the duration table applies. `support_staging_audit.py`
+attributed a volume-shape row derivation to POKEY channels when the instruction
+that performs it runs only on the arm POKEY channels never take. Both were fixed
+in the generators and the catalogs regenerated. A machine-produced CSV with a
+confidence column reading "Verified" is still only as good as the script's model
+of the ROM.
+
+**A bug in the ROM that everyone had smoothed over.** The context-record pool
+was documented as 197 records here and 199 there. Executing the initializer gives
+134: the routine that terminates the free list adjusts its pointer by 260 bytes
+instead of 4, orphaning everything past record 134. Two different plausible
+numbers had been written down, from two different misreadings, and neither
+matched what the chip does. Nothing in the game needs more than a handful of
+records, so the shortfall has never been heard by anybody.
+
+All four kinds share a pattern, and it is not the pattern of the corrections
+listed above. Those needed a human who had been in the room. These needed nothing
+but a careful second reading: every one was settled from the ROM, from the
+schematic-derived clock tree, or from a paragraph elsewhere in this book. They
+survived the first pass because each claim was written in isolation and nothing
+afterwards read them against one another.
+
+The honest summary is in three parts. The analysis was very good at the
+mechanical work of recovering structure from bytes. It had no access at all to
+the parts that require having been in the room. And it was noticeably worse at
+noticing when two things it had already written could not both be true — which
+is a different skill from either, and the one a reader of a long technical
+document is most exposed to. That division is worth remembering the next time
+somebody claims either that this kind of work is now solved or that it cannot be
+automated.
 
 ## What you now know
 
@@ -233,6 +289,10 @@ of work is now solved or that it cannot be automated.
   sound like, which is how the project's biggest error was caught.
 - A five-level evidence vocabulary sits behind this book, and chapters 1 through
   15 use only its top two levels.
+- A later consistency audit found a second class of error entirely: claims that
+  were each written carefully and were never checked against one another. Two of
+  those were in the generated catalogs rather than the prose, and one was a ROM
+  bug that two different wrong numbers had been covering up.
 
 ## Where this leads
 

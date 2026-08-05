@@ -1,7 +1,16 @@
 # 10 — Known Issues and Research Backlog
 
-This is the final and authoritative list of unresolved work. Items are ordered
-roughly by impact.
+This is the reference list of unresolved work, and the place to add an item when
+one is found. Items are ordered roughly by impact.
+
+"Reference" is not the same as complete. A later consistency audit of `book/`
+turned up errors that were not on this list and could not have been, because
+each individual claim looked sound and only the *combination* was wrong — two
+generated catalogs whose scripts modelled the ROM incorrectly, and a ROM bug
+that two different plausible record counts had been covering up. Both are
+written up where they belong (`06_sequence_engine.md`, `04_subsystems.md`,
+`02_memory_map.md`). Treat an empty backlog as "nothing currently known",
+never as "nothing left".
 
 Current execution order and new-context instructions are maintained in
 [`NEXT_STEPS.md`](NEXT_STEPS.md). That handoff prioritizes consumer-led code and
@@ -96,7 +105,8 @@ the `$5A25` RESET-vector status gate are Verified.
 
 **Current control-plane progress (2026-07-12):** `$4187-$4650` is decomposed
 into 32 generated blocks backed by 27 anchors. IRQ/BRK recovery, atomic global
-reset, both chip-reset paths, the 197-record context pool plus sentinel, all 15
+reset, both chip-reset paths, the 198-record context pool and its misplaced
+sentinel, all 15
 handler targets, every active handler, and complete type-7 admission/state/list
 insertion are Verified. New-slot publication, head reclamation, and equal-
 priority replacement prove IRQ-safe list mutation; the former partial-list

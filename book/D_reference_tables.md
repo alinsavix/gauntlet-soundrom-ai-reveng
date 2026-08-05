@@ -26,8 +26,8 @@ ranges is not wired to a chip at all.
 | `$0832`–`$083B` | 10 B | Speech queue and its positions |
 | `$083C`–`$089F` | 100 B | YM2151 operator workspace |
 | `$08A0`–`$093C` | 157 B | No documented consumer |
-| `$093D`–`$0C58` | 796 B | The context-record pool: 199 four-byte records, of which the free list reaches 134 (see below) |
-| `$0C59`–`$0FFF` | 935 B | Unused |
+| `$093D`–`$0C54` | 792 B | The context-record pool: 198 four-byte records, of which the free list reaches 134 (see below) |
+| `$0C55`–`$0FFF` | 939 B | Unused |
 | `$1000`–`$1035` | 54 B | Main-CPU mailboxes, mixer, board status, coin counters |
 | `$1800`–`$180F` | 16 B | POKEY |
 | `$1810`–`$1811` | 2 B | YM2151 |
@@ -37,15 +37,17 @@ ranges is not wired to a chip at all.
 | `$4000`–`$FFFF` | 48 KB | ROM |
 
 **The context pool is smaller than it looks.** Initialization walks `$093D`
-writing each record's "next" field, and its loop bound stops it after linking
-199 records. The instruction that then writes the list's terminating zero
-adjusts its pointer by 260 bytes rather than 4, so the zero lands on record 134
-instead of record 199. Records 135 to 199 are fully initialized and linked to
-each other, and nothing can ever reach them: the free list walked from its head
-is 134 records long, of which 133 can be allocated and the last is the sentinel.
-Executing the ROM's own initializer confirms it. Nothing in Gauntlet II comes
-close to needing 133 simultaneous contexts, so the shortfall has no audible
-consequence, and the surrounding code makes clear that 199 was the intent.
+writing each record's "next" field, and its loop bound stops after record 198.
+The instruction that then writes the list's terminating zero is meant to step
+back one record and mark the last one, which would leave 198 records with 197
+allocatable. It adjusts its pointer by 260 bytes instead of 4, so the zero lands
+on record 134. Records 135 to 198 keep valid links and nothing can ever reach
+them: the free list walked from its head is 134 records long, of which 133 can
+be allocated and the last is the sentinel. Executing the ROM's own initializer
+confirms it. Nothing in Gauntlet II comes close to needing 133 simultaneous
+contexts, so the shortfall has no audible consequence.
+
+## D.2 The hardware window at `$1000`
 
 Several of these addresses do unrelated things depending on the direction of the
 access. [Chapter 2](02_tour_of_the_board.md).

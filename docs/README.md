@@ -4,6 +4,28 @@ This directory is the canonical technical reference for the 48 KiB Gauntlet II
 arcade sound-CPU ROM (`soundrom.bin`). It replaces the old practice of layering
 corrections into `REPORT.md` and `REPORT_SUMMARY.md`.
 
+## When two sources disagree
+
+"Canonical" means these documents are the place a claim is argued in full. It
+does **not** mean they win an argument by rank. Everything here is a derived view
+of a binary: so are the CSVs under `generated/`, so is the book under `book/`,
+and so is any script in `utility/`. When two of them disagree, do not pick the
+more authoritative-looking one — **work out which is wrong and correct it.**
+
+The ROM decides. Find the code that produces or consumes the value and read it;
+`09_analysis_method.md` describes the discipline. Two worked examples are on
+record. In both, a generated catalog disagreed with a direct execution of the
+ROM, and in both the catalog's script had a state assumption wrong: the POKEY
+duration rule (`06_sequence_engine.md`, "Two duration rules") and the
+volume-shape row selector (`04_subsystems.md`). Each was fixed in the generator
+and the catalog regenerated. A "Verified" confidence column certifies the
+evidence a script was shown, not the script's model of the ROM.
+
+Where a disagreement genuinely cannot be settled from the ROM, label it and say
+so where it appears rather than choosing a side. Corrected claims keep a
+**Contradicted** note instead of being deleted, so the same wrong reading is not
+rediscovered later.
+
 ## Document map
 
 1. [Hardware](01_hardware.md)

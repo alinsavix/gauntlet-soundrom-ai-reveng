@@ -264,7 +264,7 @@ block points at the next unused one, and a single variable points at the first.
 Taking one and giving one back are each a handful of instructions with no
 searching, which matters because both happen inside the interrupt.
 
-The pool is 199 records long and the free list reaches 134 of them, because the
+The pool is 198 records long and the free list reaches 134 of them, because the
 routine that terminates the list writes its zero in the wrong place.
 [Appendix D](D_reference_tables.md) has the arithmetic. It costs nothing: the
 most this ROM ever needs at once is a handful.

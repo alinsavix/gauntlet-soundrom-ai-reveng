@@ -37,9 +37,10 @@ unit of time the rest of the book counts in, so it is the one to read slowly.
 **Waking up and taking orders.** Chapters 5 and 6. Power-on, self-test, and the
 pipeline that turns an arriving byte into a decision about what to play.
 
-**Making a sound.** Chapters 7 to 13. The heart of it. How a command becomes a
-set of parts, the language that describes every sound in the game, the curves
-that shape it, and the last few inches into each of the three chips.
+**Making a sound.** Chapters 7 to 13. The heart of it. How one command becomes as
+many as eight simultaneous strands of sound, the language that describes every
+one of them, the curves that shape it, and the last few inches into each of the
+three chips.
 
 **Watching it happen.** Chapters 14 and 15. Complete walkthroughs: first the three
 self-test sounds, which were written to be obvious, then three real game sounds
@@ -70,7 +71,7 @@ you can dip into at any point.
 
 | | |
 |---|---|
-| **[7. From Command to Channel](07_command_to_channel.md)** | Thirty parts in progress, twelve chip voices, and what happens when they collide |
+| **[7. From Command to Channel](07_command_to_channel.md)** | Thirty strands of sound in progress, twelve chip voices, and what happens when they collide |
 | **[8. Notes, Rests, and Time](08_sequence_language_time.md)** | The sequence language, first half: a note is two bytes, and time never drifts |
 | **[9. The Opcodes](09_sequence_language_opcodes.md)** | The sequence language, second half: 59 instructions, control flow, and a hardware random number generator |
 | **[10. Shaping the Sound](10_shaping_the_sound.md)** | Envelopes, loop records, fades, and what happens on the ticks between notes |
@@ -139,12 +140,26 @@ is established, and these chapters were filtered to admit only the two strongest
 levels. Anything weaker was left out or handed to
 [Chapter 17](17_open_questions.md), where the uncertainty is the subject.
 
+That filter is necessary and it is not sufficient, which the book found out the
+hard way. A later pass read these chapters against each other and against the
+ROM, and turned up a batch of errors that the filter could never have caught:
+claims that were individually well-sourced and jointly impossible, arithmetic
+that did not close, and two generated data files whose own confidence column
+said "Verified" while their scripts modelled the ROM incorrectly. All are fixed;
+[Chapter 16](16_how_this_was_figured_out.md) lists them. The lesson worth
+carrying into any long technical document is that sourcing each sentence is a
+different job from checking the sentences against one another, and only the
+first of those is easy to systematize.
 
 So if a sentence here makes you suspicious, there is somewhere specific to go.
 The **Going deeper** list at the end of each chapter names the `docs/` chapter and
 the generated data files covering the same ground rigorously, and
-[Appendix F](F_where_to_look_next.md) collects all of those in one table.
+[Appendix F](F_where_to_look_next.md) collects all of those in one table. If you
+find two statements that cannot both be true, that is a defect worth reporting —
+the project's policy is to work out which is wrong and correct it, not to defer
+to whichever document looks more official.
 
 [Chapter 16](16_how_this_was_figured_out.md) explains where the confidence came
 from, including the part where most of the analysis was done by an AI, what that
-cost, and the four corrections a human had to make.
+cost, the four corrections a human had to make, and the later audit that found
+considerably more.

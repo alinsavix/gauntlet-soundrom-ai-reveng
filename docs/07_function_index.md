@@ -154,7 +154,7 @@ in `initialization_main_catalog.csv`.
 | `$4187` | IRQ entry | Early IRQ, BRK recovery, or normal audio/board service | Verified |
 | `$41C8` | IRQ audio service | Four speech calls around alternating device sweep | Verified |
 | `$41E6` | global audio reset | Rebuild pools, clear channels, reset both chips | Verified |
-| `$4295` | context-pool initialization | Build 197 usable four-byte records plus sentinel | Verified |
+| `$4295` | context-pool initialization | Link 198 four-byte records; misplaced sentinel leaves 133 usable | Verified |
 | `$42C6` | context allocation | Pop one record ID or return zero | Verified |
 | `$42D7` | context address | Map record ID to `$093D+4*(ID-1)` | Verified |
 | `$42F9` | channel context free | Return both owned chains to pool | Verified |

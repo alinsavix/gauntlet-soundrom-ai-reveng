@@ -193,9 +193,9 @@ rest of the book measures in, so it is the one chapter to read slowly.
 arriving byte into a decision about what to play.
 
 **Making a sound ([7](07_command_to_channel.md) to [13](13_speaking.md)).** The
-heart of it. How a command becomes a set of parts, the small programming
-language that describes every sound in the game, the envelopes that shape it,
-and the last few inches into each of the three chips.
+heart of it. How one command becomes as many as eight simultaneous strands of
+sound, the small programming language that describes every one of them, the
+envelopes that shape it, and the last few inches into each of the three chips.
 
 **Watching it happen ([14](14_chip_tests.md) and [15](15_case_studies.md)).**
 Complete walkthroughs. The three self-test sounds first, because they were
@@ -208,9 +208,12 @@ has worked out yet.
 Chapters 1 through 15 state things plainly. Behind that flat tone is a set of
 reference documents in [`docs/`](../docs/README.md) that record how confident each claim is and
 what evidence supports it. Nothing in this book goes beyond what those
-documents call verified or strongly supported. If a sentence here makes
-you suspicious, the "Going deeper" list at the end of each chapter points
-at the chapter of `docs/` that will argue the case properly.
+documents call verified or strongly supported. That is a floor rather than a
+guarantee: a later consistency audit still found errors this book had inherited
+from its own sources, and [Chapter 16](16_how_this_was_figured_out.md) lists
+them. If a sentence here makes you suspicious, the "Going deeper" list at the end
+of each chapter points at the chapter of `docs/` that will argue the case
+properly.
 
 > **Try it yourself**
 >

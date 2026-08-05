@@ -141,9 +141,10 @@ and YM key-off initialization, a four-byte context-record pool, command
 target-minus-one dispatch, every active handler, dormant-handler ranges, and
 type-7 admission/allocation.
 
-The context pool occupies `$093D-$0C54`. `$4295` builds IDs 1..`$C6`, leaving
-`$C6` as the terminal sentinel; `$42C6` therefore offers 197 allocatable
-records. `$42D7` maps ID A to `$093D+4*(A-1)`, and `$42F9` returns both
+The context pool occupies `$093D-$0C54`. `$4295` builds IDs 1..`$C6` and is
+written to leave `$C6` as the terminal sentinel, which would offer 197
+allocatable records. The unbalanced `DEC $16` at `$42B8` moves the sentinel to
+ID `$86`, so `$42C6` in fact offers 133 (see `02_memory_map.md`). `$42D7` maps ID A to `$093D+4*(A-1)`, and `$42F9` returns both
 channel-owned context chains to the free list (**Verified**).
 
 The 15-entry handler table at `$4633-$4650` exactly targets types 0..14. Only
