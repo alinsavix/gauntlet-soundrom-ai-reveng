@@ -53,8 +53,9 @@ sound→main latch (the low four bits of `$1000`–`$100F` are not decoded; conf
 by the schematic and by MAME's `map(0x1000,0x100f).mirror(0x27c0).w(m_mainlatch)`).
 So they are five overwriting writes to the mailbox, not five register settings,
 and the main CPU reads none of them (only the later `$FF` boot acknowledgement
-matters). The distinct addresses and values indicate a five-register init
-inherited from other hardware; see [`10_known_issues.md`](10_known_issues.md).
+matters). The distinct addresses and values are a five-register init
+inherited from Atari System 1, where `$1000`–`$100F` was a MOS 6522 VIA driving
+the TMS5220 speech chip; see [`10_known_issues.md`](10_known_issues.md).
 
 The boot-only diagnostic window and the normal command mode are related as
 follows. The diagram shows verified mechanics; it does not assign a purpose to

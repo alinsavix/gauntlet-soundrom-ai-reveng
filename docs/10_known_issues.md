@@ -474,13 +474,21 @@ five overwriting writes to the mailbox, followed a few instructions later by the
 reads none of the intermediate bytes; the only value the game acts on is that
 final `$FF` (game routines `sound_response` / `sound_system_reset`).
 
-**Remaining (historical, not hardware):** the code targets four distinct
-addresses with four distinct values as hardcoded load/store pairs — a
-five-register init. On this board those registers do not exist, so the writes are
-vestigial, most likely inherited from a sibling board/game. Which hardware, and
-what the registers drove, would need a sibling ROM or that board's schematic; it
-is not answerable from either Gauntlet II ROM and does not affect this board's
-behavior.
+**Origin (historical, not hardware):** the code targets five distinct addresses
+with five fixed values as hardcoded load/store pairs — a five-register init. Those
+registers existed on **Atari System 1**, where `$1000`–`$100F` is a MOS 6522 VIA
+(MAME `atarisy1.cpp`: `map(0x1000,0x100f).mirror(0x27f0).m(m_via, ...)`). On System
+1 that VIA is the TMS5220 speech interface — Port A the speech data/status bus,
+Port B the strobes plus a bit-4 clock select and bit-5 LED — not the inter-CPU
+mailbox (System 1 keeps that at `$1810`). The five writes decode as speech-port
+setup: DDRA `$FF` (data bus outputs), DDRB `$33` (drive the two strobes, clock
+select, LED; read status), ACR `$00` (plain I/O), PCR `$22` (CA2/CB2 as
+`/READY`,`/INT` interrupt inputs), ORB `$0F` (strobes idle-high, clock 0, LED off).
+Gauntlet II reused the `$1000`–`$100F` window for its mailbox and re-implemented
+speech with discrete decode (`$1820` data, `$1030`–`$1037` control; `$1033` clock
+select is the old VIA PB4), leaving the VIA init routine as vestigial writes into
+the mailbox. Byte-level confirmation would come from a speech-equipped System 1
+sound ROM (Indiana Jones, Peter Pack Rat, Road Runner).
 
 ## Resolved mechanics — Alternate NMI diagnostic-window indirect write
 

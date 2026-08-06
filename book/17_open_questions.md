@@ -47,17 +47,55 @@ waits for; nothing on the main side ever compares against `$33`, `$22`, `$00` or
 [Appendix B](B_command_list.md#the-handshake-burst) follows the bytes through to
 the game side.
 
-What is left is not a hardware question but a historical one. The code writes to
-five *distinct* addresses with five fixed values, as hardcoded load-and-store
-pairs — exactly what a programmer writes to initialize five separate registers,
-not to poke one latch five times. On some other board those
-addresses almost certainly *were* separate registers; the paired addresses
-`$1002`/`$1003` and `$100B`/`$100C` have the shape of two two-register devices.
-This program looks written for hardware where that init meant something and
-carried onto a board where `$1000`–`$100F` is a single latch and the writes
-evaporate. Which board, and what those registers drove, is the kind of thing only
-a sibling ROM or that board's schematic could say — the same "one program, more
-than one board" thread the rest of this chapter keeps pulling.
+What is left is not a hardware question but a historical one, and it has an
+answer. The code writes to five *distinct* addresses with five fixed values, as
+hardcoded load-and-store pairs — exactly what a programmer writes to initialize
+five separate registers, not to poke one latch five times. Those registers did
+exist, on the board this firmware grew up on: **Atari System 1**, the
+swappable-cartridge platform whose best-known title is Marble Madness. On a
+System 1 board with speech, `$1000`–`$100F` is a **MOS 6522 VIA**, and MAME maps
+it there directly — `map(0x1000, 0x100f).mirror(0x27f0).m(m_via, ...)`, the same
+sixteen-byte block, the same mirror.
+
+The 6522 is not the inter-CPU mailbox there; System 1 keeps that in a separate
+latch at `$1810`. It is the **TMS5220 speech interface**. Port A carries the
+speech data and status; Port B carries the control lines — a write strobe and a
+read strobe, a clock/frequency select on bit 4, and an LED on bit 5. Read the
+five boot writes against a 6522's register map and each one is a line of
+speech-port setup:
+
+| Write | VIA register | Effect on the speech interface |
+|---|---|---|
+| `$1003` ← `$FF` | DDRA | Speech data bus: all eight pins **outputs** |
+| `$1002` ← `$33` | DDRB | Outputs on bits 0, 1, 4, 5; inputs on 2, 3, 6, 7 — drive the two strobes, the bit-4 clock select and the bit-5 LED, and read the chip's status lines |
+| `$100B` ← `$00` | ACR | Plain parallel I/O; timers and shift register off |
+| `$100C` ← `$22` | PCR | CA2/CB2 as independent negative-edge interrupt inputs — the TMS5220's `/READY` and `/INT` handshake |
+| `$1000` ← `$0F` | ORB | Initial Port B: both strobes idle-high (they are active-low), clock select 0 (normal, not "squeak"), LED off |
+
+The `$33` in the direction register is the tell. It makes outputs of exactly the
+four Port B lines that drive the chip — the two strobes, the clock select, the
+LED — and inputs of the four that read its status. That is not a value that lands
+on a latch by accident; it is a hand-written 6522 initialization for a speech
+chip.
+
+Gauntlet's board threw the VIA out and reused its address window. Where System 1
+put a 6522 at `$1000`–`$100F` and its mailbox at `$1810`, Gauntlet II puts the
+mailbox at `$1000`–`$100F` and re-implements the speech interface with plain
+decode: `$1820` for the data byte, and the control latch at `$1030`–`$1037` for
+the strobes and the clock. Those Gauntlet controls are the VIA's Port B pulled
+apart into separate addresses — `$1033`, "select the speech clock," is the old
+bit-4 frequency select; `$1031`, the speech write strobe, is one of the old Port
+B strobes. The speech chip survived the move; only its wiring changed. The
+initialization routine survived too, unedited, and now fires its five 6522
+register writes into the mailbox that sits where the VIA used to be, where they
+are read by nobody.
+
+One step would nail it down completely: a byte-level match against a System 1
+sound ROM. The speech path is the System 1 titles that *have* a TMS5220 — Indiana
+Jones and the Temple of Doom, Peter Pack Rat, Road Runner, rather than the
+speechless Marble Madness — so one of their sound ROMs should carry this same
+sequence written against a live VIA. Short of that, the register-by-register fit
+is already as much as inference can carry.
 
 ## Six handler types nobody calls
 
@@ -268,16 +306,17 @@ resolve the boot NMI window.
 The **main CPU's disassembly**, now consulted, named the boot handshake bytes and
 the reply protocol: `$03` is the every-frame coin poll, `$07` the health probe,
 `$FF` the reboot acknowledgement, and `$0F` and `$DB` are bytes the game never
-acts on ([Appendix B](B_command_list.md#replies-to-the-main-cpu)). It leaves only
-the historical question of which hardware the boot's five-register init was
-written for, now that the board decodes those five addresses as one latch — a job
-for a sibling ROM, below. Gauntlet II's game ROMs are as available as its sound
-ROM.
+acts on ([Appendix B](B_command_list.md#replies-to-the-main-cpu)). The boot's
+five-register init is now understood as leftover Atari System 1 speech-VIA setup
+(see above). Gauntlet II's game ROMs are as available as its sound ROM.
 
 **Another revision of this sound ROM**, or the equivalent ROM from another Atari
 title on related hardware, would distinguish development leftovers from features
 intended for a different configuration. If a second image selects the vibrato
 instruction, or points a command at handler type 12, the question answers itself.
+A speech-equipped **Atari System 1** sound ROM (Indiana Jones, Peter Pack Rat,
+Road Runner) would separately confirm the boot handshake as 6522 speech-VIA
+initialization, by carrying the same sequence written against a live VIA.
 
 **Original Atari source or a build listing** would close every remaining item in
 one document, including the ones about intent that no amount of ROM analysis can
@@ -291,8 +330,8 @@ because the next person to read it will not know it was a guess.
 
 - Five bytes go out at every boot to five addresses the board decodes as one
   latch — the sound→main mailbox. The game ROM reads none of them, the `$FF`
-  alive-byte overwrites the whole burst, and the five-register init is vestigial,
-  inherited from other hardware.
+  alive-byte overwrites the whole burst, and the five-register init is leftover
+  Atari System 1 code that once set up a 6522 VIA driving the speech chip.
 - Six handler types are finished routines with no command pointing at them,
   including a live-channel meta-dispatcher that could have modified running sounds.
 - A boot-time window lets the main CPU write a byte straight into the sound

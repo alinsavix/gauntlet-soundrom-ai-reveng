@@ -341,8 +341,9 @@ is a matter of interrupt timing that only a bus trace or cycle-accurate emulatio
 could pin down, and it does not matter to the protocol: had the game read a stray
 byte during a reboot, it would simply reset the board and retry until it read
 `$FF`. Why the sound ROM fires a five-register init at a board that has only one
-register there is the "one program, more than one board" thread of
-[Chapter 17](17_open_questions.md).
+register there is answered in [Chapter 17](17_open_questions.md): it is leftover
+Atari System 1 code that once initialized a 6522 VIA driving the speech chip,
+where `$1000`–`$100F` really was sixteen distinct registers.
 
 ## Where this comes from
 

@@ -173,7 +173,7 @@ table ending at `$4650`, including active and dormant handler spans.
 | `$5894` | speech status/update | Ready watchdog, queue dequeue, FIFO streaming | Strongly supported |
 | `$5932` | start/queue speech | Metadata lookup, clock, volume, playback state | Strongly supported |
 | `$59E2` | speech enqueue | Atomic priority ring; higher priority flushes queue | Strongly supported |
-| `$5A0B` | boot mailbox burst | Writes `$FF,$33,$00,$22,$0F` to `$1003/$1002/$100B/$100C/$1000`, all aliases of the one sound→main latch | Verified; the five-register form is vestigial |
+| `$5A0B` | boot mailbox burst | Writes `$FF,$33,$00,$22,$0F` to `$1003/$1002/$100B/$100C/$1000`, all aliases of the one sound→main latch | Verified; vestigial Atari System 1 6522-VIA speech init |
 
 The speech consumer pass verifies `$5894` as a callable IRQ-time state machine
 with a watchdog tail-jump to `$5833`, `$5932` as immediate-start versus enqueue
