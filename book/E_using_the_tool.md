@@ -277,7 +277,8 @@ of their kind. Each has a default output directory, overridable with `--out-dir`
 
 | Flag | Effect |
 |---|---|
-| `--out FILE` | Output path for a single WAV or MIDI export |
+| `--out FILE` | Output path for a single WAV export |
+| `--midi-out FILE` | Output path for a single MIDI export |
 | `--out-dir DIR` | Output directory for a batch export |
 | `--sample-rate HZ` | WAV rate for POKEY and YM2151 output. Default 44,100. Speech is always 8,000 |
 | `--max-seconds S` | Cap on type-7 render length, including loops. Default 30. Raise it for long music, lower it to sample a looping sound quickly |

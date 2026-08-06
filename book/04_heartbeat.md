@@ -86,7 +86,7 @@ sound chip, and the two chips take turns.
 ```mermaid
 flowchart TD
     V["Video counter<br/>240 times a second"] --> I["Interrupt routine"]
-    I --> C["Increment the tick counter"]
+    I --> C["Increment the IRQ/parity counter"]
     C --> Q{"Odd or even?"}
     Q -->|odd| P["Sweep all four<br/>POKEY channels"]
     Q -->|even| Y["Sweep all eight<br/>YM2151 channels"]

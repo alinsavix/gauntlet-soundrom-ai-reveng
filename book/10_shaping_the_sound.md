@@ -86,9 +86,13 @@ records just played are played again.
 
 Both kinds of envelope use the same control record. The effects chip test has one
 in the frequency envelope of its second channel: the three bytes `FF FF 06`
-rewind six bytes and take the loop 255 times, so two records are replayed until
-something stops the sound. A repeating tremolo, or in this case a repeating
-churn, costs three bytes.
+rewind six bytes and replay two records 255 times. Then the loop counter expires
+and the reader steps past the control record. In this chip test no terminator
+lies at the inferred end of the envelope, so the reader continues into bytes
+that are also used as sequence and instrument data before eventually finding a
+zero terminator. That overlapping interpretation is the example
+[Chapter 16](16_how_this_was_figured_out.md) uses to show why ROM objects do not
+always have exclusive boundaries.
 
 ## Envelopes restart with every note
 

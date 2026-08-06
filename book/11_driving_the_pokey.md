@@ -326,7 +326,7 @@ to full volume in two sweeps and stops dead.
 
 ## What you now know
 
-- On every other tick the engine walks four physical lists, runs the sequence
+- On every POKEY tick — every other IRQ — the engine walks four physical lists, runs the sequence
   engine down each one, and produces one candidate frequency, control byte, and
   pair of masks per channel.
 - The highest-priority candidate on a channel wins, and a global threshold can

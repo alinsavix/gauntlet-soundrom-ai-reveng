@@ -51,7 +51,9 @@ set.
 The giving up is **sticky**. Once the routine has timed out, every later call
 returns straight away without looking. The engine keeps writing, the chip keeps
 ignoring, and the board keeps running with a flag raised saying why it is
-silent. There is no retry and no recovery. This is a diagnostic posture rather
+silent. There is no automatic retry or recovery during normal output. Command
+`$00` can recover manually by rerunning the audio reset, which clears the sticky
+timeout state and reinitializes the YM2151. This is a diagnostic posture rather
 than a robustness one, and for an arcade board with a technician and a self-test
 switch that is the right call.
 
@@ -175,7 +177,7 @@ heard and none of them modulates anything.*
 The ROM keeps an eight-byte table, one row per algorithm, saying which operators
 to touch:
 
-| Algorithm | Carriers | Voices using it |
+| Algorithm | Carriers | Instruments using it |
 |---:|---|---:|
 | 0 | C2 | 3 |
 | 1 | C2 | 4 |
@@ -238,13 +240,14 @@ two 256-byte lookup tables in ROM. The result becomes that operator's correction
 and also seeds the index for the next operator, so the four corrections are
 computed as a chain rather than independently.
 
-The reason to do this at all is that FM does not respond linearly. Lowering a
-carrier by ten steps lowers the output by ten steps' worth of decibels, but
-lowering a modulator by ten steps changes the sound in a way that depends on the
-carrier's level, the feedback, and the algorithm. A single global fade applied
-naively to a rich patch makes it dull before it makes it quiet. The chain lets
-each instrument carry its own correction curve, so that a fade sounds like the
-same instrument getting further away.
+A useful way to understand this stage is as a response to FM's nonlinearity.
+Lowering a carrier by ten steps lowers the output by ten steps' worth of
+decibels, but lowering a modulator by ten steps changes the sound in a way that
+depends on the carrier's level, the feedback, and the algorithm. A single global
+fade applied naively to a rich patch can make it dull before it makes it quiet.
+The chain gives each instrument its own correction curve, which can preserve
+more of the patch's character as its level changes. The ROM establishes that
+mechanism and effect; it cannot tell us the composer's exact intention.
 
 There is one more input, and it settles a debt from
 [Chapter 8](08_sequence_language_time.md). Bits 5 and 4 of a note's control
@@ -361,7 +364,7 @@ and loops forever so a technician can leave it running.
 
 ## What you now know
 
-- On alternate ticks the engine visits all eight YM2151 channels and writes each
+- On every YM2151 tick — every other IRQ — the engine visits all eight channels and writes each
   winner's state to the chip.
 - Every register write waits for the chip's busy flag, gives up after 255 polls,
   sets an error bit, and then stops waiting at all.

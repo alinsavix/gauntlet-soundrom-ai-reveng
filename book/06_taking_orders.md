@@ -79,13 +79,20 @@ which is why the arrangement is called a **ring buffer**.
 Its virtue is that the producer and the consumer never have to agree on timing.
 The interrupt writes at whatever moment the game happens to speak. The main loop
 reads whenever it gets round to it. Neither one waits for the other, and neither
-one needs to know how far behind or ahead the other has got, because the two
-positions carry that information between them. When they are equal, the queue is
-empty.
+one needs to know the other's exact timing, because the two positions carry the
+current state between them. When they are equal, the queue is empty.
 
-Sixteen is a generous depth for this application. A burst of four players all
-firing at once is four commands, and the main loop drains one command per pass
-while running hundreds of passes per second.
+There is a limit hidden in that simple representation. Because equal positions
+mean empty, the sixteen-byte array can hold at most fifteen pending commands. If
+a new arrival would make the write position catch the read position, the NMI
+handler advances the read position first, silently discarding the oldest pending
+command, and then stores the new one. The newest command wins and no overflow
+flag is raised.
+
+Fifteen pending commands is still generous for this application. A burst of four
+players all firing at once is four commands, and the main loop drains one command
+per pass while running hundreds of passes per second. The overflow rule is the
+last-resort behavior if that assumption is ever exceeded.
 
 ## Two lookups turn a byte into an action
 

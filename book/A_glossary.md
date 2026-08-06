@@ -222,9 +222,12 @@ generator. [Chapter 3](03_three_sound_chips.md).
 sequence. The POKEY gates its output through these to produce distortion and
 noise. [Chapter 3](03_three_sound_chips.md).
 
-**Priority.** The number every sound carries, from 2 to 63 for type-7 sounds, used
-to decide which sound is heard when several want the same voice and which speech
-phrase outranks which. [Chapter 7](07_command_to_channel.md).
+**Priority.** A rank used separately by the synthesis and speech subsystems.
+Type-7 records use values from 2 to 63 to decide which sound is heard when
+several want the same physical voice. Speech phrases use their own values — 0,
+4, and 64 in this ROM — to decide whether a phrase starts, waits, flushes the
+queue, or is rejected. Higher values outrank lower ones in both systems.
+[Chapters 7](07_command_to_channel.md) and [13](13_speaking.md).
 
 **Record.** One row of the type-7 sound description tables, carrying a priority, a
 physical channel, a sequence pointer, and a link to the next record. The ROM has

@@ -188,9 +188,13 @@ Put the two case studies side by side and the shape of the board becomes clear:
 | Uses the sequence engine | Yes | No |
 | Logical channels | 2 | 0 |
 | ROM bytes of content | 40 in two sequences | 324 in one stream |
-| Serviced | Every other tick | Four times per tick |
+| Service cadence | One YM sweep per tick | Four attempts per IRQ (eight per tick) |
 | Duration | 0.47 s | 1.53 s |
-| Bytes handed to a chip | 463 | 342 |
+| Renderer-reported chip operations | 463 YM register writes | 342 TMS writes: command, payload, and drain |
+
+That last row compares the work exposed by the two renderer paths, not identical
+bus transactions. A YM register update selects a register and writes its data;
+a TMS write hands the speech interface one command or stream byte and strobes it.
 
 Same one-byte command interface, two entirely separate machines behind it. The
 main CPU cannot tell the difference, and does not need to.
@@ -328,10 +332,11 @@ The timing is close rather than exact, and the reason is
 [Chapter 8](08_sequence_language_time.md)'s phase accumulator. A note's real
 length is not its duration divided by its tempo; it is however many sweeps it
 takes for the accumulated remainder to cross zero, which varies by one sweep from
-note to note and averages out over the phrase. MIDI has no way to express that,
-so the export uses the average. Over 24 seconds the drift is small and the
-arrangement is faithful, but a bar-by-bar comparison against the rendered audio
-will not line up perfectly, and nothing is wrong when it does not.
+note to note. MIDI can represent that unequal event spacing, but this exporter
+does not currently run the ROM's stateful timer arithmetic for its MIDI
+timeline; it uses the average instead. Over 24 seconds the drift is small and
+the arrangement is faithful, but a bar-by-bar comparison against the rendered
+audio will not line up perfectly, and nothing is wrong when it does not.
 
 ## What happens when they collide
 

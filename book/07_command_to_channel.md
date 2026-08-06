@@ -264,8 +264,9 @@ block points at the next unused one, and a single variable points at the first.
 Taking one and giving one back are each a handful of instructions with no
 searching, which matters because both happen inside the interrupt.
 
-The pool is 198 records long and the free list reaches 134 of them, because the
-routine that terminates the list writes its zero in the wrong place.
+The pool is 198 records long, but the free list reaches only 134 nodes because
+the routine that terminates the list writes its zero in the wrong place. Node
+134 is the sentinel, leaving 133 records that can actually be allocated.
 [Appendix D](D_reference_tables.md) has the arithmetic. It costs nothing: the
 most this ROM ever needs at once is a handful.
 
@@ -341,7 +342,8 @@ the next two chapters.
 - A low-priority effect asked for during the theme is admitted, tracked, and
   never heard.
 - A free list of four-byte blocks supplies the scratch storage that repeats and
-  subroutine returns need; 199 are built and 134 are reachable.
+  subroutine returns need; 198 are built, 134 nodes are reachable, and 133 can
+  be allocated.
 - Every list change happens with interrupts held off, and new channels are fully
   built before they become visible.
 

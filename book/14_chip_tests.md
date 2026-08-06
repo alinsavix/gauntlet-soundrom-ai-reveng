@@ -215,10 +215,18 @@ frequency envelope is nine bytes at `$68F3`:
 | `FC 00 00` | 2 | For 252 sweeps, add nothing |
 | `FF FF 06` | control | Take this loop 255 times, rewinding 6 bytes |
 
-Three bytes turn two records into an endless cycle. The rewind of six goes back
-exactly two three-byte records, so the pair replays, and a count of 255 means it
-replays essentially forever. Channel 1's envelope is the same shape with a
-different step size.
+The rewind of six goes back exactly two three-byte records, but the cycle is not
+endless. After 255 repetitions the envelope reader steps past this nine-byte
+object and starts consuming bytes that also belong to sequences and instrument
+records, just as [Chapter 16](16_how_this_was_figured_out.md) describes. Direct
+modeling shows this `$68F3` reader first crosses the inferred object boundary
+after 65,440 envelope updates and eventually reaches a zero terminator after
+71,171. Channel 1's `$68D6` envelope has the same structural problem with a
+different step size; it crosses after 2,458 updates and terminates after 12,583.
+
+The two channel *sequences* remain endless because their `SET_SEQ_PTR`
+instructions keep jumping backward every 250 sweeps. The finite envelope loop
+control and the infinite sequence loop are separate mechanisms.
 
 ### What comes out
 
@@ -277,15 +285,15 @@ Three commands, three routes, and almost nothing in common between them.
 
 ```mermaid
 flowchart TD
-    Byte["One byte at $1010"] --> NMI["NMI latches it"]
-    NMI --> Ring["16-entry ring"]
+    Byte["Hardware latches one byte<br/>at $1010 and raises NMI"] --> NMI["NMI reads it"]
+    NMI --> Ring["16-byte ring"]
     Ring --> Disp["Two table lookups:<br/>type and parameter"]
     Disp -->|"type 7"| Chain["Record chain"]
     Disp -->|"type 11"| Speech["Pointer and length"]
     Chain --> Alloc["Logical channels<br/>on physical lists"]
-    Alloc --> Sweep["Sequence engine,<br/>every other tick"]
+    Alloc --> Sweep["Sequence engine,<br/>one chip sweep per tick"]
     Sweep --> Chips["POKEY or YM2151<br/>register writes"]
-    Speech --> Pump["Byte pump,<br/>four services per tick"]
+    Speech --> Pump["Byte pump,<br/>four services per IRQ"]
 ```
 
 *Every sound in Gauntlet II enters at the top of this diagram. The three chip
@@ -302,12 +310,12 @@ lookups. Everything below that is specialization, and everything above it is a
 single main-CPU store instruction that does not know or care which of the three
 it just triggered.
 
-There is one more thing the tests give away. All three of them loop, stall, or
-sustain rather than ending cleanly. The music test holds a note forever. The
-effects test cycles two tones forever. The speech test is the only one that
-stops, and it stops because a phrase has a length. Whoever wrote these was
-thinking about a person standing in front of an open cabinet with a meter in one
-hand, and that is a different design brief from anything else in the ROM.
+There is one more thing the tests give away. The two synthesis tests are built
+to persist: the music test holds a note forever and the effects test cycles two
+tones forever. The speech test is deliberately different. It stops normally
+because a phrase has a length. Whoever wrote these was thinking about a person
+standing in front of an open cabinet with a meter in one hand, and that is a
+different design brief from anything else in the ROM.
 
 > **Try it yourself**
 >
@@ -351,8 +359,9 @@ hand, and that is a different design brief from anything else in the ROM.
 - Its eighth channel sustains and loops forever so the test can be left running.
 - The effects chip test is a four-record chain across the POKEY's four channels,
   using the one distortion setting that produces a clean tone.
-- Two of its four channels loop indefinitely through a three-byte envelope loop
-  control record, settling into two pure tones a fifth apart.
+- Two of its four channel sequences loop indefinitely, settling into two pure
+  tones a fifth apart. Their frequency envelopes use finite 255-repeat controls
+  and eventually read onward into overlapping ROM data before terminating.
 - The speech chip test is the first stream in the corpus, 247 bytes and 55 frames,
   and runs once through the queue, kickoff, streaming, drain, and idle states.
 - All three enter through the same one-byte mailbox, the same NMI, the same ring

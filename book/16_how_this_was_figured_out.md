@@ -253,7 +253,9 @@ of the ROM.
 
 **A bug in the ROM that everyone had smoothed over.** The context-record pool
 was documented as 197 records here and 199 there. Executing the initializer gives
-134: the routine that terminates the free list adjusts its pointer by 260 bytes
+a physical pool of 198 records but a reachable free-list chain of only 134
+nodes, the last of which is the sentinel. That leaves 133 allocatable records:
+the routine that terminates the free list adjusts its pointer by 260 bytes
 instead of 4, orphaning everything past record 134. Two different plausible
 numbers had been written down, from two different misreadings, and neither
 matched what the chip does. Nothing in the game needs more than a handful of

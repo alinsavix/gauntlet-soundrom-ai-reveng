@@ -7,8 +7,9 @@ which chapter explains what it is for.
 
 ## D.1 The address space
 
-Everything the sound CPU can reach, in address order. Anything outside these
-ranges is not wired to a chip at all.
+The sound CPU's complete address space, in address order. The sparse I/O holes
+are shown explicitly; the three sixteen-byte mailbox/mixer blocks are mirrors
+because the hardware does not decode their low four address bits.
 [Chapter 2](02_tour_of_the_board.md).
 
 | Range | Size | Contents |
@@ -28,11 +29,22 @@ ranges is not wired to a chip at all.
 | `$08A0`–`$093C` | 157 B | No documented consumer |
 | `$093D`–`$0C54` | 792 B | The context-record pool: 198 four-byte records, of which the free list reaches 134 (see below) |
 | `$0C55`–`$0FFF` | 939 B | Unused |
-| `$1000`–`$1035` | 54 B | Main-CPU mailboxes, mixer, board status, coin counters |
+| `$1000`–`$100F` | 16 B | Writes mirror `$1000`: sound-to-main latch and main-CPU interrupt |
+| `$1010`–`$101F` | 16 B | Reads mirror `$1010`: main-to-sound command latch |
+| `$1020`–`$102F` | 16 B | Reads and writes mirror `$1020`: coin inputs on read, volume mixer on write |
+| `$1030` | 1 B | Board status on read; YM2151 reset on write |
+| `$1031` | 1 B | TMS5220 write strobe |
+| `$1032` | 1 B | TMS5220 reset |
+| `$1033` | 1 B | TMS5220 clock selection |
+| `$1034`–`$1035` | 2 B | Right and left mechanical coin-counter outputs |
+| `$1036`–`$17FF` | 1,994 B | Unmapped by the hardware |
 | `$1800`–`$180F` | 16 B | POKEY |
 | `$1810`–`$1811` | 2 B | YM2151 |
+| `$1812`–`$181F` | 14 B | Unmapped by the hardware |
 | `$1820` | 1 B | Speech data |
+| `$1821`–`$182F` | 15 B | Unmapped by the hardware |
 | `$1830` | 1 B | Interrupt acknowledge |
+| `$1831`–`$1FFF` | 1,999 B | Unmapped by the hardware |
 | `$2000`–`$3FFF` | 8 KB | Nothing wired up |
 | `$4000`–`$FFFF` | 48 KB | ROM |
 
@@ -87,8 +99,9 @@ effects get four. [Chapter 2](02_tour_of_the_board.md).
 
 ## D.4 The error-flag byte at `$02`
 
-The byte the main CPU reads back from command `$07`. The top five bits are set at
-boot and stay set. [Chapter 5](05_waking_up.md).
+The byte the main CPU reads back from command `$07`. The top five bits can be set
+by failures during the boot diagnostics and stay latched once set.
+[Chapter 5](05_waking_up.md).
 
 | Bit | Set when |
 |---:|---|
@@ -117,11 +130,13 @@ book to find it in `soundrom.bin`.
 | `$4000`–`$5C5E` | All the 6502 code: boot, interrupts, handlers, sequence engine, output paths. Several tables sit among it, listed below |
 | `$5C5F`–`$5D0E` | Durations, fade rates, and the POKEY shape table |
 | `$5D0F`–`$5F9F` | The three 219-byte command tables: validation, handler type, parameter |
+| `$5FA0`–`$5FA7` | Four overlapping type-3 target-minus-one words; the final three, at `$5FA2`–`$5FA7`, are also the NMI direct-dispatch target table |
 | `$5FA8`–`$63B1` | The six type-7 tables: start offsets, flags, priorities, channels, sequence pointers, next links |
 | `$63B2`–`$6558` | The three 141-byte speech metadata tables: index, clock flag, priority |
 | `$6559`–`$655E` | Two three-byte handler-match records, all zeros, read by the dormant handler types ([Chapter 17](17_open_questions.md)) |
 | `$655F`–`$8380` | Sequences, envelopes, and the 55 YM2151 instrument records, interleaved, plus the 256-byte operator level-transform lookup at `$72DC`–`$73DB` |
 | `$8381`–`$8446` | The board and coin-counter routine, and the NMI direct-query handlers |
+| `$8447`–`$8448` | Two unreferenced bytes, `$94 $FF`, with no known consumer |
 | `$8449`–`$873C` | 189 speech stream pointers and 189 lengths |
 | `$873D`–`$FECC` | The speech corpus: 30,608 bytes, gapless |
 | `$FECD`–`$FFF9` | 301 bytes with no consumer: one stray `$FF`, 296 zero bytes of padding, and four bytes at `$FFF6` reading `8C FF 00 00` ([Chapter 17](17_open_questions.md)) |
@@ -309,15 +324,19 @@ Across notes 1 to 97 the error runs from 3.9 cents flat at note 96 to 2.2 cents
 sharp at note 93, and it is worst at the top where one step of the divider is
 worth several cents.
 
-## D.11 The YM2151 key-code table
+## D.11 The YM2151 key-code consumer view
 
-128 bytes at `$5AF9`, indexed by note number. A key code is three bits of octave
-in the high nibble and a semitone slot in the low nibble, with every fourth slot
-skipped because the chip's own frequency tables are organized in groups of three.
-The block boundary falls between B and C, so C4 is the last entry of octave 3.
-Entries 98 to 127 land past `$5B5A` and alias the first thirty bytes of the
-total-level scaling table; the sequences only ever use notes 13 to 95, so nothing
-reaches them. [Chapter 12](12_driving_the_ym2151.md).
+The code can index a 128-entry view beginning at `$5AF9`, but only its first 98
+bytes, `$5AF9`–`$5B5A`, physically belong to the key-code table. A key code is
+three bits of octave in the high nibble and a semitone slot in the low nibble,
+with every fourth slot skipped because the chip's own frequency tables are
+organized in groups of three. The block boundary falls between B and C, so C4
+is the last entry of octave 3.
+
+Consumer indices 98 to 127 continue through `$5B5B`–`$5B78`, aliasing the first
+thirty bytes of the following total-level scaling table. Configured sequences
+only use notes 13 to 95, so they never reach the aliased tail.
+[Chapter 12](12_driving_the_ym2151.md).
 
 | Note | Pitch | Key code | Octave field | Semitone field |
 |---:|---|---:|---:|---:|
@@ -388,7 +407,7 @@ Eight bytes at `$57A0`, one per algorithm, naming the operators a volume change
 should attenuate. Attenuating anything else changes the timbre instead of the
 loudness. [Chapter 12](12_driving_the_ym2151.md).
 
-| Algorithm | Carriers | Voices using it |
+| Algorithm | Carriers | Instruments using it |
 |---:|---|---:|
 | 0 | C2 | 3 |
 | 1 | C2 | 4 |

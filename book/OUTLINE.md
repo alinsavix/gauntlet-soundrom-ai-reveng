@@ -1,12 +1,13 @@
 # *How Gauntlet II Makes Noise* — Book Outline and Author's Brief
 
-> **This file is a specification, not prose, and it is not part of the book.**
-> It is the working outline the book was written from, kept alongside the
-> finished chapters for the record. It exists so that a writing agent (or a
-> human) can produce the book without re-deriving the project's goals. Read the
-> whole "Author's Brief" before writing any chapter. The book itself is the
-> seventeen numbered chapters and six appendices listed in
-> [`README.md`](README.md).
+> **This is a historical working specification, not prose, and it is not part
+> of the current book.** Its general overview, intended audience, organization,
+> and style instructions are still largely useful, but some technical details
+> and chapter-specific directions are outdated. Those specifics were corrected
+> while writing and auditing the finished text. Do not use this file to
+> regenerate factual content without checking the corresponding finished
+> chapter and the ROM-derived evidence. The current book is the seventeen
+> numbered chapters and six appendices listed in [`README.md`](README.md).
 
 ---
 

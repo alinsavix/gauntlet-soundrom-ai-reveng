@@ -289,11 +289,15 @@ targets; every target lasts 60/12/120 service intervals respectively and ends
 with residue -16. Target feasibility and finite duration are Verified, while
 value probabilities remain runtime-dependent.
 
-**Known:** every `$99` edge is a tight self-loop with a stable carried-residue
-period. Prefix/period pairs for `$2E`, `$37`, `$05` channels 1/2, and `$04`
-channel 8 are 480/480, 15/15, 60/30, 60/30, and 1,500/480 intervals. These are
-bounded prefix/period facts, not finite command durations. The disassembler now
-labels them as decoded loop prefixes instead of estimated play times.
+**Superseded timing result:** an earlier audit reported 60/30 prefix/period
+values for command `$05` channels 1 and 2 because it applied the YM duration
+table to POKEY rests. The POKEY-specific duration branch and direct execution
+supersede that result. Current prefix/period pairs for `$2E`, `$37`, `$05`
+channels 1/2, and `$04` channel 8 are 480/480, 15/15, 692/250, 692/250, and
+1,500/480 service intervals. Every `$99` edge remains a tight self-loop with a
+stable carried-residue period. These are bounded prefix/period facts, not finite
+command durations; the disassembler labels them as decoded loop prefixes rather
+than estimated play times.
 
 **Known:** the POKEY register-write wrapper is 184..186 cycles excluding its
 two pair consumers. The YM busy helper is 29 cycles when immediately ready,

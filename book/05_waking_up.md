@@ -159,8 +159,9 @@ Eight independent bits:
 | 1 | The YM2151 stopped answering |
 | 0 | Main-loop heartbeat: armed by command `$07`, cleared by the main loop |
 
-The top five bits are set once at boot and stay set. Bit 1 is set at runtime if
-the YM2151 fails to signal readiness after 255 attempts, which
+The top five bits can be set by failures during the boot diagnostics and, once
+set, remain latched. Bit 1 is set at runtime if the YM2151 fails to signal
+readiness after 255 attempts, which
 [Chapter 12](12_driving_the_ym2151.md) explains.
 
 Bits 0 and 2 are the interesting pair. Together with one command, they form a
