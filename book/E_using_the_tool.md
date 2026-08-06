@@ -122,6 +122,12 @@ estimate, not an exact figure, for the reason
 sound that loops forever the tool says "decoded loop prefix" instead, because
 there is no play time to report.
 
+Timed-event annotations follow the channel's active duration rule. YM2151-mode
+events use the musical duration-table names shown above. After `SWITCH_POKEY`,
+the same column instead prints values such as `POKEY 96*32`, meaning the low
+seven control bits times 32 timer units; bits 6 and 5 are not misreported as
+musical dotted/division fields, and bit 7 is shown as masked when it is set.
+
 ### `--addr ADDR`
 
 Disassemble a raw sequence at any address, without going through the command
@@ -143,6 +149,11 @@ Sequence @ $80DA:
 
 That is the unreferenced sequence from
 [Chapter 17](17_open_questions.md), which no command can reach.
+
+A command-root sequence always begins on the duration-table rule. If `--addr`
+starts in the middle of a POKEY stream, after its `SWITCH_POKEY`, supply
+`--initial-duration-rule pokey`; otherwise the tool has no preceding channel
+state from which to infer that raw address's timing rule.
 
 ### `--range START-END`
 
@@ -173,8 +184,9 @@ uv run gauntlet_disasm.py soundrom.bin --score 0x42 --csv hw_docs/soundcmds.csv
    0.55s | A5  8th     |   |         |   |         |   |         |   |         |
 ```
 
-A `|` continues a note that is still sounding. `---` is a rest. The times use the
-same mean model as `--cmd`, so they are close and not exact.
+A `|` continues a note that is still sounding. `---` is a rest. A label such as
+`PK96` is a POKEY counter of 96 rather than a musical note value. The times use
+the same mode-aware mean model as `--cmd`, so they are close and not exact.
 
 ---
 
@@ -197,8 +209,9 @@ Exported command "Gauntlet II Theme Song / Secret Room" as MIDI:
 Pitches use the `MIDI = ROM note + 11` convention from
 [Chapter 8](08_sequence_language_time.md). Note values above 97 are outside the
 chromatic part of the table, so they are omitted from the MIDI rather than
-exported as misleading high notes. Timing is the mean model again, which makes
-the export a good structural picture and a poor stopwatch.
+exported as misleading high notes. Timing uses the same mode-aware mean model,
+including POKEY counter durations, which makes the export a good structural
+picture and a poor stopwatch.
 
 ### `--speech-wav N`
 
@@ -282,6 +295,7 @@ of their kind. Each has a default output directory, overridable with `--out-dir`
 | `--out-dir DIR` | Output directory for a batch export |
 | `--sample-rate HZ` | WAV rate for POKEY and YM2151 output. Default 44,100. Speech is always 8,000 |
 | `--max-seconds S` | Cap on type-7 render length, including loops. Default 30. Raise it for long music, lower it to sample a looping sound quickly |
+| `--initial-duration-rule RULE` | Starting timing rule for a raw `--addr` disassembly: `table` (default) or `pokey` |
 | `--csv FILE` | Path to the sound command list. Use `hw_docs/soundcmds.csv` |
 
 ---

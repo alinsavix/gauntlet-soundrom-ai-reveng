@@ -297,7 +297,9 @@ channels 1/2, and `$04` channel 8 are 480/480, 15/15, 692/250, 692/250, and
 1,500/480 service intervals. Every `$99` edge remains a tight self-loop with a
 stable carried-residue period. These are bounded prefix/period facts, not finite
 command durations; the disassembler labels them as decoded loop prefixes rather
-than estimated play times.
+than estimated play times. The disassembler, mean-duration statistics,
+score/MIDI timelines, and practical sequence interpreter now all track the same
+table-versus-POKEY selector through switches and control flow.
 
 **Known:** the POKEY register-write wrapper is 184..186 cycles excluding its
 two pair consumers. The YM busy helper is 29 cycles when immediately ready,

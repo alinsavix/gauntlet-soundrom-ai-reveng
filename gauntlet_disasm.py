@@ -502,6 +502,89 @@ DURATION_ABBREVS = {
     "triplet-quarter":  "Qtr",
 }
 
+
+# The note decoder has two timing arms.  New type-7 channels start on the ROM
+# duration-table arm regardless of their physical output assignment.  Opcode
+# SWITCH_POKEY is the only configured operation that clears both selector bits
+# and reaches the POKEY counter arm at $48EF.
+DURATION_RULE_TABLE = "TABLE"
+DURATION_RULE_POKEY = "POKEY"
+
+
+class DecodedDuration:
+    """One duration/control byte interpreted under the active timing rule."""
+
+    __slots__ = ('units', 'label', 'abbrev', 'sustain', 'flags')
+
+    def __init__(self, units, label, abbrev, sustain=False, flags=()):
+        self.units = units
+        self.label = label
+        self.abbrev = abbrev
+        self.sustain = sustain
+        self.flags = tuple(flags)
+
+
+def _duration_rule_after(current_rule, mnemonic):
+    """Return the timing rule in force after one sequence instruction."""
+    if mnemonic == "SWITCH_POKEY":
+        return DURATION_RULE_POKEY
+    if mnemonic in ("SWITCH_YM2151", "FORCE_POKEY"):
+        # FORCE_POKEY ($54B1) sets status bit 1.  Despite its historical name,
+        # that makes $4844 take the duration-table arm.
+        return DURATION_RULE_TABLE
+    return current_rule
+
+
+def _decode_duration_control(rom, control, duration_rule):
+    """Decode a timed event's control byte exactly as the ROM does at $4844."""
+    if duration_rule == DURATION_RULE_POKEY:
+        count = control & 0x7F
+        units = count * 32
+        flags = [f"{units} timer units"]
+        if control & 0x80:
+            flags.append("bit 7 masked by POKEY timing")
+        return DecodedDuration(
+            units=units,
+            label=f"POKEY {count}*32",
+            abbrev=f"PK{count}",
+            # The POKEY arm masks bit 7 and bypasses YM articulation setup.
+            sustain=False,
+            flags=flags,
+        )
+
+    if duration_rule != DURATION_RULE_TABLE:
+        raise ValueError(f"Unknown duration rule: {duration_rule}")
+
+    dur_idx = control & 0x0F
+    dotted = bool(control & 0x40)
+    sustain = bool(control & 0x80)
+    division = (control >> 4) & 0x03
+    dur_name = (DURATION_NAMES[dur_idx]
+                if dur_idx < len(DURATION_NAMES) else f"?{dur_idx}")
+    abbrev = DURATION_ABBREVS.get(dur_name, dur_name[:4])
+    flags = []
+    if dotted:
+        flags.append("dotted")
+    if sustain:
+        flags.append("sustain")
+        abbrev += "sus"
+    if division:
+        flags.append(f"div={division}")
+
+    if dur_idx == 0:
+        units = 0
+    else:
+        base_value = rom.read_word(DURATION_TABLE_ADDR + dur_idx * 2)
+        units = base_value + (base_value // 2 if dotted else 0)
+
+    return DecodedDuration(
+        units=units,
+        label=dur_name,
+        abbrev=abbrev,
+        sustain=sustain,
+        flags=flags,
+    )
+
 # ── TMS5220 Speech Synthesis Tables ──────────────────────────────────────────
 #
 # From MAME's tms5110r.hxx: tms5220_coeff struct (TI_028X_LATER_ENERGY,
@@ -2389,21 +2472,12 @@ class SequenceInterpreter:
                               # each entry: [loop_start_addr, remaining_count]
         backward_jump_counts = {}  # pc -> count, for SET_SEQ_PTR cap
 
-        # handler_type_7 initializes chan_tempo to 0x10 (16) on real
-        # hardware. For YM2151 SFX that don't override via SET_TEMPO (e.g.
-        # heartbeats 0x18-0x1B, treasure chest 0x2A), we need this default
-        # — without it, NOTE durations divide by zero and produce instant
-        # note-off, leaving the rendering padded with safety silence.
-        #
-        # For POKEY SFX the documented tempo=16 produces REST durations
-        # shorter than the count+delta envelope content the composers
-        # actually wrote (e.g. Axe's 28-frame envelope vs a 7.5-frame REST
-        # at tempo=16), suggesting the envelope step rate on real hardware
-        # is fractional rather than once per IRQ. Empirically tempo=2
-        # reproduces the expected POKEY SFX duration: long enough that the
-        # full envelope plays out, with silence-stop / both-envelopes-done
-        # ending playback when the volume ramp finishes.
-        tempo = 2 if hw_mode == "POKEY" else 16
+        # Type-7 allocation initializes every channel's tempo to $10 and its
+        # status on the duration-table arm.  Physical output assignment does
+        # not select the POKEY duration rule; SWITCH_POKEY does that later in
+        # each configured POKEY stream.
+        tempo = 0x10
+        duration_rule = DURATION_RULE_TABLE
         volume = 0
         transpose = 0
         freq_offset = 0
@@ -2473,17 +2547,10 @@ class SequenceInterpreter:
                         events.append((cumulative_frames / 120.0, 'end', None))
                         break
 
-                # Parse duration
-                dur_idx = byte1 & 0x0F
-                dotted = bool(byte1 & 0x40)
-                sustain = bool(byte1 & 0x80)
-
-                if dur_idx == 0:
-                    base_dur = 0
-                else:
-                    base_dur = self.rom.read_word(DURATION_TABLE_ADDR +
-                                                  dur_idx * 2)
-                dur_value = base_dur * 1.5 if dotted else float(base_dur)
+                decoded_duration = _decode_duration_control(
+                    self.rom, byte1, duration_rule)
+                dur_value = decoded_duration.units
+                sustain = decoded_duration.sustain
                 if tempo > 0 and dur_value > 0:
                     dur_frames = dur_value / tempo
                 else:
@@ -2653,6 +2720,10 @@ class SequenceInterpreter:
                     args.append(self.rom.read_byte(pc + 1 + i))
                 except ValueError:
                     break
+
+            # Timing mode is channel state, so it persists through sequence
+            # calls, returns, jumps, and repeat iterations just like tempo.
+            duration_rule = _duration_rule_after(duration_rule, name)
 
             # Dispatch opcodes
             if byte0 == 0x80 and args:       # SET_TEMPO
@@ -3183,8 +3254,8 @@ OPCODES = {
     # 0x8F: dispatcher reads 1 dummy byte (advanced past as part of standard
     # 2-byte opcode framing) but POP_SEQ ignores it.
     0x8F: ("POP_SEQ",          1, "End/iterate repeat loop (arg ignored)",          "b"),
-    0x90: ("SWITCH_POKEY",     1, "Clear bit 0 of chan_status, set $0811[0]=0",     "b"),
-    0x91: ("SWITCH_YM2151",    1, "Set bit 0 of chan_status, $0813=1, $0811[1]=A",  "b"),
+    0x90: ("SWITCH_POKEY",     1, "Clear status bits 0/1; select POKEY duration",   "b"),
+    0x91: ("SWITCH_YM2151",    1, "Set YM status and duration-table selector",       "b"),
     0x92: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
     0x93: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
     0x94: ("NOP",              1, "No-op (dispatched via $4719)",                    "b"),
@@ -3196,7 +3267,7 @@ OPCODES = {
     0x99: ("SET_SEQ_PTR",      2, "Unconditional jump: load seq_ptr_lo/hi",         "w"),
     0x9A: ("PLAY_SPEECH_CMD",  1, "Trigger TMS5220 speech handler from sequence",   "b"),
     0x9B: ("CLR_CTRL_BITS",    1, "POKEY: AND ctrl_mask; YM2151: AND ctrl_bits w/twist", "b"),
-    0x9C: ("FORCE_POKEY",      1, "Force POKEY mode (clear $0813, sync $0811)",     "b"),
+    0x9C: ("FORCE_POKEY",      1, "Force POKEY state; keep duration-table arm",      "b"),
     0x9D: ("SET_VOICE",        2, "Load YM2151 voice/instrument (FM patch)",        "w"),
     0x9E: ("YM_LOAD_ENV",      2, "Load YM2151 envelope table from arg+$24",        "bb"),
     0x9F: ("YM_LOAD_REG",      2, "Load YM2151 register block from arg+$29",        "bb"),
@@ -3422,33 +3493,19 @@ def _marker(addr, text):
     return Instruction(addr, [], text, is_marker=True)
 
 
-def _format_note(addr, byte0, byte1):
-    """Format a note/rest instruction from byte0 (freq) and byte1 (dur)."""
+def _format_note(rom, addr, byte0, byte1, duration_rule):
+    """Format a note/rest using the timing rule active at this instruction."""
     raw = [byte0, byte1]
-    dur_idx  = byte1 & 0x0F
-    div_ctrl = (byte1 >> 4) & 0x03
-    dotted   = bool(byte1 & 0x40)
-    sustain  = bool(byte1 & 0x80)
-
-    dur_name = (DURATION_NAMES[dur_idx]
-                if dur_idx < len(DURATION_NAMES) else f"?{dur_idx}")
-
-    flags = []
-    if dotted:
-        flags.append("dotted")
-    if sustain:
-        flags.append("sustain")
-    if div_ctrl:
-        flags.append(f"div={div_ctrl}")
-    flag_str = " [" + ", ".join(flags) + "]" if flags else ""
+    duration = _decode_duration_control(rom, byte1, duration_rule)
 
     mnemonic = "REST" if byte0 == 0x00 else "NOTE"
     pitch = note_name(byte0)
     if pitch:
-        operands = f"{pitch} (${byte0:02X}), {dur_name}"
+        operands = f"{pitch} (${byte0:02X}), {duration.label}"
     else:
-        operands = f"${byte0:02X}, {dur_name}"
-    return Instruction(addr, raw, mnemonic, operands, flag_str.strip())
+        operands = f"${byte0:02X}, {duration.label}"
+    return Instruction(addr, raw, mnemonic, operands,
+                       "; ".join(duration.flags))
 
 
 def _format_opcode(addr, byte0, args, arg_fmt):
@@ -3487,7 +3544,8 @@ def _format_opcode(addr, byte0, args, arg_fmt):
     return Instruction(addr, raw, name, operands, comment)
 
 
-def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
+def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES,
+                         initial_duration_rule=DURATION_RULE_TABLE):
     """Disassemble bytecode sequence, following PUSH_SEQ chains.
 
     PUSH_SEQ (0x8D) pushes the return address and jumps to a sub-segment.
@@ -3496,6 +3554,10 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
 
     Disassembly stops at END markers, when the return stack is empty on
     CHAIN, or when a segment is encountered a second time.
+
+    A command-root stream always uses the default duration-table rule.  Pass
+    DURATION_RULE_POKEY only when decoding a raw midstream address known to be
+    reached after SWITCH_POKEY.
 
     Returns a list of Instruction objects (including marker pseudo-
     instructions for segment boundaries).
@@ -3507,6 +3569,7 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
     addr = start_addr
     total = 0
     max_total = 1024                # safety limit on total instructions
+    duration_rule = initial_duration_rule
 
     while total < max_total:
         # ── Safety checks ────────────────────────────────────────────
@@ -3560,7 +3623,8 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
                         "end of sequence"))
                     break
             else:
-                instructions.append(_format_note(addr, byte0, byte1))
+                instructions.append(_format_note(
+                    rom, addr, byte0, byte1, duration_rule))
                 addr += 2
                 continue
 
@@ -3599,6 +3663,8 @@ def disassemble_sequence(rom, start_addr, max_bytes=MAX_SEQ_BYTES):
                 f"{value}:${target:04X}" for value, target in enumerate(targets))
             instruction.comment = f"computed table, mask ${computed_mask:02X}"
         instructions.append(instruction)
+        duration_rule = _duration_rule_after(
+            duration_rule, instruction.mnemonic)
 
         # ── PUSH_SEQ: call sub-segment ──────────────────────────────
         if byte0 == 0x8D and len(args) >= 2:
@@ -3688,131 +3754,103 @@ def has_unbounded_sequence_loop(instructions):
                for inst in instructions)
 
 
-def compute_channel_stats(rom, instructions):
+def _iter_sequence_timing(rom, instructions,
+                          initial_duration_rule=DURATION_RULE_TABLE):
+    """Yield timed events with shared tempo and duration-rule state.
+
+    The disassembler flattens PUSH_SEQ calls and returns into execution order;
+    expand_extended_repeats then replays counted bodies.  Keeping timing state
+    in this final walk makes mode changes persist through both forms of control
+    flow and avoids separate assumptions in stats, score, and MIDI paths.
+    """
+    tempo = 0x10
+    duration_rule = initial_duration_rule
+
+    for inst in expand_extended_repeats(instructions):
+        duration_rule = _duration_rule_after(
+            duration_rule, inst.mnemonic)
+
+        if inst.mnemonic == "SET_TEMPO" and len(inst.raw) >= 2:
+            tempo = inst.raw[1] >> 2
+        elif inst.mnemonic == "ADD_TEMPO" and len(inst.raw) >= 2:
+            tempo = (tempo + inst.raw[1]) & 0xFF
+        elif inst.mnemonic in ("NOTE", "REST") and len(inst.raw) >= 2:
+            control = inst.raw[1]
+            if control == 0:  # CHAIN marker, not a timed event
+                continue
+            duration = _decode_duration_control(
+                rom, control, duration_rule)
+            if tempo > 0 and duration.units > 0:
+                duration_sweeps = duration.units / tempo
+            else:
+                duration_sweeps = 0.0
+            yield inst, duration, duration_rule, duration_sweeps
+
+
+def compute_channel_stats(rom, instructions,
+                          initial_duration_rule=DURATION_RULE_TABLE):
     """Compute note count and estimated play time for one channel.
 
-    Tracks SET_TEMPO / ADD_TEMPO through the instruction stream and sums
-    the duration of every NOTE and REST.
+    Tracks tempo and the table/POKEY duration selector through the instruction
+    stream and sums the duration of every NOTE and REST.
 
     Returns (note_count, total_seconds).
     """
-    # Type-7 allocation at $4537 initializes $05CA,Y to $10 before the first
-    # device sweep. Keep fractional duration/tempo values here as a presentation
-    # mean; timing_clock_audit.py performs the exact carried-residue trace.
-    tempo = 0x10
-    total_frames = 0.0
+    # Keep fractional duration/tempo values here as a presentation mean;
+    # timing_clock_audit.py performs the exact carried-residue trace.
+    total_sweeps = 0.0
     note_count = 0
 
-    for inst in expand_extended_repeats(instructions):
+    for inst, _, _, duration_sweeps in _iter_sequence_timing(
+            rom, instructions, initial_duration_rule):
+        total_sweeps += duration_sweeps
+        if inst.mnemonic == "NOTE":
+            note_count += 1
 
-        opcode = inst.raw[0] if inst.raw else None
-
-        # SET_TEMPO: stored value = arg >> 2
-        if inst.mnemonic == "SET_TEMPO" and len(inst.raw) >= 2:
-            tempo = inst.raw[1] >> 2
-
-        # ADD_TEMPO: raw 8-bit unsigned addition to tempo
-        elif inst.mnemonic == "ADD_TEMPO" and len(inst.raw) >= 2:
-            tempo = (tempo + inst.raw[1]) & 0xFF
-
-        elif inst.mnemonic in ("NOTE", "REST") and len(inst.raw) >= 2:
-            byte1 = inst.raw[1]
-            if byte1 == 0:      # CHAIN marker, not a timed event
-                continue
-            dur_idx = byte1 & 0x0F
-            dotted = bool(byte1 & 0x40)
-
-            # Read base duration from ROM table
-            if dur_idx == 0:
-                base_value = 0
-            else:
-                base_value = rom.read_word(DURATION_TABLE_ADDR + dur_idx * 2)
-
-            dur_value = base_value * 1.5 if dotted else float(base_value)
-
-            if tempo > 0 and dur_value > 0:
-                total_frames += dur_value / tempo
-
-            if inst.mnemonic == "NOTE":
-                note_count += 1
-
-    total_seconds = total_frames / SEQUENCE_SERVICE_HZ
+    total_seconds = total_sweeps / SEQUENCE_SERVICE_HZ
     return note_count, total_seconds
 
 
 # ── Score Mode (Timeline) ────────────────────────────────────────────────────
 
-def build_channel_timeline(rom, instructions):
+def build_channel_timeline(rom, instructions,
+                           initial_duration_rule=DURATION_RULE_TABLE):
     """Walk an instruction list and build a list of TimedEvents.
 
-    Tracks SET_TEMPO / ADD_TEMPO identically to compute_channel_stats(),
-    then for each NOTE/REST computes absolute start time and duration in
-    seconds.
+    Tracks tempo and the table/POKEY duration selector identically to
+    compute_channel_stats(), then computes each NOTE/REST's absolute start time
+    and duration in seconds.
 
     Returns a list of TimedEvent sorted by time.
     """
-    tempo = 0x10
-    cumulative_frames = 0.0
+    cumulative_sweeps = 0.0
     events = []
 
-    for inst in expand_extended_repeats(instructions):
+    for inst, duration, _, duration_sweeps in _iter_sequence_timing(
+            rom, instructions, initial_duration_rule):
+        byte0 = inst.raw[0]
+        time_secs = cumulative_sweeps / SEQUENCE_SERVICE_HZ
+        dur_secs = duration_sweeps / SEQUENCE_SERVICE_HZ
 
-        if inst.mnemonic == "SET_TEMPO" and len(inst.raw) >= 2:
-            tempo = inst.raw[1] >> 2
-        elif inst.mnemonic == "ADD_TEMPO" and len(inst.raw) >= 2:
-            tempo = (tempo + inst.raw[1]) & 0xFF
-        elif inst.mnemonic in ("NOTE", "REST") and len(inst.raw) >= 2:
-            byte0 = inst.raw[0]
-            byte1 = inst.raw[1]
-            if byte1 == 0:  # CHAIN marker, not a timed event
-                continue
+        pitch = note_name(byte0)
+        is_rest = (byte0 == 0)
+        # The two independently decoded chromatic views establish +11,
+        # but ROM notes above 97 alias non-pitch data and are not safe to
+        # export as conventional MIDI until their runtime KC/KF state is
+        # traced.
+        midi_note = byte0 + 11 if 0 < byte0 <= 97 else None
 
-            dur_idx = byte1 & 0x0F
-            dotted = bool(byte1 & 0x40)
-            sustain = bool(byte1 & 0x80)
+        events.append(TimedEvent(
+            time=time_secs,
+            duration=dur_secs,
+            pitch=pitch,
+            dur_abbrev=duration.abbrev,
+            is_rest=is_rest,
+            midi_note=midi_note,
+            sustain=duration.sustain,
+        ))
 
-            # Duration name and abbreviation
-            dur_name = (DURATION_NAMES[dur_idx]
-                        if dur_idx < len(DURATION_NAMES) else f"?{dur_idx}")
-            abbrev = DURATION_ABBREVS.get(dur_name, dur_name[:4])
-            if sustain:
-                abbrev += "sus"
-
-            # Compute duration in frames, then seconds
-            if dur_idx == 0:
-                base_value = 0
-            else:
-                base_value = rom.read_word(DURATION_TABLE_ADDR + dur_idx * 2)
-
-            dur_value = base_value * 1.5 if dotted else float(base_value)
-
-            if tempo > 0 and dur_value > 0:
-                dur_frames = dur_value / tempo
-            else:
-                dur_frames = 0.0
-
-            time_secs = cumulative_frames / SEQUENCE_SERVICE_HZ
-            dur_secs = dur_frames / SEQUENCE_SERVICE_HZ
-
-            pitch = note_name(byte0)
-            is_rest = (byte0 == 0)
-            # The two independently decoded chromatic views establish +11,
-            # but ROM notes above 97 alias non-pitch data and are not safe to
-            # export as conventional MIDI until their runtime KC/KF state is
-            # traced.
-            midi_note = byte0 + 11 if 0 < byte0 <= 97 else None
-
-            events.append(TimedEvent(
-                time=time_secs,
-                duration=dur_secs,
-                pitch=pitch,
-                dur_abbrev=abbrev,
-                is_rest=is_rest,
-                midi_note=midi_note,
-                sustain=sustain,
-            ))
-
-            cumulative_frames += dur_frames
+        cumulative_sweeps += duration_sweeps
 
     return events
 
@@ -5382,6 +5420,10 @@ Examples:
                         help="Disassemble command N (hex or decimal)")
     parser.add_argument("--addr", type=parse_int, metavar="ADDR",
                         help="Disassemble raw sequence at address")
+    parser.add_argument("--initial-duration-rule", choices=("table", "pokey"),
+                        default="table", metavar="RULE",
+                        help="Initial timing rule for --addr: table or pokey "
+                             "(default: table)")
     parser.add_argument("--list", action="store_true",
                         help="List all 219 commands with summary")
     parser.add_argument("--all", action="store_true",
@@ -5495,7 +5537,11 @@ Examples:
     elif args.addr is not None:
         print(f"Sequence @ ${args.addr:04X}:\n")
         try:
-            instructions = disassemble_sequence(rom, args.addr)
+            duration_rule = (DURATION_RULE_POKEY
+                             if args.initial_duration_rule == "pokey"
+                             else DURATION_RULE_TABLE)
+            instructions = disassemble_sequence(
+                rom, args.addr, initial_duration_rule=duration_rule)
             print(format_instructions(instructions))
         except ValueError as e:
             print(f"Error: {e}", file=sys.stderr)
