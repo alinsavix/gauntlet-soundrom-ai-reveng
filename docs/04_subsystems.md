@@ -48,7 +48,13 @@ including the boot handshake and RESET-vector gate, are generated in
 `initialization_main_catalog.csv`.
 
 The boot-only writes are `$FF,$33,$00,$22,$0F` to
-`$1003,$1002,$100B,$100C,$1000`. Their board-level meaning is unknown.
+`$1003,$1002,$100B,$100C,$1000` — five addresses the board decodes as one, the
+sound→main latch (the low four bits of `$1000`–`$100F` are not decoded; confirmed
+by the schematic and by MAME's `map(0x1000,0x100f).mirror(0x27c0).w(m_mainlatch)`).
+So they are five overwriting writes to the mailbox, not five register settings,
+and the main CPU reads none of them (only the later `$FF` boot acknowledgement
+matters). The distinct addresses and values indicate a five-register init
+inherited from other hardware; see [`10_known_issues.md`](10_known_issues.md).
 
 The boot-only diagnostic window and the normal command mode are related as
 follows. The diagram shows verified mechanics; it does not assign a purpose to

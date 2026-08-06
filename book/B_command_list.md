@@ -271,32 +271,78 @@ other 54 go to the YM2151. No sound uses both chips.
 
 The command list above is one direction of the mailbox. The other direction is
 much narrower: the sound CPU sends bytes back through `$1000`, the write that
-hands the main CPU a byte and interrupts it. Board-status bit 6 at `$1030` reads
-1 while a reply is still waiting to be collected, so the two sides never
-overwrite each other. See [Chapter 6](06_taking_orders.md) for the mechanism and
-[Appendix D](D_reference_tables.md) sections D.2 and D.4 for the `$1000` window
-and the error-flag byte.
+hands the main CPU a byte and interrupts it. (The whole block `$1000`–`$100F` is
+that one latch — the board ignores the low four address bits — which matters for
+the boot burst below.) Three routes reach it: the interrupt answers the **three
+direct questions** on the spot; the main loop drains the 16-byte outgoing reply
+buffer at `$0214` one byte per pass; and the boot sequence writes a short burst of
+fixed bytes to it inline. Board-status bit 6 at `$1030` reads 1 while a *buffered*
+reply is still waiting to be collected, so the main loop never tramples a reply in
+flight — but the boot writes skip that check. See [Chapter 6](06_taking_orders.md)
+for the mechanism and [Appendix D](D_reference_tables.md) sections D.2 and D.4 for
+the `$1000` window and the error-flag byte.
 
-Two paths feed `$1000`. The **three direct questions** are answered on the spot
-from inside the interrupt. Everything else is queued in the 16-byte outgoing
-reply buffer at `$0214` and drained one byte per pass by the main loop.
-
-| Reply | Meaning | Triggered by | Path |
+| Reply | Meaning | Triggered by | Route |
 |---|---|---|---|
-| four input fields | Coin-door and switch state, cached | Command `$03` | Interrupt, direct |
-| `$DB` | This ROM's identity ("which sound ROM are you?") | Command `$06` | Interrupt, direct |
-| error-flag byte | Health report; the bitfield decoded in [D.4](D_reference_tables.md) | Command `$07` | Interrupt, direct |
-| `$55` | Proof of life — a byte that travelled the ring, dispatcher, and reply queue | Command `$DA` | Reply buffer |
-| `$FF` | The first reply sent once boot completes | Boot | Reply buffer |
-| `$0F` | Last of five fixed values written during the board handshake | Boot | Board register |
+| four input fields | The four coin-mechanism inputs, cached | Command `$03` | Interrupt |
+| `$DB` | A fixed identity byte | Command `$06` | Interrupt |
+| error-flag byte | Health report; the bitfield decoded in [D.4](D_reference_tables.md) | Command `$07` | Interrupt |
+| `$55` | A fixed proof-of-life byte | Command `$DA` | Reply buffer |
+| `$FF` | Boot acknowledgement — "the board is up" | Boot | Boot code |
+| `$0F` | Last byte of the boot burst, overwritten by `$FF` | Boot | Boot code |
 | any byte | `QUEUE_OUTPUT` opcode `$96`, so a sequence could signal the game; no sound in this ROM uses it | Sequence engine | Reply buffer |
 
-The `$0F` at the end of the boot handshake is written to a board register rather
-than to the `$1000` mailbox, and its exact meaning is still open
-([Chapter 17](17_open_questions.md)). Every other row above is a byte the main
-CPU reads from the mailbox. Of the buffered replies, only `$DA` is exercised in
-normal operation; the `$96` opcode path exists in the sequence language but is
-dormant in this ROM.
+### How the game ROM uses them
+
+The companion disassembly of Gauntlet II's 68010 game program settles what these
+are *for*, and the working set is narrower than the table suggests. In normal
+play the game sends only two of these commands and reads their replies:
+
+- **`$03`, every frame.** The reply packs the four coin-mechanism inputs as
+  two-bit counters. The game diffs it against the previous frame and turns the
+  difference into credits, so every coin in Gauntlet II arrives as the answer to
+  a sound command. (The surviving command list's guess that `$03` means "stop
+  playing" is wrong; it is the coin poll.)
+- **`$07`, when idle or when worried.** The game masks the low three bits of the
+  reply — the three heartbeat and health bits of [D.4](D_reference_tables.md) —
+  and reboots the sound board if any is set. The same command is the watchdog's
+  probe: a board that stops answering `$07` is reset.
+
+`$FF` is the byte the game waits for after it reboots the board; receiving it
+clears a roughly three-second grace timer and means "the board is back." It is
+the first thing the boot sequence of [Chapter 5](05_waking_up.md) sends, written
+straight to `$1000`.
+
+Everything else is a path the game program never walks:
+
+- **`$06` → `$DB`** is used only by the operator self-test, as a bare "does the
+  processor answer?" ping. The test checks that *a* byte came back within its
+  timeout, not that it was `$DB`; the value is never inspected. `$DB` is an
+  identity stamp nothing validates.
+- **`$DA` → `$55`** is dead: no code in the game or its OS ever sends `$DA`.
+- The **`$96`** opcode path is dormant in this ROM, as noted above.
+
+### The handshake burst
+
+The boot sequence's first contact with the main CPU is not a single byte but a
+burst. The board decodes the whole block `$1000`–`$100F` as one write latch — the
+low four address bits are ignored, confirmed by the schematic and by MAME, whose
+sound map is `map(0x1000, 0x100f).mirror(0x27c0).w(m_mainlatch, ...)`. So the five
+"handshake" writes to `$1003`, `$1002`, `$100B`, `$100C` and `$1000` all land on
+the same mailbox — `$FF`, `$33`, `$00`, `$22`, `$0F`, each overwriting the last —
+and a few instructions later the boot writes `$FF` to it again as the
+acknowledgement. All of it skips the bit-6 collected-yet check, so the bytes pile
+up roughly three microseconds apart.
+
+The game acts only on that final `$FF`; nothing on the 68010 side ever reads or
+compares the intermediate bytes, so `$0F` and the three before it are transients
+that never mean anything. Whether the main CPU can even latch one of them mid-burst
+is a matter of interrupt timing that only a bus trace or cycle-accurate emulation
+could pin down, and it does not matter to the protocol: had the game read a stray
+byte during a reboot, it would simply reset the board and retry until it read
+`$FF`. Why the sound ROM fires a five-register init at a board that has only one
+register there is the "one program, more than one board" thread of
+[Chapter 17](17_open_questions.md).
 
 ## Where this comes from
 
@@ -312,3 +358,8 @@ dormant in this ROM.
   command list this table's descriptions come from.
 - [`docs/08_command_reference.md`](../docs/08_command_reference.md) — the command
   space and handler distribution.
+- The companion Gauntlet II **game-ROM (68010) disassembly** — the far side of
+  this conversation. Its `process_sound` / `process_coins` are the every-frame
+  `$03` coin poll; `sound_response` / `sound_system_reset` are the `$07` watchdog
+  and the wait for the `$FF` acknowledgement; and `run_sound_test` is the operator
+  self-test that pings with `$06` and never checks the `$DB` that comes back.

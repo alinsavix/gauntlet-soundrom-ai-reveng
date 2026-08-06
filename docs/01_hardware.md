@@ -19,8 +19,7 @@ command interface.
 
 | Address | Direction | Meaning | Confidence |
 |---|---|---|---|
-| `$1000` | W | Latch a byte for the main CPU and trigger its interrupt | Verified |
-| `$1002/$1003/$100B/$100C` | W | Boot-time handshake/configuration writes | Verified writes; purpose unknown |
+| `$1000-$100F` | W | Latch a byte for the main CPU and trigger its interrupt. The low four address bits are not decoded, so the whole block is one latch (schematic; MAME `map(0x1000,0x100f).mirror(0x27c0).w(m_mainlatch)`). The boot handshake's writes to `$1002/$1003/$100B/$100C` all land here (see [`04_subsystems.md`](04_subsystems.md)) | Verified |
 | `$1010` | R | Command byte latched by the main CPU | Verified |
 | `$1020` | R | Coin inputs, bits 3..0, active low | Verified from supplied board notes |
 | `$1020` | W | Volume mixer: speech 7..5, effects 4..3, music 2..0 | Verified |

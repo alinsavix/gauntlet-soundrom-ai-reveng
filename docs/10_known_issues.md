@@ -458,15 +458,25 @@ external runtime evidence. Earlier normal/self-test path labels were
 self-test behavior or a cabinet/MAME execution trace; map the four inputs to
 named player/slot positions.
 
-## P2 — Boot handshake bytes
+## Resolved mechanics — Boot handshake bytes
 
 **Known:** `$FF,$33,$00,$22,$0F` are written once to
-`$1003,$1002,$100B,$100C,$1000`.
+`$1003,$1002,$100B,$100C,$1000`. These are **not** five separate registers. The
+board does not decode the low four bits of `$1000`–`$100F`, so all five addresses
+are the one sound→main latch — confirmed by the schematic and by MAME
+(`map(0x1000,0x100f).mirror(0x27c0).w(m_mainlatch)`). The handshake is therefore
+five overwriting writes to the mailbox, followed a few instructions later by the
+`$FF` boot acknowledgement (`$40E9`). The companion game-ROM (68010) disassembly
+reads none of the intermediate bytes; the only value the game acts on is that
+final `$FF` (game routines `sound_response` / `sound_system_reset`).
 
-**Unknown:** decode logic and significance to the main CPU.
-
-**Next test:** inspect supplied main-CPU code or schematic decode if made
-available. This cannot be resolved confidently from the sound ROM alone.
+**Remaining (historical, not hardware):** the code targets four distinct
+addresses with four distinct values as hardcoded load/store pairs — a
+five-register init. On this board those registers do not exist, so the writes are
+vestigial, most likely inherited from a sibling board/game. Which hardware, and
+what the registers drove, would need a sibling ROM or that board's schematic; it
+is not answerable from either Gauntlet II ROM and does not affect this board's
+behavior.
 
 ## Resolved mechanics — Alternate NMI diagnostic-window indirect write
 

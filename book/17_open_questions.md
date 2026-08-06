@@ -17,8 +17,8 @@ interesting.
 
 ## The boot handshake
 
-Before the sound board does anything else useful, it writes five fixed values to
-five board addresses, in a fixed order, every time it powers up.
+Before the sound board does anything else useful, it writes five fixed values,
+in a fixed order, every time it powers up.
 
 | Order | Value | Address |
 |---:|---:|---|
@@ -28,22 +28,36 @@ five board addresses, in a fixed order, every time it powers up.
 | 4 | `$22` | `$100C` |
 | 5 | `$0F` | `$1000` |
 
-The last row is understood. `$1000` is the reply latch from
-[Chapter 6](06_taking_orders.md), so that write hands the main CPU the byte `$0F`
-and interrupts it. The board's first act after initializing itself is to say
-something to the game.
+For a long time these looked like five separate board registers being
+configured. They are not. On this board the address decoder ignores the low four
+bits of `$1000`–`$100F`, so all five addresses are **the same location** — the
+reply latch of [Chapter 6](06_taking_orders.md) that hands the main CPU a byte
+and interrupts it. The board schematic shows this decode directly, and MAME
+confirms it: its sound map routes the whole block to one write handler,
+`map(0x1000, 0x100f).mirror(0x27c0).w(m_mainlatch, ...)`. So the handshake is not
+configuration at all. It is five bytes written to the one mailbox, back to back —
+`$FF`, `$33`, `$00`, `$22`, `$0F` — each landing on top of the last about three
+microseconds later, and then, a few instructions into the rest of boot, the `$FF`
+acknowledgement of [Chapter 5](05_waking_up.md) lands on top of all of them.
 
-The other four are a blank. `$1002`, `$1003`, `$100B` and `$100C` appear nowhere
-else in the sound program: nothing reads them, nothing writes them again, and no
-code path branches on anything derived from them. They are outputs into board
-logic that this ROM has no visibility into.
+The companion game-ROM disassembly shows the 68010 reads none of the intermediate
+values. Its only interest in this latch is that final `$FF`, the byte its watchdog
+waits for; nothing on the main side ever compares against `$33`, `$22`, `$00` or
+`$0F`. The burst is overwritten before it can mean anything, and
+[Appendix B](B_command_list.md#the-handshake-burst) follows the bytes through to
+the game side.
 
-The answer is on the other side of the connector. Either the main CPU's program
-reads these latches and acts on them, or the board's decode logic turns them into
-configuration signals for something. Both possibilities are outside a sound ROM's
-reach, and no amount of further work on this file will settle it. What would
-settle it is the 68010's disassembly or a look at the schematic sheet covering
-that address decoder.
+What is left is not a hardware question but a historical one. The code writes to
+five *distinct* addresses with five fixed values, as hardcoded load-and-store
+pairs — exactly what a programmer writes to initialize five separate registers,
+not to poke one latch five times. On some other board those
+addresses almost certainly *were* separate registers; the paired addresses
+`$1002`/`$1003` and `$100B`/`$100C` have the shape of two two-register devices.
+This program looks written for hardware where that init meant something and
+carried onto a board where `$1000`–`$100F` is a single latch and the writes
+evaporate. Which board, and what those registers drove, is the kind of thing only
+a sibling ROM or that board's schematic could say — the same "one program, more
+than one board" thread the rest of this chapter keeps pulling.
 
 ## Six handler types nobody calls
 
@@ -124,12 +138,13 @@ whether the stream needed one or not, but that is a guess about a build process
 nobody has a record of.
 
 **What `$DB` means.** Command `$06` asks "which sound ROM are you?" and the
-interrupt answers with the fixed byte `$DB` (see
-[Appendix B](B_command_list.md#replies-to-the-main-cpu)). That the byte is a
-constant identity stamp is clear from the code; what value the main CPU expects,
-and whether `$DB` encodes a revision, a board type, or just "Gauntlet II sound",
-is a question only the 68010's side can answer. This ROM emits the byte without
-ever reading it back.
+interrupt answers with the fixed byte `$DB`. The game-ROM side now settles its
+role: only the operator self-test ever sends `$06`, and it checks merely that
+*some* byte answered before a timeout, never that the byte was `$DB`
+([Appendix B](B_command_list.md#how-the-game-rom-uses-them)). So `$DB` is a
+constant identity stamp that nothing validates. What it was meant to encode — a
+revision, a board type, or just "Gauntlet II sound" — is now moot, since no
+consumer inspects it.
 
 **About 300 bytes of unused ROM.** Four regions have no consumer anywhere: two
 bytes at `$8447` reading `$94 $FF`, a single `$FF` at `$FECD` just past the end of
@@ -250,9 +265,14 @@ distribution, the catch-up interrupt, the speech cadence, and the coin wiring, a
 at once. A capture of the first few milliseconds after power-on would additionally
 resolve the boot NMI window.
 
-The **main CPU's disassembly** would name the boot handshake bytes, confirm which
-commands the game actually emits, and explain the `$0F` reply and the `$DB`
-identity byte. Gauntlet II's game ROMs are as available as its sound ROM.
+The **main CPU's disassembly**, now consulted, named the boot handshake bytes and
+the reply protocol: `$03` is the every-frame coin poll, `$07` the health probe,
+`$FF` the reboot acknowledgement, and `$0F` and `$DB` are bytes the game never
+acts on ([Appendix B](B_command_list.md#replies-to-the-main-cpu)). It leaves only
+the historical question of which hardware the boot's five-register init was
+written for, now that the board decodes those five addresses as one latch — a job
+for a sibling ROM, below. Gauntlet II's game ROMs are as available as its sound
+ROM.
 
 **Another revision of this sound ROM**, or the equivalent ROM from another Atari
 title on related hardware, would distinguish development leftovers from features
@@ -269,8 +289,10 @@ because the next person to read it will not know it was a guess.
 
 ## What you now know
 
-- Five bytes go out to board latches at every boot and only the last one has a
-  known meaning.
+- Five bytes go out at every boot to five addresses the board decodes as one
+  latch — the sound→main mailbox. The game ROM reads none of them, the `$FF`
+  alive-byte overwrites the whole burst, and the five-register init is vestigial,
+  inherited from other hardware.
 - Six handler types are finished routines with no command pointing at them,
   including a live-channel meta-dispatcher that could have modified running sounds.
 - A boot-time window lets the main CPU write a byte straight into the sound

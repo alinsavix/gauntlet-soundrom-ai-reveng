@@ -56,8 +56,7 @@ CPU sends back through `$1000`, see
 
 | Address | Read | Write |
 |---|---|---|
-| `$1000` | | Hand a byte to the main CPU and interrupt it |
-| `$1002`, `$1003`, `$100B`, `$100C` | | Boot handshake; meaning unknown ([Chapter 17](17_open_questions.md)) |
+| `$1000`–`$100F` | | Hand a byte to the main CPU and interrupt it. The low four address bits are not decoded, so the whole block is this one latch; the boot handshake's writes to `$1002`, `$1003`, `$100B`, `$100C` all land here ([Chapter 17](17_open_questions.md)) |
 | `$1010` | The command byte the main CPU last sent | |
 | `$1020` | The four coin switches, active low | Set all three volume levels |
 | `$1030` | Board status, see below | Reset the YM2151 |
@@ -101,6 +100,11 @@ boot and stay set. [Chapter 5](05_waking_up.md).
 | 2 | Interrupt heartbeat: armed by command `$07`, cleared by the IRQ |
 | 1 | The YM2151 stopped answering after 255 polls |
 | 0 | Main-loop heartbeat: armed by command `$07`, cleared by the main loop |
+
+The game program watches only the low three bits — the two heartbeats and the
+YM2151-stuck flag. Its per-frame watchdog reboots the sound board if any of them
+is set, and ignores the five latched self-test bits above them
+([Appendix B](B_command_list.md#how-the-game-rom-uses-them)).
 
 ## D.5 The ROM
 

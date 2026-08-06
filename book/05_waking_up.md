@@ -194,7 +194,7 @@ Then, in order:
 
 | Step | What it does |
 |---|---|
-| Board handshake | Writes five fixed values to five board registers, the last of which hands the main CPU the byte `$0F` |
+| Board handshake | Writes `$FF,$33,$00,$22,$0F` to five addresses the board decodes as one latch — the sound→main mailbox — so the writes overwrite each other ([Chapter 17](17_open_questions.md)) |
 | Command mode | Switches the incoming-command path into the mode it uses from now on |
 | Queues | Clears the read and write positions of the incoming command ring and the outgoing reply buffer |
 | Filter | Clears the global loudness threshold, so nothing is suppressed |

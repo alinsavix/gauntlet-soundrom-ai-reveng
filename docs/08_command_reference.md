@@ -56,6 +56,17 @@ All 182 record insertions use interrupt-masked link transactions.
 | `$07` | Return errors and arm heartbeats | Direct NMI query |
 | `$08` | TMS5220 speech-chip test | Type 11, LPC `$873D` |
 
+**Game-side usage of the reply commands** (from the companion 68010 game-ROM
+disassembly; see [book Appendix B](../book/B_command_list.md#how-the-game-rom-uses-them)):
+in normal play the game sends only `$03` (every frame; the reply's packed
+coin-mech counters become credits) and `$07` (when idle or by the watchdog; a
+nonzero low-3-bit error field reboots the board). `$FF`, written directly to
+`$1000` at boot, is the acknowledgement the game waits for after a reboot. `$06`
+is sent only by the operator self-test as a liveness ping — it checks that a byte
+answered before a timeout, never that it was `$DB`. `$DA` (→ `$55`) is sent by
+neither the game nor its OS. The `$04`/`$05`/`$08` chip tests are also
+self-test-only.
+
 ## Type-7 commands
 
 Type 7 covers both effects and music. All 62 rows and expanded chains are in
