@@ -103,7 +103,7 @@ Special queries:
 | Command | Direct result |
 |---:|---|
 | `$03` | Send cached coin/control byte `$44` to main CPU |
-| `$06` | Send fixed `$DB`; the operator self-test accepts any response, so the value's intended semantics are unknown |
+| `$06` | Send fixed `$DB`; the operator self-test uses it as the exclusive command-selector bound |
 | `$07` | Send error flags `$02`, then arm main-loop and IRQ heartbeat bits |
 
 The alternate indirect-write path is statically reachable. When `$1030` bit 4 is clear,

@@ -37,9 +37,6 @@ QUESTIONS = [
     ("unreferenced_rom_provenance", "Build intent of $8447-$8448, $FECD, and $FFF6-$FFF9",
      "comparison ROM/source/build map", "historical_intent_not_recoverable_from_current_image",
      "complete code/bytecode/indirect xrefs find no consumer"),
-    ("command_game_use", "Complete game/OS emitter coverage and player-visible meaning for legacy and control commands",
-     "dataflow-complete companion emitter audit or gameplay trace", "cross_image_static_followup",
-     "known game/OS paths are incorporated, including newly verified command $D7 use; indirect table-fed emitters are not yet exhaustively catalogued"),
 ]
 
 
@@ -61,7 +58,6 @@ CANONICAL_SECTIONS = {
     "board_control_runtime": "P2 — Board-control routine `$8381`",
     "reset_startup_nmi_delivery": "Resolved mechanics — Alternate NMI diagnostic-window indirect write",
     "unreferenced_rom_provenance": "P2 — Small unreferenced ROM regions",
-    "command_game_use": "P2 — Command descriptions and game-side use",
 }
 
 

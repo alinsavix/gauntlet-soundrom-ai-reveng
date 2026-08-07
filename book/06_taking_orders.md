@@ -54,12 +54,12 @@ only whether this command is ordinary or special.
 | `$06` | Can the sound CPU answer the operator's ping? | The fixed number `$DB` |
 | `$07` | Are you healthy? | The error-flag byte, and both heartbeat bits get armed |
 
-`$06` is worth a second look. `$DB` happens also to be 219, the first byte
-outside this ROM's command range, but the reply routine does not calculate it
-from a table size: it loads the literal `$DB`. The companion game ROM uses the
-command only in the operator self-test and accepts any byte that arrives before
-the timeout. The value's intended meaning is therefore unknown; it is not a
-validated ROM identifier.
+`$06` is worth a second look. `$DB` is 219, the first byte outside this ROM's
+command range. The reply routine does not calculate it from a table size—it
+loads the literal `$DB`—but the companion OS stores the reply and uses it as the
+operator sound selector's exclusive upper bound. The selector therefore ends at
+`$DA`. So `$DB` is both the successful ping response and a command-count/end
+sentinel, not an unexplained diagnostic byte.
 
 The other 216 commands take the ordinary path. The handler drops the byte into a
 queue and returns immediately. Every decision about what the byte means, which
@@ -219,8 +219,11 @@ interrupts the 68010, so the reply gets picked up promptly.
 
 Only one command uses this path. `$DA` queues the value `$55`, which the game
 can then read back as proof that a command travelled all the way through the ring
-buffer, the dispatcher, and the reply queue. The three direct questions bypass
-the buffer entirely and write to `$1000` from inside the interrupt.
+buffer, the dispatcher, and the reply queue. Specifically, handler type 8 at
+`$4445` inserts `$55` into the sound CPU's sixteen-byte outgoing ring. The main
+loop later writes it to `$1000`, where it is latched for the main CPU. `$DA`
+does not make a sound. The three direct questions bypass the buffer entirely
+and write to `$1000` from inside the interrupt.
 
 The sound language described in [Chapter 9](09_sequence_language_opcodes.md) has
 an instruction that queues a byte the same way, so a piece of music could in
@@ -230,12 +233,13 @@ uses it.
 ## The mixer and the global filter
 
 Four commands set the three analog volume levels from
-[Chapter 2](02_tour_of_the_board.md). The handler splits the parameter into the
-three fields and keeps them in separate bytes of RAM before combining them into
-the byte written to `$1020`, so a later change to one field does not disturb the
-others. It also defers the write while the speech chip's state machine is in the
-middle of something, since the speech level and the speech stream have to change
-together.
+[Chapter 2](02_tour_of_the_board.md). Handler type 13 at `$4619` splits the
+parameter into two RAM shadows: `$28 = parameter & $E0` holds the speech field,
+while `$29 = parameter & $1F` holds the effects and music fields. When speech is
+idle, the handler writes `$29` to `$1020`, deliberately leaving speech muted.
+When a phrase starts, the speech machinery writes `$28 | $29` instead. The
+handler defers an immediate `$1020` write when the speech state in `$2F`
+overlaps the active mixer bits, so the speech level and stream change together.
 
 The four parameters are more specific than "presets" suggests:
 
@@ -250,8 +254,23 @@ Speech and music stay at full level in all four. The only thing these commands
 change is the effects level, across its whole range from off to full. An
 operator adjusting the cabinet is turning a physical trimmer; these four commands
 are the board's own control over how loud the sound effects sit against the
-music. The companion game ROM sends `$D7` during the level-start screen,
-selecting effects level 1; no use of `$D6,$D8,$D9` has yet been found.
+music. They neither start nor stop a sequence. In particular, `$D6` mutes the
+effects path in the analog mix; active effects continue advancing and can become
+audible again if another preset restores their level.
+
+The companion game ROM sends `$D7` during the level-start screen, selecting
+effects level 1. An exhaustive static trace of the game-side `sound_play` and
+`sound_speech_play` producers finds no ordinary-gameplay emitter for
+`$D6,$D8,$D9`, or `$DA`; `$D7` is the contrasting literal at game `$44F68`.
+The OS operator sound test can select and send every command from `$08` through
+`$DA`, so it exposes all four mixer presets and the `$DA` return-path test.
+
+The layout of this tail therefore looks deliberate rather than like padding:
+`$D6-$D9` cover all four values of the two-bit effects field, `$DA` exercises
+the queued sound-to-main return path, and `$06` returns the exclusive bound
+`$DB`, one byte beyond the final command. That diagnostic/service-interface
+purpose is a strong inference from the code; the ROM cannot tell us whether
+`$D8/$D9` were also reserved for abandoned gameplay features.
 
 The last pair of control commands does something more drastic. Commands `$01` and
 `$02` set a single global threshold, computed as the parameter times four.

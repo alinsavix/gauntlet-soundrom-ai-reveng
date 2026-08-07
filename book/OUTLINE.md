@@ -559,9 +559,9 @@ The command pipeline, from a single byte to the right handler.
 - **Answer now, or queue for later.** The NMI routine looks the command up in a
   219-entry table that says "ordinary" or "answer immediately". Three commands
   are answered on the spot because they are questions, not sounds: `$03` (what
-  is the coin/switch state?), `$06` (operator-test liveness ping, with a fixed
-  `$DB` reply that the caller does not validate), and `$07` (report your error
-  flags and re-arm the heartbeats). Everything else is dropped into a 16-slot
+  is the coin/switch state?), `$06` (operator-test selector-bound query, with a
+  fixed `$DB` reply used as the exclusive upper bound), and `$07` (report your
+  error flags and re-arm the heartbeats). Everything else is dropped into a 16-slot
   ring buffer that can hold fifteen pending commands, and the interrupt returns
   immediately — the interrupt must be short, so the *work* happens in the main
   loop.
@@ -1122,10 +1122,10 @@ a small mystery, and the reader now knows enough to appreciate them.
   duration of a YM2151 busy wait, exactly how the analog mixer sums the three
   sources, and the true cabinet wiring of the coin inputs.
 - **How you could help.** Short and practical: a logic-analyzer capture from a
-  real board, a dataflow-complete game/OS sound-emitter catalog, another revision
-  of the sound ROM, or original Atari source would each close specific items.
-  The main CPU's disassembly has already been consulted, but its present
-  high-level sound-ID summary omits some indirect-table paths.
+  real board, another revision of the sound ROM, or original Atari source would
+  each close specific items. The main CPU's operator sound test exposes the four
+  formerly uncertain commands, so all available static emitter questions are
+  closed.
 
 *Sources: `docs/10_known_issues.md` (use the P0/P1/P2 items, skipping any
 marked Resolved), `docs/03_rom_structure.md` (unused space),
@@ -1151,9 +1151,9 @@ in plain language, which chip, and chain length or phrase text.
 Build from `docs/generated/command_catalog.csv` joined with
 `hw_docs/soundcmds.csv`. **Clean the legacy CSV's stray tabs and quotation
 errors** when transcribing; do not change any numeric IDs. Where the legacy CSV
-says "Not Used", say "no known game use" unless a specific companion call site
-proves otherwise. In particular, `$D7` is used by `show_level_start_screen` even
-though the legacy list says it is not — the ROM entry itself is valid.
+says "Not Used", distinguish gameplay from operator-test use. In particular,
+`$D7` is used by `show_level_start_screen`, and `$D6,$D8,$D9,$DA` are selectable
+through the OS sound test even though the legacy list says they are not used.
 
 ## Appendix C — The Bytecode Opcode Reference
 

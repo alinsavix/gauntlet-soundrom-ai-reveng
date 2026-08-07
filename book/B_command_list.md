@@ -22,11 +22,11 @@ commands make none, so the column is blank for them.
 [Chapter 7](07_command_to_channel.md)), the stream length for a phrase (see
 [Chapter 13](13_speaking.md)), and the target or effect for everything else.
 
-Where the surviving sound command list says "Not Used", this table says "no
-known game use" unless a companion game/OS call site proves otherwise. That
-qualification matters: the current companion sound-ID summary is not exhaustive
-over table-fed emitters, and direct inspection found `$D7` in live game code.
-Every sound-ROM entry below remains valid and externally reachable.
+Runtime confirmation establishes actual use of `$04,$05,$08-$D5`; the
+reset/filter/query paths independently establish `$00-$03,$06,$07`. Direct
+inspection finds `$D7` in live game code, and the operator sound test makes
+`$D6,$D8,$D9,$DA` selectable. Every sound-ROM entry below is therefore valid
+and externally reachable.
 
 | Command | Sound or phrase | Job | Chip | Detail |
 |---|---|---|---|---|
@@ -36,7 +36,7 @@ Every sound-ROM entry below remains valid and externally reachable.
 | `$03` | Question: what is the coin door doing? | Answered by the interrupt |  | answers with four cached input fields |
 | `$04` | Music Chip Test | Play a sound | YM2151 | 8 records |
 | `$05` | Effects Chip Test | Play a sound | POKEY | 4 records |
-| `$06` | Operator self-test liveness ping | Answered by the interrupt |  | fixed reply `$DB`; caller accepts any byte |
+| `$06` | Operator self-test command-bound query | Answered by the interrupt |  | fixed reply `$DB`; exclusive selector bound |
 | `$07` | Question: are you healthy? | Answered by the interrupt |  | answers with the error flags, then arms both heartbeats |
 | `$08` | Speech Chip Test | Speak a phrase | TMS5220 | 247 bytes |
 | `$09` | Warrior Joins In | Play a sound | YM2151 | 3 records |
@@ -244,11 +244,11 @@ Every sound-ROM entry below remains valid and externally reachable.
 | `$D3` | "IS IT" | Speak a phrase | TMS5220 | 91 bytes |
 | `$D4` | "IS NOW IT" | Speak a phrase | TMS5220 | 244 bytes |
 | `$D5` | Dragon Roar | Speak a phrase | TMS5220 | 155 bytes |
-| `$D6` | Mixer preset: effects off; no known game use | Set the mixer |  | effects 0 of 3 |
-| `$D7` | Mixer preset: effects low; used by the level-start screen | Set the mixer |  | effects 1 of 3 |
-| `$D8` | Mixer preset: effects medium; no known game use | Set the mixer |  | effects 2 of 3 |
-| `$D9` | Mixer preset: effects full; no known game use | Set the mixer |  | effects 3 of 3 |
-| `$DA` | Send a proof-of-life byte; no known game use | Queue a reply byte |  | replies `$55` |
+| `$D6` | Mixer preset: effects off; operator sound test | Set the mixer |  | effects 0 of 3 |
+| `$D7` | Mixer preset: effects low; level start and operator sound test | Set the mixer |  | effects 1 of 3 |
+| `$D8` | Mixer preset: effects medium; operator sound test | Set the mixer |  | effects 2 of 3 |
+| `$D9` | Mixer preset: effects full; operator sound test | Set the mixer |  | effects 3 of 3 |
+| `$DA` | Send a proof-of-life byte; operator sound test | Queue a reply byte |  | replies `$55` |
 
 ## Summary
 
@@ -287,7 +287,7 @@ the `$1000` window and the error-flag byte.
 | Reply | Meaning | Triggered by | Route |
 |---|---|---|---|
 | four input fields | The four coin-mechanism inputs, cached | Command `$03` | Interrupt |
-| `$DB` | A fixed response byte; intended value semantics unknown | Command `$06` | Interrupt |
+| `$DB` | Command-count/end sentinel for the operator sound selector | Command `$06` | Interrupt |
 | error-flag byte | Health report; the bitfield decoded in [D.4](D_reference_tables.md) | Command `$07` | Interrupt |
 | `$55` | A fixed proof-of-life byte | Command `$DA` | Reply buffer |
 | `$FF` | Boot acknowledgement — "the board is up" | Boot | Boot code |
@@ -315,22 +315,24 @@ clears a roughly three-second grace timer and means "the board is back." It is
 the first thing the boot sequence of [Chapter 5](05_waking_up.md) sends, written
 straight to `$1000`.
 
-Everything else is a path the game program never walks:
+Three exceptional paths sit outside normal gameplay:
 
-- **`$06` → `$DB`** is used only by the operator self-test, as a bare "does the
-  processor answer?" ping. The handler loads `$DB` as a literal; it does not
-  derive the value from the 219-entry command tables. The test checks that *a*
-  byte came back within its timeout, not that it was `$DB`, so the intended
-  meaning of the constant remains unknown.
-- **`$DA` → `$55`** has no sender in the game/OS paths audited so far; the reply
-  path is dormant in every known use.
+- **`$06` → `$DB`** is used by the operator self-test. The handler loads `$DB`
+  as a literal rather than deriving it from the 219-entry command tables, but
+  the OS stores the reply as the command selector's exclusive upper bound. It
+  is both the successful ping response and the end sentinel after `$DA`.
+- **`$DA` → `$55`** is selectable in the operator sound test. It exercises the
+  queued-reply handler rather than one of the three direct NMI query handlers.
 - The **`$96`** opcode path is dormant in this ROM, as noted above.
 
 The mixer controls are separate from those reply paths. Direct inspection found
 `show_level_start_screen` sending **`$D7`** at game address `$44F68`, selecting
-the low-effects preset. The legacy command list's “Not Used” annotation is wrong
-for `$D7`; `$D6,$D8,$D9` retain only “no known game use” pending an exhaustive
-table-fed emitter catalog.
+the low-effects preset. The operator sound test supplies the rest: command `$06`
+returns `$DB`, which the OS uses as an exclusive upper bound for a selector over
+`$01,$02,$04,$05,$08-$DA`. Pressing test-input bit 1 writes the selected command
+at OS `$2786`, so `$D6,$D8,$D9,$DA` all have Verified operator-test emitters.
+That establishes reachability, not ordinary gameplay use; `$D7` is the only one
+of the four mixer presets with a separately proven gameplay call site.
 
 ### The handshake burst
 
@@ -369,9 +371,12 @@ where `$1000`–`$100F` really was sixteen distinct registers.
   command list this table's descriptions come from.
 - [`docs/08_command_reference.md`](../docs/08_command_reference.md) — the command
   space and handler distribution.
+- [`docs/generated/operator_sound_test_command_catalog.csv`](../docs/generated/operator_sound_test_command_catalog.csv)
+  — the selector domain and Verified `$D6,$D8,$D9,$DA` operator-test emitters.
 - The companion Gauntlet II **game-ROM (68010) disassembly** — the far side of
   this conversation. Its `process_sound` / `process_coins` are the every-frame
   `$03` coin poll; `sound_response` / `sound_system_reset` are the `$07` watchdog
   and the wait for the `$FF` acknowledgement; and `run_sound_test` is the operator
-  self-test that pings with `$06` and never checks the `$DB` that comes back.
-  Direct inspection at game `$44F68` supplies the `$D7` level-start use.
+  self-test that uses `$06`'s `$DB` reply as its exclusive selector bound and
+  emits selections at OS `$2786`. Direct inspection at game `$44F68` supplies
+  the `$D7` level-start use.

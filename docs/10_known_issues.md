@@ -16,12 +16,11 @@ Current execution order and new-context instructions are maintained in
 [`NEXT_STEPS.md`](NEXT_STEPS.md). That handoff prioritizes consumer-led code and
 function analysis; exhaustive byte-level cleanup is deferred.
 
-**Completion classification (2026-08-06):** all sound-ROM-only static tests in
-this backlog are exhausted. `external_question_catalog.csv` classifies eleven
-remaining questions: five are historical-intent questions not recoverable from
-this image, five require runtime/hardware/comparison-ROM evidence, and one is an
-available cross-image static follow-up: a dataflow-complete game/OS sound-emitter
-catalog. The companion main-game/OS analysis, local hardware write-up, and supplied MAME
+**Completion classification (2026-08-06):** all currently available static
+tests in this backlog are exhausted. `external_question_catalog.csv` classifies
+ten remaining questions: five are historical-intent questions not recoverable
+from this image, and five require runtime/hardware/comparison-ROM evidence. The
+companion main-game/OS analysis, local hardware write-up, and supplied MAME
 device sources have now been incorporated; `external_evidence_inventory.csv`
 separates those available references from the trace/source/comparison evidence
 that is still absent.
@@ -545,24 +544,36 @@ compare another ROM/source image if original build intent matters.
 
 ## P2 — Command descriptions and game-side use
 
-**Known:** handler mechanics and ROM metadata are catalogued. The companion
-game/OS disassembly resolves the watchdog/coin protocol, reset, operator tests,
-and many gameplay call sites. A direct cross-check found command `$D7` emitted
-by `show_level_start_screen` at game address `$44F68`, selecting the low-effects
+**Resolved (2026-08-06):** handler mechanics, ROM metadata, and the formerly
+uncertain control-command emitters are catalogued. The companion game/OS
+disassembly resolves the watchdog/coin protocol, reset, operator tests, and many
+gameplay call sites. A direct cross-check found command `$D7` emitted by
+`show_level_start_screen` at game address `$44F68`, selecting the low-effects
 mixer preset. This contradicts both the legacy “Not Used” label and the
-companion document's current abbreviated command list. Command `$DA`'s `$55`
-reply path still has no known game/OS sender. Human-facing names inherit the
-surviving command list where no gameplay call site provides a better label.
+companion document's current abbreviated command list.
 
-**Unknown:** the companion's published “Sound IDs Used” list is not exhaustive:
-it also omits table-fed coin commands `$22-$25`, which `player_coindrop` emits
-through the longword table at game address `$57002`. Therefore nonuse of other
-legacy/control commands must not be promoted from “no known use” to Verified
-without a dataflow-complete audit of every direct and table-fed emitter.
+**User-provided runtime evidence (2026-08-06):** commands `$04,$05` and every
+command from `$08-$D5` are actually used. Combined with the independently
+verified reset/filter/query paths at `$00-$03,$06,$07`, this establishes use for
+all commands `$00-$D5`. `$D7` initially raised the established set to 215 of
+219 commands. This runtime confirmation removes any need to trace every
+ordinary sound emitter merely to prove use.
 
-**Next test:** generate that companion game/OS emitter catalog, including value
-sets for all indirect table loads, or obtain a gameplay trace covering the
-operator and transition paths.
+The targeted audit closes the final four. The operator sound test sends command
+`$06`, stores its fixed `$DB` reply as an exclusive selector bound, and exposes
+exactly `$01,$02,$04,$05,$08-$DA`; its increment/decrement logic deliberately
+skips `$03,$06,$07`. When the operator presses test-input bit 1, OS address
+`$2786` writes the selected word directly to `$803170`. Therefore
+`$D6,$D8,$D9,$DA` are all Verified emitters in operator-test context. This does
+not claim normal gameplay use for those four; `$D7` remains the one mixer preset
+with a separately proven gameplay call site. The proof and ROM anchors are in
+`generated/operator_sound_test_command_catalog.csv` and
+`utility/operator_sound_test_audit.py`.
+
+The companion's published “Sound IDs Used” list remains unsuitable as a
+complete catalog—it omits table-fed coin commands `$22-$25` from
+`player_coindrop` as well as the directly emitted `$D7`—but it no longer leaves
+any command's game/OS reachability unresolved.
 
 ## Tooling issues
 

@@ -1,0 +1,5 @@
+command,handler_type,parameter,effect,selector_limit,selector_reachable,emitter,emit_site,emit_condition,usage_scope,confidence
+0xD6,13,0xE7,set mixer effects level 0 (off),0xDB (exclusive),True,main-CPU OS run_sound_test,0x2786,operator presses test-input bit 1 while command is selected,operator self-test; does not by itself establish normal gameplay use,Verified
+0xD8,13,0xF7,set mixer effects level 2 (medium),0xDB (exclusive),True,main-CPU OS run_sound_test,0x2786,operator presses test-input bit 1 while command is selected,operator self-test; does not by itself establish normal gameplay use,Verified
+0xD9,13,0xFF,set mixer effects level 3 (full),0xDB (exclusive),True,main-CPU OS run_sound_test,0x2786,operator presses test-input bit 1 while command is selected,operator self-test; does not by itself establish normal gameplay use,Verified
+0xDA,8,0x55,queue $55 reply byte,0xDB (exclusive),True,main-CPU OS run_sound_test,0x2786,operator presses test-input bit 1 while command is selected,operator self-test; does not by itself establish normal gameplay use,Verified

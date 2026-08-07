@@ -52,7 +52,7 @@ All 182 record insertions use interrupt-masked link transactions.
 | `$03` | Return four cached input/event fields in `$44` | Direct NMI query |
 | `$04` | Eight-channel YM2151 music-chip test | Type 7, chain offsets 0..7 |
 | `$05` | Four-channel POKEY effects-chip test | Type 7 |
-| `$06` | Return hardcoded `$DB`; operator test accepts any response byte | Direct NMI query |
+| `$06` | Return hardcoded `$DB`; operator test uses it as the exclusive selector bound | Direct NMI query |
 | `$07` | Return errors and arm heartbeats | Direct NMI query |
 | `$08` | TMS5220 speech-chip test | Type 11, LPC `$873D` |
 
@@ -61,11 +61,11 @@ disassembly; see [book Appendix B](../book/B_command_list.md#how-the-game-rom-us
 in normal play the game sends only `$03` (every frame; the reply's packed
 coin-mech counters become credits) and `$07` (when idle or by the watchdog; a
 nonzero low-3-bit error field reboots the board). `$FF`, written directly to
-`$1000` at boot, is the acknowledgement the game waits for after a reboot. `$06`
-is sent only by the operator self-test as a liveness ping — it checks that a byte
-answered before a timeout, never that it was `$DB`. No current game/OS sender
-has been found for `$DA` (→ `$55`). The `$04`/`$05`/`$08` chip tests are also
-self-test-only.
+`$1000` at boot, is the acknowledgement the game waits for after a reboot. The
+operator self-test sends `$06` and uses its `$DB` reply as the exclusive upper
+bound of its command selector. That selector can emit `$DA` (→ `$55`) as well as
+the formerly uncertain mixer commands. The `$04`/`$05`/`$08` chip tests are
+also self-test paths.
 
 ## Type-7 commands
 
@@ -98,16 +98,32 @@ Clock/pitch flag `$80` is set for `$76-$80`, `$89-$8A`, `$A9-$B5`, and `$BC`.
 
 | Command | Handler | Parameter | Current description |
 |---:|---:|---:|---|
-| `$D6` | 13 | `$E7` | Mixer/control preset; no known game/OS emitter |
-| `$D7` | 13 | `$EF` | Low-effects mixer preset; emitted by `show_level_start_screen` at game `$44F68` |
-| `$D8` | 13 | `$F7` | Mixer/control preset; no known game/OS emitter |
-| `$D9` | 13 | `$FF` | Mixer/control preset; no known game/OS emitter |
-| `$DA` | 8 | `$55` | Queue `$55` response; no known game/OS emitter |
+| `$D6` | 13 | `$E7` | Effects-off mixer preset; selectable in the operator sound test |
+| `$D7` | 13 | `$EF` | Low-effects mixer preset; level-start gameplay and operator-test use |
+| `$D8` | 13 | `$F7` | Medium-effects mixer preset; selectable in the operator sound test |
+| `$D9` | 13 | `$FF` | Full-effects mixer preset; selectable in the operator sound test |
+| `$DA` | 8 | `$55` | Queue `$55` response; selectable in the operator sound test |
 
-The older CSV labels these “Not Used,” but `$D7` is demonstrably used. The
-companion's current sound-ID summary is not exhaustive over table-fed/direct
-emitters, so the other nonuse labels remain “no known emitter,” not proof. In
-all cases the sound ROM contains valid dispatch rows.
+Type 13 at `$4619` stores `parameter & $E0` in the speech shadow `$28` and
+`parameter & $1F` in the effects/music shadow `$29`. At idle it writes `$29`
+to mixer register `$1020`, keeping speech muted; speech startup later writes
+`$28 | $29`. These commands change analog levels without starting, stopping, or
+restarting any sequence, so `$D6` can mute effects that continue running. Type
+8 at `$4445` puts `$DA`'s parameter `$55` into the sixteen-byte sound-to-main
+ring for the main loop to transmit through `$1000`; it produces no audio.
+
+The older CSV labels these “Not Used,” but all five are reachable. The operator
+test derives the exclusive bound `$DB` from command `$06`, exposes
+`$01,$02,$04,$05,$08-$DA`, and emits its selection at OS `$2786`; `$D7` also has
+the direct gameplay call at game `$44F68`. The generated operator-test catalog
+records the four formerly uncertain rows in
+[`generated/operator_sound_test_command_catalog.csv`](generated/operator_sound_test_command_catalog.csv).
+An exhaustive game-ROM producer trace finds no ordinary-gameplay use of
+`$D6,$D8,$D9`, or `$DA`. In all cases the sound ROM contains valid dispatch
+rows. The contiguous four-value effects range, final queued-reply command, and
+`$DB` exclusive bound strongly suggest an intentional diagnostic/service tail;
+whether `$D8/$D9` were also intended for abandoned gameplay cannot be recovered
+from the shipped ROMs.
 
 ## Command names
 

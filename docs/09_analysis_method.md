@@ -196,6 +196,8 @@ python3 external_evidence_audit.py \
   --known-issues newdoc/10_known_issues.md \
   --question-csv newdoc/generated/external_question_catalog.csv \
   --inventory-csv newdoc/generated/external_evidence_inventory.csv
+
+python3 operator_sound_test_audit.py
 ```
 
 The audit checks:
@@ -215,6 +217,8 @@ The audit checks:
   region, tied back to its exhaustive target catalog.
 - computed-target feasibility, the complete 55-record YM grid, and explicit
   classification of consumer-unreachable/unreferenced residual objects.
+- the operator sound test's `$DB` exclusive bound, bidirectional 215-command
+  selector domain, and `$D6,$D8,$D9,$DA` latch-write reachability.
 
 ## Regression checks
 
@@ -229,7 +233,7 @@ python3 -m py_compile gauntlet_disasm.py rom_table_audit.py \
   timing_clock_audit.py \
   reserved_handler_audit.py semantic_coverage_audit.py \
   callable_contract_audit.py ram_state_reference_audit.py \
-  external_evidence_audit.py
+  external_evidence_audit.py operator_sound_test_audit.py
 python3 gauntlet_disasm.py soundrom.bin --list
 python3 gauntlet_disasm.py soundrom.bin --cmd 0x04
 python3 gauntlet_disasm.py soundrom.bin --speech-wav 0x4A --out /tmp/one.wav

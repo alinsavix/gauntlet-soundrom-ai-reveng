@@ -181,17 +181,6 @@ The most likely reading is a tool emitting an end marker after every stream
 whether the stream needed one or not, but that is a guess about a build process
 nobody has a record of.
 
-**What `$DB` means.** Command `$06` makes the interrupt load the literal `$DB`
-and send it back. The value happens to equal 219, the first byte outside the
-normal command range, but it is hardcoded rather than derived from that range.
-The game-ROM side settles the command's practical role: only the operator
-self-test sends `$06`, and it checks merely that *some* byte answered before a
-timeout, never that the byte was `$DB`
-([Appendix B](B_command_list.md#how-the-game-rom-uses-them)). The response is a
-liveness ping in this game. Whether `$DB` once meant a revision, a board type,
-the command bound, or something else remains unknown because no consumer
-inspects it.
-
 **About 300 bytes of unused ROM.** Four regions have no consumer anywhere: two
 bytes at `$8447` reading `$94 $FF`, a single `$FF` at `$FECD` just past the end of
 the speech corpus, 296 zero bytes filling the gap before the interrupt vectors,
@@ -304,8 +293,8 @@ fixed.
 
 ## How you could help
 
-Three kinds of new evidence would close most of this list, and one important
-artifact is already in hand.
+Three kinds of new external evidence would close most of this list. All static
+questions that can be answered from the ROMs currently in hand are closed.
 
 A **logic-analyzer capture from a running board** would settle the busy-wait
 distribution, the catch-up interrupt, the speech cadence, and the physical
@@ -315,10 +304,12 @@ power-on would additionally resolve the boot NMI window.
 The **main CPU's disassembly**, now consulted, named the boot handshake bytes,
 proved that reset writes startup command `$00` before releasing the sound CPU,
 and closed the reply protocol: `$03` is the every-frame coin poll, `$07` the
-health probe, and `$FF` the reboot acknowledgement. It also exposed why a
-complete emitter catalog remains useful: the published companion summary omits
-table-fed coin commands `$22-$25`, while direct inspection finds `$D7` at the
-level-start screen even though the legacy list calls it unused
+health probe, and `$FF` the reboot acknowledgement. User-provided runtime
+evidence establishes use of `$04,$05,$08-$D5`, while direct inspection finds
+`$D7` at the level-start screen even though the legacy list calls it unused.
+The final four commands are exposed by the OS operator sound test: its `$06`
+query returns the exclusive bound `$DB`, its selector covers
+`$01,$02,$04,$05,$08-$DA`, and OS `$2786` emits the selected value
 ([Appendix B](B_command_list.md#replies-to-the-main-cpu)). The boot's
 five-register init is now understood as leftover Atari System 1 speech-VIA setup
 (see above).
@@ -335,9 +326,10 @@ initialization, by carrying the same sequence written against a live VIA.
 one document, including the ones about intent that no amount of ROM analysis can
 reach.
 
-Failing all four, the right thing to do with these items is leave them where they
-are. A plausible name attached to an unexplained byte is worse than no name,
-because the next person to read it will not know it was a guess.
+Absent those external sources, the right thing to do with the historical and
+hardware items is leave them where they are. A plausible name attached to an
+unexplained byte is worse than no name, because the next person to read it will
+not know it was a guess.
 
 ## What you now know
 
@@ -355,9 +347,9 @@ because the next person to read it will not know it was a guess.
   machinery that this ROM's sounds never activate.
 - Questions about real chip timing, the analog mixer, and physical coin-counter
   pulses cannot be answered from a ROM image at all.
-- A board capture, a complete game/OS emitter catalog, a second ROM revision, or
-  original source would each close a specific part of this list; the main CPU's
-  code has already closed several.
+- A board capture, a second ROM revision, or original source would each close a
+  specific part of this list; the available main-CPU code has closed the static
+  emitter questions.
 
 ## Where this leads
 
@@ -371,8 +363,10 @@ full.
 - [`docs/10_known_issues.md`](../docs/10_known_issues.md) — the full research
   backlog, with the exact evidence each item still needs.
 - [`docs/generated/external_question_catalog.csv`](../docs/generated/external_question_catalog.csv)
-  — the eleven remaining questions, each classified by the artifact or analysis
+  — the ten remaining questions, each classified by the artifact or analysis
   that would close it.
+- [`docs/generated/operator_sound_test_command_catalog.csv`](../docs/generated/operator_sound_test_command_catalog.csv)
+  — the closed selector/emitter audit for the final four control commands.
 - [`docs/generated/reserved_handler_catalog.csv`](../docs/generated/reserved_handler_catalog.csv)
   — the six dormant handler types with their exact effects.
 - [`docs/generated/type7_residual_catalog.csv`](../docs/generated/type7_residual_catalog.csv)

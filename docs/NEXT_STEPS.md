@@ -241,20 +241,21 @@ NMI entries gained standalone contracts; the combined NMI control-plane row was
 split into exact query, restore, and output-latch blocks. This pass also
 Contradicted the stale `$5715` detune label: it applies signed carrier-TL deltas.
 
-The completion classification audit records eleven remaining questions: five
+The completion classification audit records ten remaining questions: five
 concern historical author/build intent that is not recoverable from this image,
-five require a comparison ROM, runtime trace, original source/listing, or
-cabinet measurement, and one is an available cross-image static follow-up. The
+and five require a comparison ROM, runtime trace, original source/listing, or
+cabinet measurement. The
 companion main-game/OS analysis, hardware write-up, and MAME device sources are
 incorporated; they resolved the boot-handshake decode and startup-command
-sender. They also revealed that game-side command use still needs a
-dataflow-complete emitter catalog: `$D7` is used at game `$44F68`, while the
-present companion summary omits table-fed `$22-$25`.
+sender. User-provided runtime evidence confirms `$04,$05,$08-$D5`; static paths
+establish `$00-$03,$06,$07`, and `$D7` is used at game `$44F68`. The targeted
+operator-test audit closes `$D6,$D8,$D9,$DA`: command `$06` supplies exclusive
+bound `$DB`, the selector covers `$01,$02,$04,$05,$08-$DA`, and OS `$2786`
+emits the selected word.
 The one remaining startup question is whether `$00`, written while sound reset
 is asserted, is delivered as a post-release NMI. The audit reports zero remaining
-sound-ROM-only static tests; the companion emitter catalog is the one remaining
-actionable static analysis. Preserve the other confidence boundaries until one
-of their evidence classes becomes available.
+static tests in the currently available ROMs. Preserve the other confidence
+boundaries until one of their external evidence classes becomes available.
 
 The practical type-7 WAV renderer is also complete at ROM/chip-implementation
 strength. It executes the real 6502 reset, command allocation, and IRQ audio

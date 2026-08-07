@@ -3369,21 +3369,21 @@ def load_sound_names(csv_path):
     except FileNotFoundError:
         pass
     # Consumer-verified system/control mechanics supersede legacy game-side
-    # annotations.  "Use unverified" remains explicit where main-CPU evidence
-    # is absent; it does not obscure what the sound ROM actually does.
+    # annotations. The operator sound test exposes $01,$02,$04,$05,$08-$DA;
+    # $D7 additionally has a normal-gameplay call site.
     names.update({
         0x00: ("CONTROL", "Clear/reinitialize all audio state (self-test stop)"),
         0x01: ("CONTROL", "Set filter to $F0: suppress speech and most sounds; theme/coins survive"),
         0x02: ("CONTROL", "Clear global filter threshold"),
         0x03: ("STATUS", "Status query: read cached input/event fields ($44) -> main CPU [NMI handler 0]"),
-        0x06: ("STATUS", "Operator-test ping: fixed $DB reply -> main CPU [NMI handler 1]"),
+        0x06: ("STATUS", "Operator-test selector bound: fixed $DB reply -> main CPU [NMI handler 1]"),
         0x07: ("STATUS", "Status query: return error flags and arm heartbeats [NMI handler 2]"),
         0xD5: ("SPEECH", "Dragon Roar"),
-        0xD6: ("CONTROL", "Mixer/control preset $E7; game-side use unverified"),
-        0xD7: ("CONTROL", "Mixer/control preset $EF; game-side use unverified"),
-        0xD8: ("CONTROL", "Mixer/control preset $F7; game-side use unverified"),
-        0xD9: ("CONTROL", "Mixer/control preset $FF; game-side use unverified"),
-        0xDA: ("STATUS", "Queue $55 response byte for main CPU"),
+        0xD6: ("CONTROL", "Mixer/control preset $E7; operator sound-test selectable"),
+        0xD7: ("CONTROL", "Mixer/control preset $EF; level-start and operator-test use"),
+        0xD8: ("CONTROL", "Mixer/control preset $F7; operator sound-test selectable"),
+        0xD9: ("CONTROL", "Mixer/control preset $FF; operator sound-test selectable"),
+        0xDA: ("STATUS", "Queue $55 response byte; operator sound-test selectable"),
     })
     return names
 

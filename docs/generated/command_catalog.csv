@@ -5,7 +5,7 @@ command_hex,command,handler_type,handler_name,parameter,direct_nmi_query,subsyst
 0x03,3,255,Invalid/Unused,0,input_event_status,STATUS,Status query: read cached input/event fields ($44) -> main CPU [NMI handler 0],0,,,,
 0x04,4,7,POKEY/YM2151 Sequence,0,,MUSIC,Music Chip Test,8,YM2151,0,26892,
 0x05,5,7,POKEY/YM2151 Sequence,1,,SFX,Effects Chip Test,4,POKEY,8,26680,
-0x06,6,255,Invalid/Unused,0,fixed_db_reply,STATUS,Operator-test ping: fixed $DB reply -> main CPU [NMI handler 1],0,,,,
+0x06,6,255,Invalid/Unused,0,fixed_db_reply,STATUS,Operator-test selector bound: fixed $DB reply -> main CPU [NMI handler 1],0,,,,
 0x07,7,255,Invalid/Unused,0,error_heartbeat,STATUS,Status query: return error flags and arm heartbeats [NMI handler 2],0,,,,
 0x08,8,11,TMS5220 Speech,0,,SPEECH,Speech Chip Test,0,,0,34621,247
 0x09,9,7,POKEY/YM2151 Sequence,2,,SFX,Warrior Joins In,3,YM2151,12,32135,
@@ -213,8 +213,8 @@ command_hex,command,handler_type,handler_name,parameter,direct_nmi_query,subsyst
 0xD3,211,11,TMS5220 Speech,138,,SPEECH,IS IT,0,,185,64738,91
 0xD4,212,11,TMS5220 Speech,139,,SPEECH,IS NOW IT,0,,186,64829,244
 0xD5,213,11,TMS5220 Speech,140,,SPEECH,Dragon Roar,0,,188,65074,155
-0xD6,214,13,Control Register,231,,CONTROL,Mixer/control preset $E7; game-side use unverified,0,,,,
-0xD7,215,13,Control Register,239,,CONTROL,Mixer/control preset $EF; game-side use unverified,0,,,,
-0xD8,216,13,Control Register,247,,CONTROL,Mixer/control preset $F7; game-side use unverified,0,,,,
-0xD9,217,13,Control Register,255,,CONTROL,Mixer/control preset $FF; game-side use unverified,0,,,,
-0xDA,218,8,Output Buffer Queue,85,,STATUS,Queue $55 response byte for main CPU,0,,,,
+0xD6,214,13,Control Register,231,,CONTROL,Mixer/control preset $E7; operator sound-test selectable,0,,,,
+0xD7,215,13,Control Register,239,,CONTROL,Mixer/control preset $EF; level-start and operator-test use,0,,,,
+0xD8,216,13,Control Register,247,,CONTROL,Mixer/control preset $F7; operator sound-test selectable,0,,,,
+0xD9,217,13,Control Register,255,,CONTROL,Mixer/control preset $FF; operator sound-test selectable,0,,,,
+0xDA,218,8,Output Buffer Queue,85,,STATUS,Queue $55 response byte; operator sound-test selectable,0,,,,
