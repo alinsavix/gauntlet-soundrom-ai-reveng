@@ -18,7 +18,7 @@ That prompt generated [PLAN.md](prompting/PLAN.md), which I used largely unchang
 
 Claude still had a few issues successfully using r2mcp, like not being able to correctly save the state, but it worked around them, using the report file to take note of all the function naming and such it created, rather than saving the r2mcp state as a way to do that. It did recover from that on its own, though!
 
-The main work output of Claude Code is [REPORT.md](REPORT.md), which has, effectively, a running log of what it discovered for each phase of its disassembly work. This is a bit long-winded, but lets you see the process that it went through to reverse engineer things.
+The original work log is [REPORT.md](obsolete/REPORT.md), which has, effectively, a running log of what it discovered for each phase of its disassembly work. It is retained as historical material; the maintained conclusions are in `docs/`.
 
 There were a few places where I had to correct the AI on things (or at least, point out problems), but these were surprisingly few, and required surprisingly small nudges to get it back on track. Off the top of my head, there were two real corrections I had to make:
 
@@ -27,9 +27,11 @@ There were a few places where I had to correct the AI on things (or at least, po
 
 Other corrections were extremely minor, things like the way IRQs were generated (which required consulting the schematic) and other things that were fairly inconsequential (like knowing one of the memory locations it was reading was a coin counter).
 
-After the reverse engineering work was largely complete, I had the AI summarize it in a more digestible form in [REPORT_SUMMARY.md](REPORT_SUMMARY.md), which includes the final versions of all the various information, along with flow-of-control diagrams and other information useful for understanding what is going on. Further editing could probably be done on this document to make it a bit more streamlined, but if one wanted a single document to explain the majority of the sound ROM, that would be the one to look at.
+The first digest is preserved as [REPORT_SUMMARY.md](obsolete/REPORT_SUMMARY.md).
+It is also historical; the book and `docs/` supersede claims in that report.
 
-I also had Claude generate [MEMMAP.md](MEMMAP.md), just as a compact document show the short version of where everything was and what it was.
+[MEMMAP.md](MEMMAP.md) is the compact, maintained map of the address space and
+major ROM regions; `docs/` carries the detailed evidence and generated catalogs.
 
 And finally, Claude generated (actually _offered_ to generate!) a python script that can dump all of the data associated with each different sound. It seems to work pretty well, and I had it add a couple of bonus feature (the `--score` flag, and the ability to generate MIDI files for the music tracks). That was created as [gauntlet_disasm.py](gauntlet_disasm.py). Run it with `uv run gauntlet_disasm.py soundrom.bin --list`; its inline metadata installs NumPy automatically. Current YM2151 WAV rendering also compiles the bundled YMFM source with a local C++14 compiler.
 

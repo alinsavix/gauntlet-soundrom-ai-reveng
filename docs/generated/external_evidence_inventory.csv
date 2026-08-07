@@ -1,6 +1,8 @@
 evidence_class,matching_files,workspace_result,confidence
-comparison_sound_rom,0,not available,Verified workspace inventory
-main_cpu_source_listing,0,not available,Verified workspace inventory
-runtime_trace,0,not available,Verified workspace inventory
-schematic,0,not available,Verified workspace inventory
-complete_rom_archive,0,not available,Verified workspace inventory
+comparison_sound_rom,0,not available; still required,Verified workspace inventory
+runtime_trace,0,not available; still required,Verified workspace inventory
+original_sound_source_or_listing,0,not available; still required,Verified workspace inventory
+cabinet_measurement,0,not available; still required,Verified workspace inventory
+hardware_map_writeup,1,available and incorporated,Verified input inventory
+mame_device_sources,10,available and incorporated,Verified input inventory
+companion_main_cpu_images_and_analysis,6,available and incorporated,Verified input inventory

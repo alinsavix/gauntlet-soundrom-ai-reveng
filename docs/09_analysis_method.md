@@ -192,6 +192,7 @@ python3 ram_state_reference_audit.py soundrom.bin \
 
 python3 external_evidence_audit.py \
   --workspace . \
+  --companion-docs ../gauntlet-gamerom-ai-reveng/doc \
   --known-issues newdoc/10_known_issues.md \
   --question-csv newdoc/generated/external_question_catalog.csv \
   --inventory-csv newdoc/generated/external_evidence_inventory.csv

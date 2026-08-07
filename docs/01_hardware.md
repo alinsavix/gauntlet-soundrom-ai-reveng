@@ -108,8 +108,10 @@ but its detailed text and ROM accesses establish the corrected mapping:
 - **NMI:** generated when the main CPU writes a command. The same hardware event
   latches the byte at `$1010`, providing atomic command delivery. Before normal
   mode is installed, an NMI during the self-test first-IRQ synchronization
-  window drives the Verified indirect RAM-write path; sender intent still
-  requires main-CPU evidence.
+  window drives the Verified indirect RAM-write path. The companion game/OS
+  proves reset writes startup byte `$00` while sound reset is asserted. Whether
+  that write remains pending and generates a post-release NMI requires a
+  reset-time board or MAME bus trace.
 
 ## Clock tree and service cadence
 

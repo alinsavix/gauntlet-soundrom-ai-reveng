@@ -63,8 +63,8 @@ coin-mech counters become credits) and `$07` (when idle or by the watchdog; a
 nonzero low-3-bit error field reboots the board). `$FF`, written directly to
 `$1000` at boot, is the acknowledgement the game waits for after a reboot. `$06`
 is sent only by the operator self-test as a liveness ping — it checks that a byte
-answered before a timeout, never that it was `$DB`. `$DA` (→ `$55`) is sent by
-neither the game nor its OS. The `$04`/`$05`/`$08` chip tests are also
+answered before a timeout, never that it was `$DB`. No current game/OS sender
+has been found for `$DA` (→ `$55`). The `$04`/`$05`/`$08` chip tests are also
 self-test-only.
 
 ## Type-7 commands
@@ -98,14 +98,16 @@ Clock/pitch flag `$80` is set for `$76-$80`, `$89-$8A`, `$A9-$B5`, and `$BC`.
 
 | Command | Handler | Parameter | Current description |
 |---:|---:|---:|---|
-| `$D6` | 13 | `$E7` | Mixer/control preset; game use unclear |
-| `$D7` | 13 | `$EF` | Mixer/control preset |
-| `$D8` | 13 | `$F7` | Mixer/control preset |
-| `$D9` | 13 | `$FF` | Mixer/control preset |
-| `$DA` | 8 | `$55` | Queue `$55` response for main CPU |
+| `$D6` | 13 | `$E7` | Mixer/control preset; no known game/OS emitter |
+| `$D7` | 13 | `$EF` | Low-effects mixer preset; emitted by `show_level_start_screen` at game `$44F68` |
+| `$D8` | 13 | `$F7` | Mixer/control preset; no known game/OS emitter |
+| `$D9` | 13 | `$FF` | Mixer/control preset; no known game/OS emitter |
+| `$DA` | 8 | `$55` | Queue `$55` response; no known game/OS emitter |
 
-The older CSV labels several of these “Not Used.” That is a game-side usage
-claim, not a ROM reachability fact; the sound ROM contains valid dispatch rows.
+The older CSV labels these “Not Used,” but `$D7` is demonstrably used. The
+companion's current sound-ID summary is not exhaustive over table-fed/direct
+emitters, so the other nonuse labels remain “no known emitter,” not proof. In
+all cases the sound ROM contains valid dispatch rows.
 
 ## Command names
 

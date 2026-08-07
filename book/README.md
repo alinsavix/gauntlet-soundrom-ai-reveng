@@ -75,7 +75,7 @@ you can dip into at any point.
 | **[8. Notes, Rests, and Time](08_sequence_language_time.md)** | The sequence language, first half: a note is two bytes, and time never drifts |
 | **[9. The Opcodes](09_sequence_language_opcodes.md)** | The sequence language, second half: 59 instructions, control flow, and a hardware random number generator |
 | **[10. Shaping the Sound](10_shaping_the_sound.md)** | Envelopes, loop records, fades, and what happens on the ticks between notes |
-| **[11. Driving the POKEY](11_driving_the_pokey.md)** | Four channels, a priority contest, a pair trick, and nine register writes |
+| **[11. Driving the POKEY](11_driving_the_pokey.md)** | Four physical lists, status-lane arbitration, the pair trick, and nine register writes |
 | **[12. Driving the YM2151](12_driving_the_ym2151.md)** | A 42-byte instrument, a chip that has to be asked before every write, and a volume control that is not a volume control |
 | **[13. Speaking](13_speaking.md)** | Two thirds of the ROM, a queue, a byte pump, and seventeen zeroes at the end of every phrase |
 

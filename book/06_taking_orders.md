@@ -250,7 +250,8 @@ Speech and music stay at full level in all four. The only thing these commands
 change is the effects level, across its whole range from off to full. An
 operator adjusting the cabinet is turning a physical trimmer; these four commands
 are the board's own control over how loud the sound effects sit against the
-music, though nothing records the game ever sending one.
+music. The companion game ROM sends `$D7` during the level-start screen,
+selecting effects level 1; no use of `$D6,$D8,$D9` has yet been found.
 
 The last pair of control commands does something more drastic. Commands `$01` and
 `$02` set a single global threshold, computed as the parameter times four.

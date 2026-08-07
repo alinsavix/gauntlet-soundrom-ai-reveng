@@ -1097,20 +1097,22 @@ repo `README.md`, `prompting/PROMPT.md`, `prompting/PLAN.md`.*
 The honest ledger. Keep it interesting rather than apologetic — each unknown is
 a small mystery, and the reader now knows enough to appreciate them.
 
-- **The boot handshake.** Five specific bytes are written to five board
-  registers at startup, in a fixed order, every time. What they configure is
-  not known — the answer is on the main CPU side or in a schematic detail not
-  yet traced.
+- **The vestigial boot burst.** Five specific bytes are written to five
+  addresses that Gauntlet II decodes as one sound→main latch. The schematic,
+  MAME, companion game ROM, and Atari System 1 map identify the routine as
+  leftover 6522 speech-VIA initialization; none of the intermediate bytes is
+  consumed by Gauntlet II.
 - **The six unused handler types.** Fully implemented, fully understood
   routines that no command selects: apply an opcode to matching live channels,
   kill channels by status, set workspace values. Describe what each would have
   done, and note the two possibilities (development leftovers, or a feature
   used by a different game on the same board) that cannot be distinguished from
   one ROM image.
-- **The alternate boot command mode.** During a narrow window at startup, a
-  command from the main CPU is written into RAM through a pointer instead of
-  being queued. The mechanism is fully traced; the *purpose* needs the main
-  CPU's code.
+- **The alternate boot command mode.** The companion OS intentionally writes
+  startup command `$00` while sound reset is asserted. During a narrow
+  diagnostic window, a delivered NMI would write it through a zeroed RAM
+  pointer instead of queueing it. Only reset/latch/NMI delivery timing remains;
+  that needs a bus or cycle-accurate board trace, not more main-CPU disassembly.
 - **Small unexplained things.** One byte in every 42-byte instrument record
   that no code ever reads; 15 instruments and one complete sequence with no
   reference pointing at them; about 300 bytes of apparently unused ROM; four
@@ -1120,8 +1122,10 @@ a small mystery, and the reader now knows enough to appreciate them.
   duration of a YM2151 busy wait, exactly how the analog mixer sums the three
   sources, and the true cabinet wiring of the coin inputs.
 - **How you could help.** Short and practical: a logic-analyzer capture from a
-  real board, the main CPU's disassembly, another revision of the sound ROM, or
-  original Atari source would each close specific items on this list.
+  real board, a dataflow-complete game/OS sound-emitter catalog, another revision
+  of the sound ROM, or original Atari source would each close specific items.
+  The main CPU's disassembly has already been consulted, but its present
+  high-level sound-ID summary omits some indirect-table paths.
 
 *Sources: `docs/10_known_issues.md` (use the P0/P1/P2 items, skipping any
 marked Resolved), `docs/03_rom_structure.md` (unused space),
@@ -1147,7 +1151,9 @@ in plain language, which chip, and chain length or phrase text.
 Build from `docs/generated/command_catalog.csv` joined with
 `hw_docs/soundcmds.csv`. **Clean the legacy CSV's stray tabs and quotation
 errors** when transcribing; do not change any numeric IDs. Where the legacy CSV
-says "Not Used", say "no known game use" — the ROM entry itself is valid.
+says "Not Used", say "no known game use" unless a specific companion call site
+proves otherwise. In particular, `$D7` is used by `show_level_start_screen` even
+though the legacy list says it is not — the ROM entry itself is valid.
 
 ## Appendix C — The Bytecode Opcode Reference
 

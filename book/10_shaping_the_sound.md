@@ -313,8 +313,8 @@ wrong ones would alter the timbre rather than the loudness.
 ## Where this leads
 
 [Chapter 11](11_driving_the_pokey.md) takes the last few inches of the POKEY
-path: four prepared channels, a priority contest, a pair of channels joined into
-one 16-bit counter, and nine register writes.
+path: four prepared physical lists, status-lane arbitration that can select
+independent or joined operation for each pair, and nine register writes.
 
 ## Going deeper
 

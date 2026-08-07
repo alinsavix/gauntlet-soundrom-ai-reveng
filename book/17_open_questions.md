@@ -10,7 +10,7 @@ record points at it. No jump, no call, and no computed branch in the entire ROM
 can reach it. Somebody wrote it and it never runs.
 
 That is the flavour of what is left. The mechanics of this board are settled, and
-the previous fifteen chapters describe them without hedging because they earned
+the previous sixteen chapters describe them without hedging because they earned
 the right to. What remains is a short list of things the ROM does without saying
 why, and things it contains without using. Each one is small. Several of them are
 interesting.
@@ -127,27 +127,33 @@ game, with another title's command table selecting the features Gauntlet II does
 not use. Distinguishing between those requires a second ROM. One image cannot tell
 you what a different image would have done with the same code.
 
-## The command that gets written into RAM
+## The reset-time command that may get written into RAM
 
-There is a narrow window during a self-test boot when a command from the main CPU
-does something unrecognizable.
+There is a narrow window during a self-test boot when a pending command from the
+main CPU may do something unrecognizable.
 
 Initialization enables interrupts and waits for the first IRQ, so it can enter the
 main loop at a known point in the tick cycle. During that wait the incoming
 command path has not yet been switched into its normal mode. If an NMI arrives
 first, the handler takes a different branch: instead of queueing the byte, it
 writes it into RAM through a pointer, then advances the pointer and its index.
-Whatever the main CPU sends during that window gets deposited into memory at a
-place the main CPU is effectively choosing.
+The companion game/OS disassembly settles what the main CPU supplies. Its sound
+reset routine asserts reset, writes a startup command into the command latch, and
+then releases reset. Gauntlet II always passes `$00`; the operator-test reset path
+also clears the latch. The sender, byte, and ordering are therefore known.
 
-Every step of that is traced. The branch, the pointer, the index arithmetic, and
-the exit condition are all understood, and so is the fact that the window closes
-the moment the mode byte is set. What is missing is any reason for it to exist. A
-main CPU that never speaks during those few milliseconds would never trigger it,
-and this ROM contains nothing that hints at what the intended payload was.
+What is not known is how the reset and latch logic deliver that write. The sound
+CPU's reset gate waits for the input-full signal but never reads the byte. If the
+write made while reset is asserted remains pending and produces an NMI after
+release, then a diagnostic boot can reach the alternate branch after `CLI`. At
+that point the RAM test has cleared the pointer, index, and mode, so the known
+`$00` is written through a zero pointer to `$0000`, after which the pointer/index
+state advances. If the reset-time NMI edge is discarded, the branch never runs.
+The ROMs establish both sides of that boundary; they cannot establish the board's
+edge-delivery behavior.
 
-A boot-time capture of the bus between the two processors would answer it in one
-recording. So would the main CPU's initialization code.
+A reset-time bus capture or cycle-accurate board trace would answer it in one
+recording.
 
 ## Small unexplained things
 
@@ -244,10 +250,11 @@ produces is one chip rendered on its own and normalized. What a cabinet sounds
 like, with all three sources at their real relative levels through the real
 filters, is a recording nobody has made for this purpose.
 
-**Which coin switch is which.** The board-control routine filters four inputs and
-drives two counter solenoids, and the arithmetic tying inputs to outputs is fully
-traced. Which physical slot or player position each of the four inputs corresponds
-to is a cabinet wiring question.
+**What the coin pulse looks like on a cabinet.** The player mapping is now
+settled: `$1020` bits 3..0 become the four `$44` fields and then player/color
+indexes 0..3—red, blue, yellow, green, matching coin slots 1..4. What remains is
+whether the inferred debounce and pulse-stretch descriptions match the physical
+switches and solenoids, including polarity and pulse duration.
 
 **Whether the one overrun matters.** The first tick of the four-channel POKEY chip
 test slightly exceeds the interrupt interval. The interrupt is asserted as a level
@@ -297,20 +304,24 @@ fixed.
 
 ## How you could help
 
-Four artifacts would close most of this list, and none of them requires access to
-anything that has not survived.
+Three kinds of new evidence would close most of this list, and one important
+artifact is already in hand.
 
 A **logic-analyzer capture from a running board** would settle the busy-wait
-distribution, the catch-up interrupt, the speech cadence, and the coin wiring, all
-at once. A capture of the first few milliseconds after power-on would additionally
-resolve the boot NMI window.
+distribution, the catch-up interrupt, the speech cadence, and the physical
+coin-counter pulses, all at once. A capture of the first few milliseconds after
+power-on would additionally resolve the boot NMI window.
 
-The **main CPU's disassembly**, now consulted, named the boot handshake bytes and
-the reply protocol: `$03` is the every-frame coin poll, `$07` the health probe,
-`$FF` the reboot acknowledgement, and `$0F` and `$DB` are bytes the game never
-acts on ([Appendix B](B_command_list.md#replies-to-the-main-cpu)). The boot's
+The **main CPU's disassembly**, now consulted, named the boot handshake bytes,
+proved that reset writes startup command `$00` before releasing the sound CPU,
+and closed the reply protocol: `$03` is the every-frame coin poll, `$07` the
+health probe, and `$FF` the reboot acknowledgement. It also exposed why a
+complete emitter catalog remains useful: the published companion summary omits
+table-fed coin commands `$22-$25`, while direct inspection finds `$D7` at the
+level-start screen even though the legacy list calls it unused
+([Appendix B](B_command_list.md#replies-to-the-main-cpu)). The boot's
 five-register init is now understood as leftover Atari System 1 speech-VIA setup
-(see above). Gauntlet II's game ROMs are as available as its sound ROM.
+(see above).
 
 **Another revision of this sound ROM**, or the equivalent ROM from another Atari
 title on related hardware, would distinguish development leftovers from features
@@ -336,16 +347,17 @@ because the next person to read it will not know it was a guess.
   Atari System 1 code that once set up a 6522 VIA driving the speech chip.
 - Six handler types are finished routines with no command pointing at them,
   including a live-channel meta-dispatcher that could have modified running sounds.
-- A boot-time window lets the main CPU write a byte straight into the sound
-  board's RAM, and nothing explains why.
+- Reset always places `$00` in the command latch; whether the board delivers it
+  as a post-release NMI into the diagnostic RAM-write window needs a bus trace.
 - One byte of every instrument record, fifteen whole instruments, one complete
   sequence, and about 300 bytes of ROM have no consumer anywhere.
 - Vibrato, POKEY notes, and the YM2151 frequency-envelope branch are complete
   machinery that this ROM's sounds never activate.
-- Questions about real chip timing, the analog mixer, and cabinet wiring cannot be
-  answered from a ROM image at all.
-- A board capture, the main CPU's code, a second ROM revision, or original source
-  would each close a specific part of this list.
+- Questions about real chip timing, the analog mixer, and physical coin-counter
+  pulses cannot be answered from a ROM image at all.
+- A board capture, a complete game/OS emitter catalog, a second ROM revision, or
+  original source would each close a specific part of this list; the main CPU's
+  code has already closed several.
 
 ## Where this leads
 
@@ -359,8 +371,8 @@ full.
 - [`docs/10_known_issues.md`](../docs/10_known_issues.md) — the full research
   backlog, with the exact evidence each item still needs.
 - [`docs/generated/external_question_catalog.csv`](../docs/generated/external_question_catalog.csv)
-  — the twelve remaining questions, each classified by the artifact that would
-  close it.
+  — the eleven remaining questions, each classified by the artifact or analysis
+  that would close it.
 - [`docs/generated/reserved_handler_catalog.csv`](../docs/generated/reserved_handler_catalog.csv)
   — the six dormant handler types with their exact effects.
 - [`docs/generated/type7_residual_catalog.csv`](../docs/generated/type7_residual_catalog.csv)

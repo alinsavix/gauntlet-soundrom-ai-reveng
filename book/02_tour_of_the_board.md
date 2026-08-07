@@ -146,8 +146,10 @@ mixer, so a single store sets three hardware volume levels at once.
 
 The sound ROM keeps the fields in separate bytes of RAM and combines them at the
 moment it writes, which lets it change one without disturbing the others.
-Commands `$D6` through `$D9` are how the game asks for a different mix;
-[Chapter 6](06_taking_orders.md) covers them.
+Commands `$D6` through `$D9` expose four effects-level presets. The game
+definitely sends `$D7` during the level-start screen; uses of the other three
+have not yet been found. [Chapter 6](06_taking_orders.md) covers the sound-side
+mechanism.
 
 ## The board's other job
 

@@ -22,9 +22,11 @@ commands make none, so the column is blank for them.
 [Chapter 7](07_command_to_channel.md)), the stream length for a phrase (see
 [Chapter 13](13_speaking.md)), and the target or effect for everything else.
 
-Where the surviving sound command list says "Not Used", this table says "no known
-game use". The ROM entry itself is valid and reachable; what is unknown is
-whether the game program ever emits it.
+Where the surviving sound command list says "Not Used", this table says "no
+known game use" unless a companion game/OS call site proves otherwise. That
+qualification matters: the current companion sound-ID summary is not exhaustive
+over table-fed emitters, and direct inspection found `$D7` in live game code.
+Every sound-ROM entry below remains valid and externally reachable.
 
 | Command | Sound or phrase | Job | Chip | Detail |
 |---|---|---|---|---|
@@ -243,7 +245,7 @@ whether the game program ever emits it.
 | `$D4` | "IS NOW IT" | Speak a phrase | TMS5220 | 244 bytes |
 | `$D5` | Dragon Roar | Speak a phrase | TMS5220 | 155 bytes |
 | `$D6` | Mixer preset: effects off; no known game use | Set the mixer |  | effects 0 of 3 |
-| `$D7` | Mixer preset: effects low; no known game use | Set the mixer |  | effects 1 of 3 |
+| `$D7` | Mixer preset: effects low; used by the level-start screen | Set the mixer |  | effects 1 of 3 |
 | `$D8` | Mixer preset: effects medium; no known game use | Set the mixer |  | effects 2 of 3 |
 | `$D9` | Mixer preset: effects full; no known game use | Set the mixer |  | effects 3 of 3 |
 | `$DA` | Send a proof-of-life byte; no known game use | Queue a reply byte |  | replies `$55` |
@@ -320,8 +322,15 @@ Everything else is a path the game program never walks:
   derive the value from the 219-entry command tables. The test checks that *a*
   byte came back within its timeout, not that it was `$DB`, so the intended
   meaning of the constant remains unknown.
-- **`$DA` → `$55`** is dead: no code in the game or its OS ever sends `$DA`.
+- **`$DA` → `$55`** has no sender in the game/OS paths audited so far; the reply
+  path is dormant in every known use.
 - The **`$96`** opcode path is dormant in this ROM, as noted above.
+
+The mixer controls are separate from those reply paths. Direct inspection found
+`show_level_start_screen` sending **`$D7`** at game address `$44F68`, selecting
+the low-effects preset. The legacy command list's “Not Used” annotation is wrong
+for `$D7`; `$D6,$D8,$D9` retain only “no known game use” pending an exhaustive
+table-fed emitter catalog.
 
 ### The handshake burst
 
@@ -365,3 +374,4 @@ where `$1000`–`$100F` really was sixteen distinct registers.
   `$03` coin poll; `sound_response` / `sound_system_reset` are the `$07` watchdog
   and the wait for the `$FF` acknowledgement; and `run_sound_test` is the operator
   self-test that pings with `$06` and never checks the `$DB` that comes back.
+  Direct inspection at game `$44F68` supplies the `$D7` level-start use.

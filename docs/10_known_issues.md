@@ -16,12 +16,15 @@ Current execution order and new-context instructions are maintained in
 [`NEXT_STEPS.md`](NEXT_STEPS.md). That handoff prioritizes consumer-led code and
 function analysis; exhaustive byte-level cleanup is deferred.
 
-**Completion classification (2026-07-12):** all current-image static tests in
-this backlog are exhausted. `external_question_catalog.csv` classifies the 12
+**Completion classification (2026-08-06):** all sound-ROM-only static tests in
+this backlog are exhausted. `external_question_catalog.csv` classifies eleven
 remaining questions: five are historical-intent questions not recoverable from
-this image and seven require missing runtime/hardware/main-CPU/comparison-ROM
-evidence. `external_evidence_inventory.csv` verifies that none of the required
-artifact classes is present in this workspace.
+this image, five require runtime/hardware/comparison-ROM evidence, and one is an
+available cross-image static follow-up: a dataflow-complete game/OS sound-emitter
+catalog. The companion main-game/OS analysis, local hardware write-up, and supplied MAME
+device sources have now been incorporated; `external_evidence_inventory.csv`
+separates those available references from the trace/source/comparison evidence
+that is still absent.
 
 The generated question catalog names the canonical section, exact missing
 evidence, completed static result, and confidence for each item. These are
@@ -456,15 +459,21 @@ other IRQ, nonzero `$36-$39` states form
 the exact sequence `$F0,$E0,...,$10,0`. `$36|$37` drives physical left counter
 `$1035`, and `$38|$39` drives physical right counter `$1034`.
 
+**Known game-side mapping:** `$1020` input bits 3..0 become `$44` fields
+7..6, 5..4, 3..2, and 1..0 respectively. The companion OS consumes those
+fields into per-player credit indexes 0..3 in the same order. Combined with
+the hardware map, this maps coin slots 1..4 to player/color positions
+red, blue, yellow, and green. The player/slot order is no longer unknown.
+
 **Strong inference:** `$3E-$41` implement debounce/integration and `$36-$39`
 stretch counter pulses. This matches the state arithmetic and mechanical output
 identity, but intended self-test presentation and cabinet behavior still need
 external runtime evidence. Earlier normal/self-test path labels were
 **Contradicted** by the active-low hardware definition plus the `$8386` branch.
 
-**Next test:** compare input, `$44`, and `$1034/$1035` traces with main-CPU
-self-test behavior or a cabinet/MAME execution trace; map the four inputs to
-named player/slot positions.
+**Next test:** compare input, `$44`, and `$1034/$1035` transitions with a
+cabinet/MAME execution trace to validate the inferred debounce/pulse
+presentation, active polarity, and physical pulse duration.
 
 ## Resolved mechanics — Boot handshake bytes
 
@@ -508,10 +517,18 @@ the window and goes directly to `$40C8`. `$01-$FE` are drop/ack modes
 with no direct current-ROM selector. Generated rows and anchors preserve the
 proof.
 
-**Unknown external provenance:** whether the main CPU intentionally sends any
-byte during this short diagnostic window and, if so, the intended sequence.
-The mechanics and conditional current-ROM reachability are resolved; naming requires the
-main-CPU sender or source listing.
+**Known main-CPU side:** the companion OS routine `reset_sound_cpu` asserts
+sound reset, writes its startup-command argument to the sound command latch,
+then releases reset. Gauntlet II's `sound_system_reset` supplies zero for that
+argument, and the operator reset path likewise clears the latch before release.
+The intentional startup byte is therefore `$00`; the sender is no longer
+unknown.
+
+**Unknown external behavior:** whether a latch write made while reset is
+asserted remains pending and produces an NMI immediately after release, early
+enough to take `$57BD-$57DC`. That is a reset/latch/NMI timing question, not a
+missing main-CPU-code question. A reset-time MAME or cabinet bus trace is the
+next test.
 
 ## P2 — Small unreferenced ROM regions
 
@@ -528,13 +545,24 @@ compare another ROM/source image if original build intent matters.
 
 ## P2 — Command descriptions and game-side use
 
-**Known:** handler mechanics and ROM metadata are catalogued. Human descriptions
-come from a legacy CSV and game knowledge.
+**Known:** handler mechanics and ROM metadata are catalogued. The companion
+game/OS disassembly resolves the watchdog/coin protocol, reset, operator tests,
+and many gameplay call sites. A direct cross-check found command `$D7` emitted
+by `show_level_start_screen` at game address `$44F68`, selecting the low-effects
+mixer preset. This contradicts both the legacy “Not Used” label and the
+companion document's current abbreviated command list. Command `$DA`'s `$55`
+reply path still has no known game/OS sender. Human-facing names inherit the
+surviving command list where no gameplay call site provides a better label.
 
-**Unknown:** whether commands labeled “Not Used” are truly never emitted by the
-main game CPU; exact user-visible meaning of some diagnostic/control commands.
+**Unknown:** the companion's published “Sound IDs Used” list is not exhaustive:
+it also omits table-fed coin commands `$22-$25`, which `player_coindrop` emits
+through the longword table at game address `$57002`. Therefore nonuse of other
+legacy/control commands must not be promoted from “no known use” to Verified
+without a dataflow-complete audit of every direct and table-fed emitter.
 
-**Next test:** inspect main-CPU command emitters or capture gameplay traces.
+**Next test:** generate that companion game/OS emitter catalog, including value
+sets for all indirect table loads, or obtain a gameplay trace covering the
+operator and transition paths.
 
 ## Tooling issues
 

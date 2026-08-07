@@ -195,8 +195,10 @@ explicit Unknown provenance.
 
 POKEY AUDCTL semantics are no longer part of that open work. The supplied MAME
 implementation maps the ROM's configured `$20`, forced `$28`, and forced `$50`
-to CH3 high clock, joined 3/4, and joined 1/2 behavior; priority ties select the
-joined mode. Generated mode traversal finds no configured POKEY `$9B` clear.
+to CH3 high clock, joined 3/4, and joined 1/2 behavior; a tie between the two
+internal status lanes selects the joined lane. This is independent of
+equal-priority replacement within each physical list. Generated mode traversal
+finds no configured POKEY `$9B` clear.
 
 ## Subsequent consumer-led targets
 
@@ -239,13 +241,20 @@ NMI entries gained standalone contracts; the combined NMI control-plane row was
 split into exact query, restore, and output-latch blocks. This pass also
 Contradicted the stale `$5715` detune label: it applies signed carrier-TL deltas.
 
-The completion classification audit is complete. It records 12 remaining
-questions: five concern historical author/build intent that is not recoverable
-from this image, and seven require a missing main-CPU/comparison ROM, source
-listing, schematic, MAME trace, or cabinet measurement. The workspace inventory
-contains none of those artifacts and the audit reports zero remaining static
-tests. Resume analysis only when one of the named evidence classes becomes
-available; otherwise preserve the explicit confidence boundaries.
+The completion classification audit records eleven remaining questions: five
+concern historical author/build intent that is not recoverable from this image,
+five require a comparison ROM, runtime trace, original source/listing, or
+cabinet measurement, and one is an available cross-image static follow-up. The
+companion main-game/OS analysis, hardware write-up, and MAME device sources are
+incorporated; they resolved the boot-handshake decode and startup-command
+sender. They also revealed that game-side command use still needs a
+dataflow-complete emitter catalog: `$D7` is used at game `$44F68`, while the
+present companion summary omits table-fed `$22-$25`.
+The one remaining startup question is whether `$00`, written while sound reset
+is asserted, is delivered as a post-release NMI. The audit reports zero remaining
+sound-ROM-only static tests; the companion emitter catalog is the one remaining
+actionable static analysis. Preserve the other confidence boundaries until one
+of their evidence classes becomes available.
 
 The practical type-7 WAV renderer is also complete at ROM/chip-implementation
 strength. It executes the real 6502 reset, command allocation, and IRQ audio
