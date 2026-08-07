@@ -39,11 +39,13 @@ behind a set of numbers describing what it would like the chip to do.
 
 ## What a candidate looks like
 
-The engine's output for one logical channel is small:
+The engine's output for one logical channel is small. One detail that matters
+later is that the low bit of the channel's encoded status chooses one of two
+internal scratch **lanes**:
 
 | Value | What it is |
 |---|---|
-| Priority | The number this sound was allocated with |
+| Status and lane | A score derived from priority, with bit 0 selecting scratch lane 0 or 1 |
 | Frequency | An 8-bit divider for AUDF |
 | Control | Volume in the low nibble, distortion in the top three bits, for AUDC |
 | OR mask | Bits this channel wants set in the chip's mode register |
@@ -87,16 +89,17 @@ Two more things happen before the winner reaches the chip.
 
 The first is the global threshold from [Chapter 6](06_taking_orders.md). One
 byte of RAM holds a number that commands `$01` and `$02` set. Before a pair's
-candidates are accepted, the engine compares the best priority in that pair
-against the threshold. A winner that falls short has its control byte replaced
-with zero, which is a volume of zero, which is silence. The frequency still goes
+candidates are accepted, the engine compares the best encoded status against
+the threshold. A winner that falls short has its control byte replaced with
+zero, which is a volume of zero, which is silence. The frequency still goes
 out. The sound is still running, still stepping its envelopes, still counting
 down its timers. It just contributes nothing.
 
-Command `$01` sets that threshold to 240, and nothing in the ROM has a priority
-anywhere near 240, so the whole board goes quiet without a single sound being
-stopped. Command `$02` sets it back to zero. Muting the machine costs one byte
-and reuses the arbitration that was already there.
+Command `$01` sets that threshold to 240. Every configured POKEY sequence has
+cleared the low status bits and has a score below 240, so this command does make
+the entire POKEY silent without stopping its effects. It is not a true
+whole-board mute, however: the high-priority YM2151 theme and coin sounds remain
+above the threshold. Command `$02` sets the threshold back to zero.
 
 The second is the pair rule, and it needs the hardware explained first.
 
@@ -115,27 +118,37 @@ voice through the higher channel. Two registers, 65,536 possible dividers, and a
 pitch you can actually tune. Channels 1 and 2 can be joined this way, and so can
 channels 3 and 4.
 
-That is why the routine processes the four channels as two pairs. Within a pair
-it compares the two candidate priorities, and the rule is:
+That is why the routine processes the four channels as two pairs. What it
+compares, however, is easy to misread in the assembly. It does **not** compare
+the priorities of the two physical channels. The channel engine stages results
+in two internal lanes selected by status bit 0. Lane 0 carries the independent
+8-bit candidates. Lane 1 is the candidate for joined, 16-bit operation on the
+lower-numbered physical channel. The rule is:
 
 ```
-if the higher-numbered channel's priority >= the lower-numbered channel's:
+if the joined lane's score >= the best independent-lane score across the pair:
     select joined 16-bit mode for this pair
 else:
     leave the pair as two independent 8-bit channels
 ```
 
-Notice the direction of the comparison. A tie selects joined mode. Both channels
-of a pair sitting at the same priority is exactly what happens when one sound
-allocates both of them, which is exactly the case where it wants the 16-bit
-resolution. Defaulting a tie the other way would have meant every sound that
-wanted precision had to arrange for a priority difference it did not otherwise
-need.
+Notice the direction of the comparison: a lane tie selects joined mode. That is
+not the same as two physical channels tying. Command `$05` proves the
+difference. Its channels 1 and 2 both have priority 8, yet once their setup has
+settled they remain two independent tones, with register bytes
+`79 AF 51 AF`. Equal physical priorities do not force them to join.
 
-The comparison also decides which channel is heard. When the higher-numbered
-channel wins, the engine sets the lower one's volume to zero, which is what
-joined mode requires: that channel is now only a counter, and its own output
-would be a second unwanted voice.
+When the joined lane wins, the engine sets the lower channel's volume to zero.
+That channel now supplies the low half of the counter, while the audible output
+comes through the higher channel. If the independent lane wins, the routine
+retains one 8-bit frequency/control result for each physical channel.
+
+All eleven configured POKEY records execute `SWITCH_POKEY` before their first
+timed event, which clears status bit 0 and puts their steady results in lane 0.
+Consequently no configured effect uses the joined-note path in steady playback.
+An entirely empty pair still compares zero with zero and can set a joined-mode
+bit, but both volume registers are zero, so that bookkeeping artifact is
+inaudible.
 
 ## Building AUDCTL
 
@@ -143,12 +156,12 @@ Joined mode is selected by bits in the POKEY's mode register, AUDCTL, and so is
 the choice of clock, and so are the high-pass filters and the polynomial length.
 One byte, eight independent switches, and four voices with opinions about it.
 
-Four, but the opinions come from more than four places. The engine keeps one
-pair of accumulators per voice, and every logical channel queued on that voice
-contributes to them as the sweep walks the list — not just the winner. So a
-sound that loses the arbitration and is never heard still gets a say in the mode
-register. Since the channels sharing a voice are usually asking for the same
-thing, that rarely matters, and in this ROM it never does.
+Four, but the opinions come from more than four places. The engine keeps OR and
+AND accumulators for its internal status lanes, and every logical channel
+visited in a lane contributes as the sweep walks the physical lists — not just
+the candidate whose frequency and volume are selected. So a sound that loses
+the output arbitration can still get a say in the mode register. In this ROM
+that does not create a conflict.
 
 The engine solves this with **mask accumulation**, a pattern worth learning once
 because it turns up wherever independent parties have to agree on a shared set
@@ -183,11 +196,11 @@ channel 3's clock. Whoever wrote the sounds appears to have copied one setup
 block into all seven and never varied the operand, which does no harm and does
 nothing.
 
-The bits that actually matter are not requested by anyone. The pair comparison
-in the next section ORs in the joined-mode bit *and* the matching fast-clock bit
-after the masks have been combined: `$28` for the upper pair, `$50` for the
-lower one. So a sound gets both 16-bit precision and the 1.79 MHz clock by
-asking for two adjacent channels, not by asking for a bit.
+The pair routine can also force bits that no sequence requested. When its joined
+lane wins, it ORs in the joined-mode bit *and* the matching fast-clock bit after
+the masks have been combined: `$28` for channels 3/4, `$50` for channels 1/2.
+That decision comes from the internal lane comparison, not from two adjacent
+physical channels having equal priorities.
 
 ## Pitch: the divider table
 
@@ -327,12 +340,14 @@ to full volume in two sweeps and stops dead.
 ## What you now know
 
 - On every POKEY tick — every other IRQ — the engine walks four physical lists, runs the sequence
-  engine down each one, and produces one candidate frequency, control byte, and
-  pair of masks per channel.
-- The highest-priority candidate on a channel wins, and a global threshold can
-  silence the winner without stopping the sound.
-- The four channels are arbitrated as two pairs, and when the higher-numbered
-  channel of a pair wins or ties, the pair is joined into one 16-bit counter.
+  engine down each one, and stages frequency, control, and mask results in two
+  status-selected internal lanes.
+- Every member of a physical list advances its sequence; the highest-priority
+  result in each status lane reaches output staging, where a global threshold
+  can silence it without stopping the sound.
+- The four channels are handled as two hardware pairs. A joined-lane candidate
+  that wins or ties against the best independent-lane score selects one 16-bit
+  counter; this is not a comparison between the two physical channels.
 - AUDCTL is built by OR-ing every channel's requested bits together and then
   filtering the result through every channel's permitted bits.
 - A table at `$5A35` converts note numbers to 16-bit dividers, chromatically from

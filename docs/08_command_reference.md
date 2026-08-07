@@ -12,7 +12,7 @@ The exhaustive generated mapping is [`generated/command_catalog.csv`](generated/
 
 | Type | Meaning | Commands |
 |---:|---|---|
-| 0 | Global silent/noisy filter | `$01,$02` |
+| 0 | Global status/priority filter | `$01,$02` |
 | 3 | Special target dispatch | `$00` |
 | 5 | Stop named sound | `$21,$2F,$39` |
 | 7 | Shared POKEY/YM2151 sequences | 62 commands |
@@ -47,12 +47,12 @@ All 182 record insertions use interrupt-masked link transactions.
 | Command | Meaning | Path |
 |---:|---|---|
 | `$00` | Clear/reinitialize audio state | Type 3 → `$41E6` |
-| `$01` | Silent/global high filter | Type 0, parameter `$3C` |
-| `$02` | Noisy/clear global filter | Type 0, parameter 0 |
+| `$01` | High filter: suppress speech and most sounds; theme/coins survive | Type 0, parameter `$3C` |
+| `$02` | Clear global filter | Type 0, parameter 0 |
 | `$03` | Return four cached input/event fields in `$44` | Direct NMI query |
 | `$04` | Eight-channel YM2151 music-chip test | Type 7, chain offsets 0..7 |
 | `$05` | Four-channel POKEY effects-chip test | Type 7 |
-| `$06` | Echo `$DB` capability/sentinel | Direct NMI query |
+| `$06` | Return hardcoded `$DB`; operator test accepts any response byte | Direct NMI query |
 | `$07` | Return errors and arm heartbeats | Direct NMI query |
 | `$08` | TMS5220 speech-chip test | Type 11, LPC `$873D` |
 

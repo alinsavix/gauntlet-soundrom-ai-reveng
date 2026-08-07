@@ -82,9 +82,10 @@ flowchart TD
 
 ## Main loop and command dispatch
 
-The main loop clears its heartbeat bit and consumes the 16-entry ring at
-`$0200-$020F`. Commands `$00-$DA` use parallel 219-byte type and parameter
-tables. Handler types 0..14 dispatch through a 15-entry target table.
+The main loop clears its heartbeat bit and consumes the 16-slot ring at
+`$0200-$020F`, which can hold at most fifteen pending commands. Commands
+`$00-$DA` use parallel 219-byte type and parameter tables. Handler types 0..14
+dispatch through a 15-entry target table.
 
 Active types in this ROM are 0, 3, 5, 7, 8, 9, 10, 11, and 13. Types
 1, 2, 4, 6, 12, and 14 contain code but no command-table entry selects them.
@@ -102,7 +103,7 @@ Special queries:
 | Command | Direct result |
 |---:|---|
 | `$03` | Send cached coin/control byte `$44` to main CPU |
-| `$06` | Send `$DB`, the command-count/sentinel value |
+| `$06` | Send fixed `$DB`; the operator self-test accepts any response, so the value's intended semantics are unknown |
 | `$07` | Send error flags `$02`, then arm main-loop and IRQ heartbeat bits |
 
 The alternate indirect-write path is statically reachable. When `$1030` bit 4 is clear,
@@ -181,6 +182,16 @@ only when read as a record's next link.
 
 The sequence engine manages 30 logical channels, priorities, preemption, linked
 chains, timers, envelopes, and chip-specific output conversion.
+
+Type-7 allocation encodes a record priority `p` as status `4*p+1` at
+`$45A3-$45A9`. YM2151 sequences normally retain that value; `SWITCH_POKEY`
+clears its low two bits. Output filtering compares this encoded status with
+`$13`, whereas the type-11 handler compares raw speech priority with `$13`.
+Consequently command `$01` (`$13=$F0`) is not a complete mute: it rejects every
+speech phrase and suppresses all configured POKEY effects and most YM sounds,
+but the priority-61 theme has status `$F5` and the priority-63 coin sounds have
+status `$FD`, so those YM outputs survive. Command `$02` restores `$13=0`
+(**Verified**).
 
 The complete Type-7 path crosses foreground allocation and IRQ-time playback.
 No configured command chain mixes POKEY and YM2151 records.
@@ -284,10 +295,10 @@ flowchart TB
     Select["Physical dispatcher $500D"]
 
     subgraph POKEYPath["POKEY path — physical channels 0..3"]
-        PStart["$4DFC visits two<br/>channel pairs"] --> Pair["$4D02 walks both<br/>physical-list heads"]
+        PStart["$4DFC visits two<br/>physical-channel pairs"] --> Pair["$4D02 walks both<br/>physical-list heads"]
         Pair --> PEngine["$4651 updates every<br/>logical member"]
-        PEngine --> PArb["Compare priority and apply<br/>global threshold $13"]
-        PArb --> Join["Second wins or ties:<br/>select joined 16-bit mode"]
+        PEngine --> PArb["Stage by status bit 0;<br/>apply global threshold $13"]
+        PArb --> Join["Joined lane wins or ties:<br/>select 16-bit mode"]
         PArb --> Masks["Combine per-member<br/>AND/OR control masks"]
         Join --> PWrite["Write AUDF1..4,<br/>AUDC1..4, and AUDCTL"]
         Masks --> PWrite
@@ -306,33 +317,44 @@ flowchart TB
 ```
 
 Physical channels 0..3 select POKEY behavior. The pipeline interprets notes and
-envelopes, chooses outputs by priority, applies the global filter threshold
-`$13`, and writes AUDF/AUDC/AUDCTL through the indirect hardware pointer.
+envelopes, stages outputs according to status bit 0, applies the global filter
+threshold `$13`, and writes AUDF/AUDC/AUDCTL through the indirect hardware
+pointer.
 
 Only 11 of 182 type-7 records target POKEY, belonging to commands `$05` and
 `$43-$49`. This is far smaller than older “POKEY SFX” descriptions imply.
 
 The physical dispatcher `$500D` selects POKEY for X=0, constructs indirect
 base `$1800`, and tail-enters `$4DFC`. That routine calls `$4D02` twice to
-consume four list heads as two channel pairs. `$4D02` invokes `$4651` for both
-members, arbitrates their status against global threshold `$13`, combines
-AND/OR control masks, and returns prepared AUDF/AUDC values. `$4DFC` writes
-offsets 0..7 and AUDCTL at offset 8 through `($08),Y` (**Verified**).
+consume four list heads as two physical-channel pairs. `$4651` writes each
+logical member's status to `$0811,Y`, where `Y = status & 1`, proving that
+`$0811/$0812` are internal status-selected lanes rather than the two physical
+members. `$4D02` applies global threshold `$13`, combines AND/OR control masks,
+and returns prepared AUDF/AUDC values. `$4DFC` writes offsets 0..7 and AUDCTL at
+offset 8 through `($08),Y` (**Verified**).
 
 The supplied POKEY implementation resolves the AUDCTL masks. For configured
 POKEY-mode bytecode, every `$8B` operand is `$20` (CH3 high clock), and no `$9B`
 clear operation is reachable. Chip-test command `$05` retains the initialized
-OR/AND masks 0/`$FF`. `$4D02` compares the two member priorities; if the second
-member wins or ties, it returns carry set. `$4DFC` converts that carry to `$28`
-(CH3 high clock + joined 3/4) for the upper pair or `$50` (CH1 high clock +
-joined 1/2) for the lower pair. Thus ties deliberately select 16-bit joined
-mode. The final AUDCTL byte is the accumulated OR masks filtered by accumulated
-AND masks (**Verified**).
+OR/AND masks 0/`$FF`. `$4D02` compares the lane-1 score in `$0812` with the best
+lane-0 score across the physical pair in `$0814`; if lane 1 wins or ties, it
+returns carry set. `$4DFC` converts that carry to `$28` (CH3 high clock + joined
+3/4) for the upper pair or `$50` (CH1 high clock + joined 1/2) for the lower
+pair. This is not a comparison of the two physical-channel priorities.
 
-The post-channel-engine arbitration suffix takes 73 cycles for an active tie
-that selects joined mode and 100 cycles when the first member wins. If the
-maximum priority is below global threshold `$13`, the corresponding paths take
-100 and 127 cycles because candidate AUDC/control values are cleared first.
+All eleven configured POKEY records execute `SWITCH_POKEY` before their first
+timed event, clearing status bit 0 so steady output occupies independent lane 0.
+Command `$05` is a direct counterexample to the old physical-member reading:
+its steady register image is `79 AF 51 AF 79 00 51 00 28`. Channels 1 and 2
+remain two audible, independent equal-priority tones. The `$28` comes from the
+now-empty channels-3/4 pair tying at zero in the internal lane comparison; both
+AUDC bytes are zero, so the joined setting is inaudible. The final AUDCTL byte
+is the accumulated OR masks filtered by accumulated AND masks (**Verified**).
+
+The post-channel-engine arbitration suffix takes 73 cycles for a lane tie that
+selects joined mode and 100 cycles when independent lane 0 wins. If the maximum
+status is below global threshold `$13`, the corresponding paths take 100 and
+127 cycles because candidate AUDC/control values are cleared first.
 These local suffix counts intentionally exclude `$4651`; configured composed
 paths are recorded in the timing catalogs.
 
@@ -391,12 +413,16 @@ path is **Verified dormant under this ROM's configured sequences**.
 ## Type-11 TMS5220 speech subsystem
 
 Type 11 is speech only. The handler uses `$64CC[param]` as a filter/enqueue
-priority, not tempo. Accepted commands are queued in the eight-entry ring at
-`$0834-$083B` or begin playback when idle.
+priority, not tempo. Accepted commands are queued in the eight-slot ring at
+`$0834-$083B` or begin playback when idle. Pointer equality denotes empty, so
+only seven items are usable.
 
-Higher priority than `$35` flushes all queued speech before enqueueing the new
-command; equal priority appends, lower priority is rejected. Current playback
-is not interrupted by the flush.
+`$59E2` computes and checks the next write position before comparing priority.
+A full seven-item ring therefore rejects every arrival, including one that
+would otherwise be high enough to flush the backlog. If room exists, priority
+higher than `$35` flushes all queued speech before enqueueing the new command;
+equal priority appends and lower priority is rejected. Current playback is not
+interrupted by the flush.
 
 Playback loads clock flag, pointer, and length metadata, sends TMS5220 command
 `$60`, then streams bytes from `($2B),Y` to `$1820` when ready. `$1031` provides
@@ -413,11 +439,11 @@ flowchart TD
     Command["Type-11 command"] --> Priority["Read admission priority<br/>from $64CC[param]"]
     Priority --> Idle{"Playback idle?"}
     Idle -->|"yes"| Load["Resolve stream metadata<br/>then atomically load state and set $2F=$80"]
-    Idle -->|"no"| Compare{"New priority versus<br/>current $35"}
+    Idle -->|"no"| Full{"Seven usable<br/>entries full?"}
+    Full -->|"yes"| Reject["Reject command"]
+    Full -->|"no"| Compare{"New priority versus<br/>current $35"}
     Compare -->|"lower"| Reject["Reject command"]
-    Compare -->|"equal"| Room{"Speech ring has room?"}
-    Room -->|"yes"| Append["Append to 8-entry ring"]
-    Room -->|"no"| Reject
+    Compare -->|"equal"| Append["Append to ring"]
     Compare -->|"higher"| Flush["Discard pending queue<br/>but keep current playback"]
     Flush --> Append
     Append --> Pending["Pending until current<br/>phrase reaches idle"]
@@ -459,11 +485,12 @@ services write zero while counting down to idle. Every byte/command write goes
 to `$1820` and then asserts the active-low strobe through `$1031` (**Verified**).
 
 `$5939` atomically loads clock, priority, pointer, length, mixer, and kickoff
-state. `$59E2` is a separate atomic queue transaction: full rings and lower
-priority are rejected, equal priority appends, and higher priority sets read
-position to the old write position before appending, thereby flushing queued
-items without interrupting the current stream. Row-level effects are generated
-in `speech_lifecycle_catalog.csv`.
+state. `$59E2` is a separate atomic queue transaction: it rejects a full ring
+before reaching the priority comparison. With room available, lower priority is
+rejected, equal priority appends, and higher priority sets read position to the
+old write position before appending, thereby flushing queued items without
+interrupting the current stream. Row-level effects are generated in
+`speech_lifecycle_catalog.csv`.
 
 Instruction-executed 6502 counts at the configured 1.789772625 MHz CPU clock
 are 76 cycles (42.463 us) for READY/idle/empty queue, 78 cycles (43.581 us)

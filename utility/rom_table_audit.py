@@ -146,7 +146,7 @@ def command_rows(rom, names):
     for cmd in range(gd.MAX_COMMANDS):
         info = gd.resolve_command(rom, cmd)
         subsystem, description = names.get(cmd, ("", ""))
-        direct_nmi = {3: "input_event_status", 6: "echo_db", 7: "error_heartbeat"}.get(cmd, "")
+        direct_nmi = {3: "input_event_status", 6: "fixed_db_reply", 7: "error_heartbeat"}.get(cmd, "")
         chips = ""
         chain_count = 0
         if info.channels:

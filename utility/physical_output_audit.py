@@ -20,6 +20,9 @@ ANCHORS = {
     0x4D02: bytes.fromhex("98 48 c8 a9 00 8d 14 08"),
     0x4D36: bytes.fromhex("20 51 46"),
     0x4D84: bytes.fromhex("20 51 46"),
+    0x4D87: bytes.fromhex("ad 11 08 cd 12 08 b0 03 ad 12 08 c5 13"),
+    0x4DAC: bytes.fromhex("ad 11 08 cd 14 08 90 03 8d 14 08"),
+    0x4DB7: bytes.fromhex("ad 12 08 cd 14 08 90 15"),
     0x4DFC: bytes.fromhex("a9 00 8d 21 08 a9 ff 8d 25 08"),
     0x4E0F: bytes.fromhex("20 02 4d"),
     0x4E08: bytes.fromhex("bd ae 57 48 a8 c8 c8"),
@@ -40,6 +43,7 @@ ANCHORS = {
     0x500D: bytes.fromhex("bd a8 57 85 08 bd aa 57 85 09"),
     0x51B7: bytes.fromhex("ac 1d 08 f0 08 4d 1e 08 29 09 4d 1e 08"),
     0x51CB: bytes.fromhex("49 ff ac 1d 08 d0 07 3d cc 03 9d cc 03 60"),
+    0x4669: bytes.fromhex("29 01 8d 13 08 a8 bd 90 03 99 11 08"),
     0x5C5B: bytes.fromhex("00 00 24 58"),
     0x57AE: bytes.fromhex("1e 22"),
     0x57B0: bytes.fromhex("48 2c"),
@@ -47,7 +51,7 @@ ANCHORS = {
 
 
 ROWS = [
-    (0x4D02, 0x4DFB, "callable_subroutine", "POKEY pair arbitration and scratch selection", "$4E0F;$4E36", "Y=first physical-list head minus one; $08-$09=POKEY base", "RTS $4DD3 or $4DFB; carry/result consumed by caller", "A,X,Y,P", "$07E6,Y;$13;$0811-$0825;logical lists via $4651", "$0811-$0825;$081C;channel arrays through $4651", "Verified", "Add representative active $4651 costs before the arbitration suffix"),
+    (0x4D02, 0x4DFB, "callable_subroutine", "POKEY physical-pair staging and status-lane arbitration", "$4E0F;$4E36", "Y=lower-numbered physical-list-head offset 30 or 32; $08-$09=POKEY base", "RTS $4DD3 if status-bit-0 lane 1 wins/ties and selects joined mode; RTS $4DFB if independent lane 0 wins", "A,X,Y,P", "$07E6,Y;$13;$0811-$0825;logical lists via $4651", "$0811-$0825;$081C;channel arrays through $4651", "Verified", "Add representative active $4651 costs before the arbitration suffix"),
     (0x4DFC, 0x4E67, "tail_dispatch_entry", "POKEY four-channel update and register writes", "$500D for hardware type 0", "X=dispatcher index 0; $08-$09=$1800; $57AE=$1E", "RTS $4E67", "A,X,Y,P", "$57AE,X;$0817-$0825", "POKEY AUDF/AUDC pairs and AUDCTL through ($08),Y", "Verified", "Compose whole-pass bounds from active channel-engine paths"),
     (0x4E68, 0x4FD5, "callable_subroutine", "one YM2151 channel update", "$4FE4", "Y=physical-list head 34..41; $083C=YM channel 0..7", "early RTS $4E6D/$4E81/$4ED3/$4ED8; RTS $4FD5", "A,X,Y,P", "$07E6,Y;$17;$0812;$0819;$0826-$082F;$083C-$089F;$57A0-$57A7;$72DC-$73DB;$5B5B-$5C5A", "YM registers $08,$20-$3F,$60-$7F; shadows $083D+Y;$0810-$0813;$0C-$0F;$10-$11", "Verified", "Derive exact KC/KF/detune formula and operator mask meaning"),
     (0x4E82, 0x4ECE, "internal_block", "YM voice/control register flush", "$4E68 after active channel", "$083C=channel; prepared shadow bytes", "continue filter/pitch gate $4ECE", "A,Y,P plus $4FF0", "$083C;$083D+Y;$082F", "YM $20/$30/$38 and optional key register $08", "Verified", "Map each shadow byte to documented YM2151 bit fields"),
@@ -165,16 +169,16 @@ def main():
     write_csv(args.table_csv, ["start", "end_inclusive", "record_width", "count", "role", "consumers", "index_domain", "confidence"], TABLES)
     control_rows = [
         ("AUDCTL_bit", "0x80", "refs/pokey.cpp", "POLY9: select 9-bit rather than 17-bit polynomial", "No configured POKEY $8B/$9B operand selects it", "Verified supplied implementation meaning/reachability"),
-        ("AUDCTL_bit", "0x40", "refs/pokey.cpp", "CH1_HICLK: channel 1 uses 1.79 MHz clock", "Forced with $10 by $4E3B when channel-2 member wins/ties", "Verified"),
+        ("AUDCTL_bit", "0x40", "refs/pokey.cpp", "CH1_HICLK: channel 1 uses 1.79 MHz clock", "Forced with $10 by $4E3B when the joined status lane wins/ties", "Verified"),
         ("AUDCTL_bit", "0x20", "refs/pokey.cpp", "CH3_HICLK: channel 3 uses 1.79 MHz clock", "Only configured POKEY SET_CTRL_BITS operand; also forced for joined channel 3/4", "Verified"),
-        ("AUDCTL_bit", "0x10", "refs/pokey.cpp", "CH12_JOINED: channel 1/2 form 16-bit divider", "Forced with $40 by $4E3B when channel-2 member wins/ties", "Verified"),
-        ("AUDCTL_bit", "0x08", "refs/pokey.cpp", "CH34_JOINED: channel 3/4 form 16-bit divider", "Forced with $20 by $4E14 when channel-4 member wins/ties", "Verified"),
+        ("AUDCTL_bit", "0x10", "refs/pokey.cpp", "CH12_JOINED: channel 1/2 form 16-bit divider", "Forced with $40 by $4E3B when status-bit-0 lane 1 beats/ties the best lane-0 score", "Verified"),
+        ("AUDCTL_bit", "0x08", "refs/pokey.cpp", "CH34_JOINED: channel 3/4 form 16-bit divider", "Forced with $20 by $4E14 when status-bit-0 lane 1 beats/ties the best lane-0 score", "Verified"),
         ("AUDCTL_bit", "0x04", "refs/pokey.cpp", "CH1_FILTER: channel 3 clocks channel-1 high-pass sample", "No configured POKEY $8B/$9B operand selects it", "Verified supplied implementation meaning/reachability"),
         ("AUDCTL_bit", "0x02", "refs/pokey.cpp", "CH2_FILTER: channel 4 clocks channel-2 high-pass sample", "No configured POKEY $8B/$9B operand selects it", "Verified supplied implementation meaning/reachability"),
         ("AUDCTL_bit", "0x01", "refs/pokey.cpp", "CLK_15KHZ: base clock 15.7 rather than 63.9 kHz", "No configured POKEY $8B/$9B operand selects it", "Verified supplied implementation meaning/reachability"),
         ("configured_operand", "0x20", "$51B7 and mode-aware traversal", "OR CH3_HICLK into per-logical-channel $03EA mask", "Commands $43-$49; chip-test $05 retains reset mask 0/$FF", "Verified"),
-        ("forced_pair_mode", "0x28", "$4D02 carry -> $4E14", "CH3_HICLK | CH34_JOINED", "Second member priority >= first; ties select joined mode", "Verified"),
-        ("forced_pair_mode", "0x50", "$4D02 carry -> $4E3B", "CH1_HICLK | CH12_JOINED", "Second member priority >= first; ties select joined mode", "Verified"),
+        ("forced_pair_mode", "0x28", "$4D02 carry -> $4E14", "CH3_HICLK | CH34_JOINED", "Lane-1 score >= maximum lane-0 score; this is not a comparison of the two physical channels", "Verified"),
+        ("forced_pair_mode", "0x50", "$4D02 carry -> $4E3B", "CH1_HICLK | CH12_JOINED", "Lane-1 score >= maximum lane-0 score; this is not a comparison of the two physical channels", "Verified"),
         ("final_combine", "formula", "$4DC4-$4DF8;$4E42-$4E4A", "AUDCTL = accumulated OR masks AND accumulated AND masks", "$03EA starts 0; $03CC starts $FF; $8B ORs and $9B clears", "Verified"),
     ]
     write_csv(args.pokey_control_csv,

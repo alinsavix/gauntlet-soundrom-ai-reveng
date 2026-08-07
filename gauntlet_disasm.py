@@ -3373,10 +3373,10 @@ def load_sound_names(csv_path):
     # is absent; it does not obscure what the sound ROM actually does.
     names.update({
         0x00: ("CONTROL", "Clear/reinitialize all audio state (self-test stop)"),
-        0x01: ("CONTROL", "Set global filter threshold high / silent"),
-        0x02: ("CONTROL", "Clear global filter threshold / noisy"),
+        0x01: ("CONTROL", "Set filter to $F0: suppress speech and most sounds; theme/coins survive"),
+        0x02: ("CONTROL", "Clear global filter threshold"),
         0x03: ("STATUS", "Status query: read cached input/event fields ($44) -> main CPU [NMI handler 0]"),
-        0x06: ("STATUS", "Status query: echo $DB sentinel -> main CPU [NMI handler 1]"),
+        0x06: ("STATUS", "Operator-test ping: fixed $DB reply -> main CPU [NMI handler 1]"),
         0x07: ("STATUS", "Status query: return error flags and arm heartbeats [NMI handler 2]"),
         0xD5: ("SPEECH", "Dragon Roar"),
         0xD6: ("CONTROL", "Mixer/control preset $E7; game-side use unverified"),

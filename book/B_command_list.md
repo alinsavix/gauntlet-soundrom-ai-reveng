@@ -29,12 +29,12 @@ whether the game program ever emits it.
 | Command | Sound or phrase | Job | Chip | Detail |
 |---|---|---|---|---|
 | `$00` | Reinitialize all audio state; the only way to silence a chip test | Reinitialize all audio |  |  |
-| `$01` | Mute the board | Set global threshold |  | threshold 240 |
-| `$02` | Unmute the board | Set global threshold |  | threshold 0 |
+| `$01` | Suppress speech and most synthesized sounds; theme and coin sounds survive | Set global threshold |  | threshold 240 |
+| `$02` | Clear the global filter | Set global threshold |  | threshold 0 |
 | `$03` | Question: what is the coin door doing? | Answered by the interrupt |  | answers with four cached input fields |
 | `$04` | Music Chip Test | Play a sound | YM2151 | 8 records |
 | `$05` | Effects Chip Test | Play a sound | POKEY | 4 records |
-| `$06` | Question: which sound ROM are you? | Answered by the interrupt |  | answers `$DB` |
+| `$06` | Operator self-test liveness ping | Answered by the interrupt |  | fixed reply `$DB`; caller accepts any byte |
 | `$07` | Question: are you healthy? | Answered by the interrupt |  | answers with the error flags, then arms both heartbeats |
 | `$08` | Speech Chip Test | Speak a phrase | TMS5220 | 247 bytes |
 | `$09` | Warrior Joins In | Play a sound | YM2151 | 3 records |
@@ -285,7 +285,7 @@ the `$1000` window and the error-flag byte.
 | Reply | Meaning | Triggered by | Route |
 |---|---|---|---|
 | four input fields | The four coin-mechanism inputs, cached | Command `$03` | Interrupt |
-| `$DB` | A fixed identity byte | Command `$06` | Interrupt |
+| `$DB` | A fixed response byte; intended value semantics unknown | Command `$06` | Interrupt |
 | error-flag byte | Health report; the bitfield decoded in [D.4](D_reference_tables.md) | Command `$07` | Interrupt |
 | `$55` | A fixed proof-of-life byte | Command `$DA` | Reply buffer |
 | `$FF` | Boot acknowledgement — "the board is up" | Boot | Boot code |
@@ -316,9 +316,10 @@ straight to `$1000`.
 Everything else is a path the game program never walks:
 
 - **`$06` → `$DB`** is used only by the operator self-test, as a bare "does the
-  processor answer?" ping. The test checks that *a* byte came back within its
-  timeout, not that it was `$DB`; the value is never inspected. `$DB` is an
-  identity stamp nothing validates.
+  processor answer?" ping. The handler loads `$DB` as a literal; it does not
+  derive the value from the 219-entry command tables. The test checks that *a*
+  byte came back within its timeout, not that it was `$DB`, so the intended
+  meaning of the constant remains unknown.
 - **`$DA` → `$55`** is dead: no code in the game or its OS ever sends `$DA`.
 - The **`$96`** opcode path is dormant in this ROM, as noted above.
 

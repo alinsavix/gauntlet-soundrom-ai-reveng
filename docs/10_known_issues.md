@@ -312,10 +312,12 @@ expected hardware path.
 
 **Known:** supplied POKEY definitions resolve the control masks. Configured
 POKEY `$8B` operations only OR CH3_HICLK `$20`; no `$9B` clear is reachable.
-Second-member wins or ties return carry set and force `$28` (CH3_HICLK plus
-CH34_JOINED) or `$50` (CH1_HICLK plus CH12_JOINED). Active tie/first-win
-arbitration suffixes take 73/100 cycles; threshold-suppressed variants take
-100/127 cycles. These suffix counts exclude `$4651`.
+Status-bit-0 lane 1 wins or ties against the best lane-0 score, returns carry
+set, and forces `$28` (CH3_HICLK plus CH34_JOINED) or `$50` (CH1_HICLK plus
+CH12_JOINED). This is not a comparison of the two physical members. Active
+lane-tie/independent-lane-win arbitration suffixes take 73/100 cycles;
+threshold-suppressed variants take 100/127 cycles. These suffix counts exclude
+`$4651`.
 
 **Known:** secondary-timer articulation is validated for normal, divided, and
 sustained controls. Command `$04` channel 1 keys off after 58 of 60 sweeps;

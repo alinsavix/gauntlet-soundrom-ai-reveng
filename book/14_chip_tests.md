@@ -161,15 +161,15 @@ This chain is also the ROM's heaviest single moment, and
 [Chapter 4](04_heartbeat.md) promised to come back to it. On the first POKEY
 sweep after allocation, all four logical channels have never run before, so all
 four decode their entire setup block in one tick: five instructions each, two
-envelope initializations each, and a rest. That first sweep costs about 6,900
-cycles, and the whole interrupt around it comes to roughly 7,550, against a
-nominal interval of 7,467.
+envelope initializations each, and a rest. Depending on the four-phase scheduler
+alignment, that first sweep costs 6,874 or 6,950 cycles, and the whole interrupt
+around it costs 7,511 or 7,587, against a nominal interval of 7,467.
 
-It overruns by about a hundred cycles, and nothing bad happens. The interrupt
+It overruns by 44 to 120 cycles, and nothing bad happens. The interrupt
 line is held rather than pulsed, so the next one is still waiting when this one
 returns and is serviced immediately afterwards. The board runs sixty
-microseconds behind for one tick and then catches up. No later tick of the same
-test costs more than about two thirds of the interval.
+microseconds behind at worst for one tick and then catches up. No later tick of
+the same test costs more than about two thirds of the interval.
 
 Every one of the four opens with the same five instructions:
 
@@ -240,6 +240,7 @@ check against Chapter 11:
 | AUDF2 | 81 | Divider for channel 2 |
 | AUDC2 | `$AF` | Clean tone, volume 15 |
 | AUDC3, AUDC4 | `$00` | Silent |
+| AUDCTL | `$28` | Empty channels 3/4 tie in the internal lanes, harmlessly selecting joined mode there |
 
 Two pure tones at full volume. Working the divider arithmetic from Chapter 11
 backwards, a divider of 121 at the 64 kHz base clock gives 262 Hz and a divider of

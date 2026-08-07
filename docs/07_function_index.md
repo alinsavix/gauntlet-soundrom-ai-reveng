@@ -71,7 +71,7 @@ recovered from this image alone.
 | `$4651` | channel state machine | Timers, note/opcode processing, envelopes, stopping | Broad role verified; internal boundaries incomplete |
 | `$4B6B` | signed fade/ramp processor | Scale signed ramp, accumulate fraction, apply volume/TL delta | Verified |
 | `$4C16` | YM winner-state preparation | Stage base TL/live transforms and split KC/KF delta | Verified |
-| `$4D02` | POKEY channel mix | Priority/filter and physical output selection | Strongly supported |
+| `$4D02` | POKEY pair/status-lane mix | Status-bit lane staging, filter, independent-versus-joined output selection | Verified |
 | `$4DFC` | POKEY update/write | One function through `$4E67`; `$4E1B` is internal | Strongly supported |
 | `$4E68` | YM operator writer | Write operator/channel register set | Strongly supported |
 | `$4FD6` | YM channel update | Iterate eight YM channels/registers | Strongly supported |
@@ -172,7 +172,7 @@ table ending at `$4650`, including active and dormant handler spans.
 | `$5833` | initialize speech/audio state | Set dummy stream and control state | Strongly supported |
 | `$5894` | speech status/update | Ready watchdog, queue dequeue, FIFO streaming | Strongly supported |
 | `$5932` | start/queue speech | Metadata lookup, clock, volume, playback state | Strongly supported |
-| `$59E2` | speech enqueue | Atomic priority ring; higher priority flushes queue | Strongly supported |
+| `$59E2` | speech enqueue | Atomic 8-slot/7-item ring; full rejects before priority, otherwise higher priority flushes queue | Verified |
 | `$5A0B` | boot mailbox burst | Writes `$FF,$33,$00,$22,$0F` to `$1003/$1002/$100B/$100C/$1000`, all aliases of the one sound→main latch | Verified; vestigial Atari System 1 6522-VIA speech init |
 
 The speech consumer pass verifies `$5894` as a callable IRQ-time state machine
@@ -230,7 +230,7 @@ the generated audit reports zero missing contracts. Runtime path frequencies
 and any indirect target class absent from the verified ROM tables still require
 an execution trace.
 
-The physical-output pass verifies `$4D02` as POKEY pair arbitration called at
+The physical-output pass verifies `$4D02` as POKEY physical-pair/status-lane arbitration called at
 `$4E0F/$4E36`, `$4DFC` as the POKEY tail-dispatch entry, `$4E68` as one-channel
 YM output called at `$4FE4`, `$4FD6` as the eight-channel YM tail-dispatch
 entry, `$4FF0` as the shared busy-wait subroutine, and `$500D` as the callable

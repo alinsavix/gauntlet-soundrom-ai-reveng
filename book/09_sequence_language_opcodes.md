@@ -57,9 +57,9 @@ the subtraction of `$80` at no cost, and the result is exactly the index into a
 The `rts` on the last line is the trick. A 6502 subroutine return pulls two bytes
 off the stack, adds one to them, and jumps there. The ROM pushes an address that
 is deliberately one *less* than the handler it wants, so the return lands
-precisely on the handler's first instruction. Twelve bytes of code, no scratch
-pointer, no self-modification, and every one of the 59 handlers is reached in the
-same number of cycles.
+precisely on the handler's first instruction. Twelve instructions occupying 19
+bytes, no scratch pointer, no self-modification, and every one of the 59 handlers
+is reached in the same number of cycles.
 
 The three lines before the `rts` set up the handler's world. X holds the logical
 channel number so the handler can index the thirty parallel arrays. A holds the
@@ -108,7 +108,7 @@ The complete list of 59 instructions with their operand counts is
 
 ## Control flow
 
-Four instructions change the sequence pointer, and between them they turn a
+Four control-flow mechanisms are worth separating, and together they turn a
 stream of bytes into a program.
 
 **Counted repeat.** The pair `$8E n` and `$8F` bracket a block. The opening
@@ -236,11 +236,12 @@ in POKEY mode, and as the four operator base levels when it is in YM2151 mode.
 The same 120 bytes of RAM, two entirely different meanings, decided by one status
 bit. RAM was the scarcest thing on this board.
 
-Eight instructions are YM2151-only, and they are the ones
+Nine instructions are YM2151-only, and they are the ones
 [Chapter 12](12_driving_the_ym2151.md) needs: load an instrument, load a block of
-registers, adjust the carrier levels, offset the pitch. The most used of all 59
-instructions is the instrument load, which appears 147 times and selects one of
-39 distinct instrument definitions.
+registers, adjust the carrier levels, offset the pitch. Eight of the nine occur
+in this ROM's sequences; `YM_VOL_ENV_NEG` is the unused one. The most used of all
+59 instructions is the instrument load, which appears 147 times and selects one
+of 39 distinct instrument definitions.
 
 One instruction crosses subsystems entirely. It triggers a speech command from
 inside a sequence, so a piece of music could speak. Nothing in this ROM uses it.

@@ -52,7 +52,7 @@ def command44_channel_service(rom_data, prior_services, phase):
     cpu.mem[0x081C] = x
     cpu.mem[0x081D] = 0  # POKEY device sweep
     channel_seed = {
-        0x07E6: 0x00, 0x0390: 0x67, 0x0228: 0x44,
+        0x07E6: 0x00, 0x0390: 0xCD, 0x0228: 0x44,
         0x0246: 0x85, 0x0264: 0x65,
         0x02BE: 0x00, 0x02DC: 0x00, 0x02FA: 0x00, 0x0318: 0x00,
         0x03CC: 0xFF, 0x03EA: 0x00, 0x0408: 0x07,
@@ -85,7 +85,7 @@ def command05_ff_loop_service(rom_data, phase):
     cpu.mem[0x00] = phase
     cpu.mem[0x081D] = 0
     channel_seed = {
-        0x07E6: 0x00, 0x0390: 0x11, 0x0228: 0x05,
+        0x07E6: 0x00, 0x0390: 0x21, 0x0228: 0x05,
         0x0246: 0x8D, 0x0264: 0x68,
         # Nonzero prepared pitch keeps the active-output branch selected.
         0x0282: 0x01, 0x02A0: 0x00,
@@ -115,7 +115,7 @@ def command05_full_consumer(rom_data):
         # $4607-$4609 stores logical slot + 1 in physical head $1E..$21.
         cpu.mem[0x07E6 + head] = x + 1
         channel_seed = {
-            0x07E6: 0x00, 0x0390: 0x11, 0x0228: 0x05,
+            0x07E6: 0x00, 0x0390: 0x21, 0x0228: 0x05,
             0x0246: sequence & 0xFF, 0x0264: sequence >> 8,
             0x03CC: 0xFF, 0x03EA: 0x00, 0x0408: 0x07,
             0x0426: 0x31, 0x0444: 0x5A, 0x0462: 0x31, 0x0480: 0x5A,
@@ -640,6 +640,13 @@ def main():
         for update in range(1, 1001):
             device_cycles, _ = command05_full_service(cpu, phases[(update - 1) % 4])
             services.append((device_cycles, update, phases[(update - 1) % 4]))
+            if start_index == 0 and update == 195:
+                steady_registers = bytes(cpu.mem[0x1800:0x1809])
+                expected_registers = bytes.fromhex("79 af 51 af 79 00 51 00 28")
+                if steady_registers != expected_registers:
+                    raise SystemExit(
+                        "command $05 steady POKEY image changed: "
+                        f"{steady_registers.hex(' ')}")
         later_max = max(services[1:])
         overruns = sum(
             irq_fixed_ready_quiescent + device + 7 > 7467
@@ -664,15 +671,15 @@ def main():
         ["audio_dispatch_YM", "$41C8-$41E5", "even $00 parity", 37, "", "", "three speech JSRs plus parity/device dispatch and tail JMP; callee instructions excluded", "Verified"],
         ["POKEY_empty_full_consumer", "$500D->$4DFC->$4D02", "all four physical list heads zero; global threshold $13=0", 518, "", "", "includes $500D dispatch, two empty pair consumers, all AUDF/AUDC/AUDCTL writes, and final RTS", "Verified representative lower-bound path"],
         ["YM_empty_full_consumer", "$500D->$4FD6->$4E68", "all eight physical list heads zero", 373, "", "", "includes $500D dispatch, eight empty channel probes, and final RTS; no YM register busy waits occur", "Verified representative lower-bound path"],
-        ["POKEY_output_wrapper_carry_clear", "$4DFC-$4E67", "both pair consumers return carry clear", 184, "", "", "includes two JSR opcodes but excludes all $4D02 instructions; includes nine hardware writes", "Verified active-output suffix"],
-        ["POKEY_output_wrapper_carry_set", "$4DFC-$4E67", "both pair consumers return carry set", 186, "", "", "includes two JSR opcodes and both ORA adjustments but excludes all $4D02 instructions", "Verified active-output suffix"],
-        ["POKEY_arbitration_active_tie_join", "$4D87-$4DD3", "$0811=$0812=$0814 and >= $13; second member wins tie", 73, "", "", "post-$4651 arbitration suffix; returns carry set and selects caller's joined-mode mask", "Verified"],
-        ["POKEY_arbitration_active_first_wins", "$4D87-$4DFB", "$0811>=$0812 and >=$13; updated first maximum > $0812", 100, "", "", "post-$4651 arbitration suffix; returns carry clear and copies first-member output", "Verified"],
+        ["POKEY_output_wrapper_carry_clear", "$4DFC-$4E67", "both pair consumers select independent lane 0 and return carry clear", 184, "", "", "includes two JSR opcodes but excludes all $4D02 instructions; includes nine hardware writes", "Verified active-output suffix"],
+        ["POKEY_output_wrapper_carry_set", "$4DFC-$4E67", "both pair consumers select joined lane 1 and return carry set", 186, "", "", "includes two JSR opcodes and both ORA adjustments but excludes all $4D02 instructions", "Verified active-output suffix"],
+        ["POKEY_arbitration_active_tie_join", "$4D87-$4DD3", "$0812 lane-1 score ties best lane-0 score in $0814 and is >=$13", 73, "", "", "post-$4651 arbitration suffix; returns carry set and selects caller's joined-mode mask", "Verified"],
+        ["POKEY_arbitration_independent_lane_wins", "$4D87-$4DFB", "best lane-0 score in $0814 is greater than $0812 lane-1 score and maximum is >=$13", 100, "", "", "post-$4651 arbitration suffix; returns carry clear and retains independent physical outputs", "Verified"],
         ["POKEY_arbitration_suppressed_tie_join", "$4D87-$4DD3", "same tie but maximum < global threshold $13", 100, "", "", "clears AUDC/control candidates before joined-mode return", "Verified"],
-        ["POKEY_arbitration_suppressed_first_wins", "$4D87-$4DFB", "same first-member win but maximum < global threshold $13", 127, "", "", "clears AUDC/control candidates before carry-clear return", "Verified"],
+        ["POKEY_arbitration_suppressed_independent_lane_wins", "$4D87-$4DFB", "same independent-lane win but maximum < global threshold $13", 127, "", "", "clears AUDC/control candidates before carry-clear return", "Verified"],
         ["POKEY_channel_steady_common", "$4651-$4B6A", "configured command $44; X=29; no linked next; both timers nonnegative; inactive envelopes; base frequency nonzero; $00&6!=0", pokey_channel_common, "", "", "includes indexed page crossings and RTS; no bytecode decode or envelope record advance", "Verified representative active path"],
         ["POKEY_channel_steady_rotate", "$4651-$4B6A", "same state; $00&6=0 executes signed-delta rotate at $49BB-$49C2", pokey_channel_rotate, "", "", "one-in-four POKEY frame phase; zero deltas still execute both ROR instructions", "Verified representative active path"],
-        ["POKEY_pair_one_active_common", "$4D02-$4DFB", "first pair member uses steady common path; second member empty; priority >=$13; first wins", pokey_active_pair_common, "", "", "includes one $4651 call, pair setup/copy, arbitration, and RTS", "Verified representative pair path"],
+        ["POKEY_pair_one_active_common", "$4D02-$4DFB", "one physical member has a steady lane-0 candidate; the other is empty; independent lane wins", pokey_active_pair_common, "", "", "includes one $4651 call, pair setup/copy, status-lane arbitration, and RTS", "Verified representative pair path"],
         ["POKEY_pair_one_active_rotate", "$4D02-$4DFB", "same pair on $00&6=0 delta-rotation phase", pokey_active_pair_rotate, "", "", "includes one $4651 call and complete pair consumer", "Verified representative pair path"],
         ["POKEY_one_active_full_consumer_common", "$500D->$4DFC->$4D02", "configured command $44 is sole active channel; other three heads empty; common frame phase", pokey_one_active_common, "", "", "dispatch + mixed-carry wrapper + one-active pair + empty pair", "Verified representative full-device path"],
         ["POKEY_one_active_full_consumer_rotate", "$500D->$4DFC->$4D02", "same state on $00&6=0 delta-rotation phase", pokey_one_active_rotate, "", "", "largest of the four steady phases for this state", "Verified representative full-device path"],
@@ -681,7 +688,7 @@ def main():
         ["IRQ_POKEY_one_active_rotate", "$4187->$41C8->$500D/$5894->$8381", "same state on $00&6=0 delta-rotation phase", irq_one_active_rotate, irq_one_active_rotate + 7, "", "complete software path; 21.227% of 7,467-cycle IRQ interval including entry", "Verified representative complete IRQ"],
         ["POKEY_channel_initial_decode_common", "$4651-$4B6A", "fresh command $44 allocation; common $00&6!=0 phase; decode six setup opcodes and REST $00,$0A", pokey_initial_common, "", "", "474 instructions executed from ROM; post-state and page penalties asserted", "Verified instruction-executed path"],
         ["POKEY_channel_initial_decode_rotate", "$4651-$4B6A", "same fresh allocation on $00&6=0 delta-rotation phase", pokey_initial_rotate, "", "", "478 instructions executed from ROM", "Verified instruction-executed path"],
-        ["POKEY_pair_initial_decode_common", "$4D02-$4DFB", "initial command $44 decode in first member; second empty; first wins", pokey_initial_pair_common, "", "", "complete pair composed from instruction-executed channel and verified fixed suffix", "Verified representative pair path"],
+        ["POKEY_pair_initial_decode_common", "$4D02-$4DFB", "initial command $44 decode in first physical member; its pre-SWITCH lane-1 staging is not retained; other member empty", pokey_initial_pair_common, "", "", "complete pair composed from instruction-executed channel and verified fixed suffix", "Verified representative pair path"],
         ["POKEY_pair_initial_decode_rotate", "$4D02-$4DFB", "same initial decode on delta-rotation phase", pokey_initial_pair_rotate, "", "", "complete pair consumer", "Verified representative pair path"],
         ["POKEY_initial_decode_full_common", "$500D->$4DFC->$4D02", "command $44 initial decode; other heads empty", pokey_initial_full_common, "", "", "dispatch + wrapper + initial-decode pair + empty pair", "Verified representative full-device path"],
         ["POKEY_initial_decode_full_rotate", "$500D->$4DFC->$4D02", "same initial decode on delta-rotation phase", pokey_initial_full_rotate, "", "", "selected initial-decode full-device path", "Verified representative full-device path"],
@@ -689,7 +696,7 @@ def main():
         ["IRQ_POKEY_initial_decode_rotate", "$4187->$41C8->$500D/$5894->$8381", "same initial decode on delta-rotation phase", irq_initial_rotate, irq_initial_rotate + 7, "", "complete path; 39.253% of IRQ interval including entry", "Verified representative complete IRQ"],
         ["POKEY_channel_both_envelopes_common", "$4651-$4B6A", "command $44 second service; frequency/volume countdowns 2->1; REST secondary timer also expires; $00&6!=0", pokey_envelopes_common, "", "", "148 instructions executed from the initial-decode post-state", "Verified instruction-executed trajectory"],
         ["POKEY_channel_both_envelopes_rotate", "$4651-$4B6A", "same second service on $00&6=0 delta-rotation phase", pokey_envelopes_rotate, "", "", "152 instructions; both envelopes advance without record reload", "Verified instruction-executed trajectory"],
-        ["POKEY_pair_both_envelopes_common", "$4D02-$4DFB", "second command $44 service in first member; second empty; first wins", pokey_envelope_pair_common, "", "", "complete pair including instruction-executed $4651 call", "Verified representative pair path"],
+        ["POKEY_pair_both_envelopes_common", "$4D02-$4DFB", "second command $44 service in one physical member; other member empty; independent lane wins", pokey_envelope_pair_common, "", "", "complete pair including instruction-executed $4651 call", "Verified representative pair path"],
         ["POKEY_pair_both_envelopes_rotate", "$4D02-$4DFB", "same pair on delta-rotation phase", pokey_envelope_pair_rotate, "", "", "complete pair consumer", "Verified representative pair path"],
         ["POKEY_both_envelopes_full_common", "$500D->$4DFC->$4D02", "command $44 second service; other heads empty", pokey_envelope_full_common, "", "", "dispatch + mixed-carry wrapper + envelope/secondary-expiry pair + empty pair", "Verified representative full-device path"],
         ["POKEY_both_envelopes_full_rotate", "$500D->$4DFC->$4D02", "same second service on delta-rotation phase", pokey_envelope_full_rotate, "", "", "selected full-device trajectory", "Verified representative full-device path"],
@@ -697,7 +704,7 @@ def main():
         ["IRQ_POKEY_both_envelopes_rotate", "$4187->$41C8->$500D/$5894->$8381", "same second service on delta-rotation phase", irq_envelope_rotate, irq_envelope_rotate + 7, "", "complete path; 24.160% of IRQ interval including entry", "Verified representative complete IRQ"],
         ["POKEY_channel_envelope_boundary_common", "$4651-$4B6A", "command $44 third service; frequency and volume load continuing count-$12 records; unclamped; $00&6!=0", pokey_boundary_common, "", "", "163 instructions; frequency zero delta does not terminate because A retains count $12", "Verified instruction-executed trajectory"],
         ["POKEY_channel_envelope_boundary_rotate", "$4651-$4B6A", "same third service on $00&6=0 delta-rotation phase", pokey_boundary_rotate, "", "", "167 instructions; both records continue", "Verified instruction-executed trajectory"],
-        ["POKEY_pair_envelope_boundary_common", "$4D02-$4DFB", "third command $44 service in first member; second empty; first wins", pokey_boundary_pair_common, "", "", "complete pair including record-reload $4651 call", "Verified representative pair path"],
+        ["POKEY_pair_envelope_boundary_common", "$4D02-$4DFB", "third command $44 service in one physical member; other member empty; independent lane wins", pokey_boundary_pair_common, "", "", "complete pair including record-reload $4651 call", "Verified representative pair path"],
         ["POKEY_pair_envelope_boundary_rotate", "$4D02-$4DFB", "same pair on delta-rotation phase", pokey_boundary_pair_rotate, "", "", "complete pair consumer", "Verified representative pair path"],
         ["POKEY_envelope_boundary_full_common", "$500D->$4DFC->$4D02", "command $44 selected record boundary; other heads empty", pokey_boundary_full_common, "", "", "dispatch + wrapper + boundary pair + empty pair", "Verified representative full-device path"],
         ["POKEY_envelope_boundary_full_rotate", "$500D->$4DFC->$4D02", "same state on delta-rotation phase", pokey_boundary_full_rotate, "", "", "selected boundary full-device path", "Verified representative full-device path"],

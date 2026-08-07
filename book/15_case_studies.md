@@ -124,11 +124,12 @@ The chip is idle, so the phrase starts immediately. The pointer, length,
 priority, and clock flag load into their working locations with interrupts held
 off, the mixer byte is written, and the state moves to kickoff.
 
-Had something been speaking, the priority comparison would have decided the
-phrase's fate: at priority 0 against anything higher it would have been rejected
-outright, and against anything equal it would have joined the eight-entry queue.
-Since 134 of the 141 phrases are priority 0, joining the queue is what usually
-happens.
+Had something been speaking, queue capacity would have been tested first. With
+fewer than seven phrases waiting, the priority comparison would then have
+decided the phrase's fate: at priority 0 against anything higher it would have
+been rejected outright, and against anything equal it would have joined the
+queue. Since 134 of the 141 phrases are priority 0, appending is what usually
+happens while space remains.
 
 ### The pump
 
@@ -159,22 +160,22 @@ Gauntlet II announces a lot. Two players collecting things in a busy room can
 easily produce three or four speech commands in a second, and each one takes a
 second and a half to say.
 
-The queue absorbs this. Eight entries, all at priority 0, appended in arrival
-order, spoken one after another. A ninth arriving while eight are waiting is
-simply dropped. The board says one thing at a time, in order, and a full queue
-puts it around ten seconds behind the game.
+The queue absorbs this. Seven usable entries, all at priority 0, are appended in
+arrival order and spoken one after another. An eighth arriving while seven are
+waiting is simply dropped. The board says one thing at a time, in order, and a
+full queue can put it around ten seconds behind the game.
 
 A full queue is the commonest way a phrase gets discarded, but it is not the
-only one. [Chapter 13](13_speaking.md) gave two more: a phrase that outranks
-what is speaking throws away the entire waiting backlog, and a phrase that
-ranks below it is rejected on arrival. [Chapter 6](06_taking_orders.md) added a
-fourth, the global threshold that commands `$01` and `$02` set, which drops a
-phrase before it reaches the queue at all. Speech is in fact the part of this
-board most willing to throw work away — which makes sense, because a sentence
-you have missed the moment for is worse than silence.
+only one. [Chapter 13](13_speaking.md) gave two more when the ring has room: a
+phrase that outranks what is speaking throws away the entire waiting backlog,
+and a phrase that ranks below it is rejected on arrival. [Chapter 6](06_taking_orders.md)
+added a fourth, the global threshold that commands `$01` and `$02` set, which
+drops a phrase before it reaches the queue at all. Speech is in fact the part of
+this board most willing to throw work away — which makes sense, because a
+sentence you have missed the moment for is worse than silence.
 
-A narrator that comments on something that stopped being true a moment ago is an
-eight-entry queue doing exactly what it was told. The alternative, cutting each
+A narrator that comments on something that stopped being true a moment ago is a
+seven-item queue doing exactly what it was told. The alternative, cutting each
 phrase off when the next arrives, would have made the machine unintelligible in
 precisely the moments when it has the most to say.
 
@@ -296,10 +297,11 @@ POP_SEQ              close the block
 CHAIN
 ```
 
-Four bytes produce a run of sustained whole notes on E2, one every 1.46 seconds
-at tempo 44, carrying the bass to the end of the piece. Channel 1's version wraps
-a whole rest in a count of nine, which is how the melody part sits out the
-middle of the piece without nine copies of a rest in ROM.
+Six bytes — `8E 06 35 81 8F 00` — produce a run of sustained whole notes on E2,
+one every 1.46 seconds at tempo 44, carrying the bass to the end of the piece.
+Channel 1's version wraps a whole rest in a count of nine, which is how the
+melody part sits out the middle of the piece without nine copies of a rest in
+ROM.
 
 The block borrows a four-byte record from the free list of
 [Chapter 7](07_command_to_channel.md) when it opens and gives it back when the
@@ -382,10 +384,17 @@ the list and all three keep running; the front of the list is what the chip
 hears.*
 
 The coin's records are inserted at the front of the lists for voices 8 and 9. For
-the next second and a half, the chip plays the coin sound on those two voices,
+the next 0.759 seconds, the chip plays the yellow coin sound on those two voices,
 and the theme's parts 5 and 6 are computed and discarded on every sweep. The
 other six voices carry on untouched, so the arrangement thins rather than
 stopping.
+
+The duration really does differ among the four coin sounds. Red uses a dotted
+quarter and lasts about 1.51 seconds; blue, yellow, and green use dotted eighths
+and last about 0.759 seconds. Their transpositions also rise from red through
+green. The ROM therefore appears designed to make the four coin mechanisms
+distinguishable by ear, although it does not tell us why the lowest, red sound
+was also made twice as long.
 
 Then the coin sound reaches its end marker, unlinks, and the theme's records are
 back at the front. And this is the payoff for
@@ -397,9 +406,9 @@ eight-part again, without a seam.
 
 The alternative designs are worse in ways you can hear. Refuse the coin sound and
 the machine does not acknowledge money. Stop the theme entirely and every coin
-kills the music. Freeze the losing voices and they resume a second and a half
-behind, out of time with the rest of the arrangement, which is the worst outcome
-of the three and also the cheapest to implement.
+kills the music. Freeze the losing voices and they resume three quarters of a
+second behind, out of time with the rest of the arrangement, which is the worst
+outcome of the three and also the cheapest to implement.
 
 One more comparison makes the priority numbers legible as a design document
 rather than a table. Sort the ROM's sounds by priority and you get a ranking of

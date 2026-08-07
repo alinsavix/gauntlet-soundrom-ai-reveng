@@ -1,11 +1,11 @@
 command_hex,command,handler_type,handler_name,parameter,direct_nmi_query,subsystem_annotation,description,chain_records,chips,primary_offset_or_speech_index,primary_pointer,speech_length
 0x00,0,3,Jump Table Dispatch,0,,CONTROL,Clear/reinitialize all audio state (self-test stop),0,,,,
-0x01,1,0,Parameter Shift,60,,CONTROL,Set global filter threshold high / silent,0,,,,
-0x02,2,0,Parameter Shift,0,,CONTROL,Clear global filter threshold / noisy,0,,,,
+0x01,1,0,Parameter Shift,60,,CONTROL,Set filter to $F0: suppress speech and most sounds; theme/coins survive,0,,,,
+0x02,2,0,Parameter Shift,0,,CONTROL,Clear global filter threshold,0,,,,
 0x03,3,255,Invalid/Unused,0,input_event_status,STATUS,Status query: read cached input/event fields ($44) -> main CPU [NMI handler 0],0,,,,
 0x04,4,7,POKEY/YM2151 Sequence,0,,MUSIC,Music Chip Test,8,YM2151,0,26892,
 0x05,5,7,POKEY/YM2151 Sequence,1,,SFX,Effects Chip Test,4,POKEY,8,26680,
-0x06,6,255,Invalid/Unused,0,echo_db,STATUS,Status query: echo $DB sentinel -> main CPU [NMI handler 1],0,,,,
+0x06,6,255,Invalid/Unused,0,fixed_db_reply,STATUS,Operator-test ping: fixed $DB reply -> main CPU [NMI handler 1],0,,,,
 0x07,7,255,Invalid/Unused,0,error_heartbeat,STATUS,Status query: return error flags and arm heartbeats [NMI handler 2],0,,,,
 0x08,8,11,TMS5220 Speech,0,,SPEECH,Speech Chip Test,0,,0,34621,247
 0x09,9,7,POKEY/YM2151 Sequence,2,,SFX,Warrior Joins In,3,YM2151,12,32135,

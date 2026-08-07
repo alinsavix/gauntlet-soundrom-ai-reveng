@@ -17,10 +17,17 @@ The main CPU writes to a single address. The sound board's hardware does two
 things with that write, at the same instant: it captures the byte in a latch that
 the sound CPU can read at `$1010`, and it pulls the sound CPU's NMI line.
 
-That pairing is the whole protocol. The byte is already safe in the latch before
-the sound CPU has even begun to react, so there is no window in which the signal
-arrives and the data has not. There is no acknowledgement to send, no length to
-agree on, and no retry. The main CPU stores and forgets.
+That pairing is the whole protocol on the sound-board side. The byte is already
+safe in the latch before the sound CPU has even begun to react, so there is no
+window in which the signal arrives and the data has not. There is no length to
+agree on and ordinary sound commands receive no individual acknowledgement.
+
+There is still flow control on the other side of the latch. The main CPU checks
+the mailbox's full flag before writing. Its nonblocking sender reports
+accepted-or-busy; gameplay code queues a busy command and retries it on later
+frames, while a blocking helper simply keeps trying. “One-byte protocol”
+describes what crosses the hardware boundary, not an unguarded store-and-forget
+policy in the game program.
 
 The word non-maskable from [Chapter 4](04_heartbeat.md) matters here. The sound
 CPU cannot defer an NMI, so the handler can begin at any instruction boundary in
@@ -44,13 +51,15 @@ only whether this command is ordinary or special.
 | Command | Question | Answer |
 |---|---|---|
 | `$03` | What is the coin door doing? | The four cached switch fields |
-| `$06` | Are you the ROM I think you are? | The number `$DB` |
+| `$06` | Can the sound CPU answer the operator's ping? | The fixed number `$DB` |
 | `$07` | Are you healthy? | The error-flag byte, and both heartbeat bits get armed |
 
-`$06` is worth a second look. `$DB` is 219, the number of commands this ROM
-understands, so the sound board identifies itself by stating the size of its own
-vocabulary. A different sound ROM with a different command set would answer with
-a different number.
+`$06` is worth a second look. `$DB` happens also to be 219, the first byte
+outside this ROM's command range, but the reply routine does not calculate it
+from a table size: it loads the literal `$DB`. The companion game ROM uses the
+command only in the operator self-test and accepts any byte that arrives before
+the timeout. The value's intended meaning is therefore unknown; it is not a
+validated ROM identifier.
 
 The other 216 commands take the ordinary path. The handler drops the byte into a
 queue and returns immediately. Every decision about what the byte means, which
@@ -218,7 +227,7 @@ an instruction that queues a byte the same way, so a piece of music could in
 principle signal the game when it reached a particular bar. No sound in this ROM
 uses it.
 
-## The mixer and the mute switch
+## The mixer and the global filter
 
 Four commands set the three analog volume levels from
 [Chapter 2](02_tour_of_the_board.md). The handler splits the parameter into the
@@ -251,17 +260,19 @@ The last pair of control commands does something more drastic. Commands `$01` an
 | `$01` | `$3C` | 240 |
 | `$02` | `$00` | 0 |
 
-That threshold is compared against **priority**, the number every sound carries
-that [Chapter 7](07_command_to_channel.md) is about. When a chip voice picks its
-winner, a winner whose priority falls below the threshold is silenced rather than
-played. When a speech command arrives, a phrase whose priority falls below the
-threshold is dropped rather than queued.
+Speech compares its raw priority against the threshold, so `$01` rejects every
+phrase: the largest speech priority is 64. Type-7 synthesis takes a less obvious
+route. Allocation encodes a record of priority *p* as a status value of
+`4*p + 1`; `SWITCH_POKEY` clears the low two status bits, while YM2151 channels
+normally retain them. The output routines compare that encoded status, not the
+raw priority, with the threshold.
 
-The highest priority anywhere in this ROM is 63, and the highest speech priority
-is 64. A threshold of 240 is above all of them, so command `$01` mutes the entire
-board through a mechanism that already existed for arbitrating between sounds.
-Command `$02` puts the threshold back to zero and everything passes again. Two
-commands, one byte of RAM, and no new machinery.
+The distinction matters at the top of the range. `$01` suppresses every POKEY
+effect, every speech phrase, and most YM2151 sounds, but the theme at priority 61
+has status 245 and the four coin-slot sounds at priority 63 have status 253.
+Those five YM2151 sounds survive a threshold of 240. Command `$01` is therefore
+a high global filter, not a true whole-board mute. `$02` clears the threshold so
+all candidates pass again.
 
 > **Try it yourself**
 >
@@ -282,18 +293,19 @@ commands, one byte of RAM, and no new machinery.
 
 ## What you now know
 
-- A command byte is latched and signalled by the same hardware event, so it can
-  never be missed or overwritten between the two.
+- Once the hardware accepts a command byte, it is latched and signalled by the
+  same event, so it cannot be missed between that signal and the sound CPU's read.
 - The interrupt answers three questions on the spot and queues everything else in
-  a sixteen-entry ring buffer.
+  a sixteen-slot ring buffer that holds at most fifteen pending commands.
 - Two parallel 219-byte tables turn a command into a handler type and a
   parameter; the type selects one of fifteen routines.
 - Nine handler types are used; type 7 covers 62 sounds and type 11 covers 141
   spoken phrases.
 - Stop and fade commands name another command rather than a channel, and the
   handler resolves it through the same tables.
-- Commands `$01` and `$02` mute and unmute the board by setting a priority
-  threshold above or below everything the ROM can produce.
+- Commands `$01` and `$02` raise and clear a global threshold. The high setting
+  suppresses speech and most synthesized sounds, but the theme and coin-slot
+  sounds remain eligible.
 
 ## Where this leads
 

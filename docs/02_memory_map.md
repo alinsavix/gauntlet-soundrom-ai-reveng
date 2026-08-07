@@ -61,8 +61,8 @@ post-length drain.
 | `$0212/$0213` | Boot indirect-write index/mode; normal command mode is `$0213=$FF` |
 | `$0214-$0223` | 16-byte output staging buffer for main CPU |
 | `$0224-$0226` | Output-buffer state/pointers |
-| `$0832/$0833` | Eight-entry speech queue read/write positions |
-| `$0834-$083B` | Speech command queue |
+| `$0832/$0833` | Eight-slot speech queue read/write positions; pointer equality means empty, so usable capacity is seven |
+| `$0834-$083B` | Eight physical speech-command slots (seven usable at once) |
 | `$083C-$089F` | YM2151 operator/output workspace |
 | `$093D+4(n-1)` | 198 four-byte records used by sequence push/pop chaining; the free list built at `$4295` reaches only records 1..134 (see below) |
 

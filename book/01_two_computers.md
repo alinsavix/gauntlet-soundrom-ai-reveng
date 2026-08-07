@@ -34,9 +34,15 @@ The two computers are joined by something much smaller than you might expect.
 ## The one-byte conversation
 
 The entire vocabulary between the game and its sound board is a set of numbers
-from 0 to 218. The main CPU writes one of them to a fixed address. That is the
-whole protocol in the outgoing direction. There is no packet, no length field,
-no acknowledgement, and no way to send a parameter alongside the number.
+from 0 to 218. The main CPU submits one of them to a fixed address. At the
+hardware boundary each accepted command is still only one byte: there is no
+packet, no length field, and no separate parameter alongside the number.
+
+The game does not blindly write into a busy mailbox. Its sender checks the
+hardware's full flag; ordinary gameplay sounds that are not accepted at once
+go into a small game-side queue and are tried again on later frames. Once a
+command crosses the mailbox there is no per-sound acknowledgement, although a
+few status and boot commands deliberately return bytes in the other direction.
 
 ```mermaid
 flowchart LR
@@ -55,8 +61,8 @@ middle of this picture. Everything to the right of the mailbox is the subject of
 this book.*
 
 Traffic in the other direction is thinner still. The sound board can hand back
-single status bytes, and the game asks for those only occasionally: what is the
-coin door doing, are you the ROM I expect, are you still alive.
+single status bytes: what is the coin door doing, are you still alive, and, in
+the operator self-test, can the sound CPU answer a ping.
 
 Our worked example throughout the book is command 13, which the sound command
 list in this repository calls **Food Eaten**. From here on it is written `$0D`.

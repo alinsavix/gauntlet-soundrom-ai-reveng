@@ -84,8 +84,9 @@ where it has got to in its sequence, its tempo, its volume, its two timers, its
 envelope positions, its priority.
 
 Thirty is not thirty *sounds*. The theme alone is eight parts and therefore eats
-eight logical channels; a one-part effect eats one. In the worst case the board
-could be tracking four eight-part sounds at once and have room for nothing else.
+eight logical channels; a one-part effect eats one. Three complete eight-part
+sounds would use 24 slots, leaving six parts of a fourth before the thirty-slot
+pool was full.
 
 Reconciling thirty with twelve is the central idea of the whole ROM.
 

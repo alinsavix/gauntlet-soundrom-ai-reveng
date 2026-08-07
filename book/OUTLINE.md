@@ -552,15 +552,19 @@ The command pipeline, from a single byte to the right handler.
 
 - **How a command arrives.** The main CPU writes one byte; the hardware
   simultaneously latches it and fires the NMI. Emphasize why this pairing
-  matters: the byte cannot be missed or overwritten between the signal and the
-  read, so no handshake protocol is needed.
+  matters: once the hardware accepts a byte, it cannot be missed between the
+  signal and the read. Qualify the game side: it checks the mailbox-full flag,
+  queues ordinary commands that get a busy result, and retries them later;
+  ordinary sound commands have no individual response acknowledgement.
 - **Answer now, or queue for later.** The NMI routine looks the command up in a
   219-entry table that says "ordinary" or "answer immediately". Three commands
   are answered on the spot because they are questions, not sounds: `$03` (what
-  is the coin/switch state?), `$06` (are you the ROM I think you are?), and
-  `$07` (report your error flags and re-arm the heartbeats). Everything else is
-  dropped into a 16-entry ring buffer and the interrupt returns immediately —
-  the interrupt must be short, so the *work* happens in the main loop.
+  is the coin/switch state?), `$06` (operator-test liveness ping, with a fixed
+  `$DB` reply that the caller does not validate), and `$07` (report your error
+  flags and re-arm the heartbeats). Everything else is dropped into a 16-slot
+  ring buffer that can hold fifteen pending commands, and the interrupt returns
+  immediately — the interrupt must be short, so the *work* happens in the main
+  loop.
 - **What a ring buffer is,** for readers who haven't met one: a fixed array
   plus a read position and a write position that wrap around, letting a
   producer and a consumer run at different speeds without either waiting.
@@ -583,8 +587,10 @@ The command pipeline, from a single byte to the right handler.
   itself can signal the game.
 - **The volume and filter commands.** `$D6`–`$D9` set mixer presets; `$01` and
   `$02` set a global loudness threshold that suppresses anything quieter than
-  it. Round out the chapter by connecting these to the `$1020` mixer from
-  Chapter 2.
+  it. The threshold uses encoded type-7 status rather than raw synthesis
+  priority: `$01` suppresses speech and most sounds, but the theme and four
+  coin-slot sounds survive. Round out the chapter by connecting these to the
+  `$1020` mixer from Chapter 2.
 
 > **Try it yourself:** `--cmd 0x03`, `--cmd 0x0D`, `--cmd 0x5A` — three
 > commands, three completely different handler types. Note how the tool reports
@@ -816,13 +822,16 @@ nine actual register writes.
   candidate frequency/volume/control set per physical voice.
 - **Choosing a winner, and the global filter.** Within a physical voice, the
   highest priority wins. Additionally, a global threshold silences any winner
-  quieter than it — this is what commands `$01` and `$02` set, and it is the
-  mechanism behind the "silent" mode used in attract/self-test.
+  whose encoded status falls below it — this is what commands `$01` and `$02`
+  set. The high setting silences all configured POKEY effects but is not a
+  whole-board mute.
 - **The pair trick.** POKEY's channels can be joined into pairs to form 16-bit
   counters, giving much finer and lower pitches than 8 bits allow. The engine
-  processes channels in two pairs, and if the second member of a pair wins *or
-  ties*, it selects joined mode for that pair. Explain what a tie means here
-  and why joining is the desirable default for a chain that wants precision.
+  processes physical channels in pairs but arbitrates two internal lanes chosen
+  by status bit 0: independent 8-bit output versus a joined candidate. If the
+  joined lane wins or ties, it selects joined mode. Explicitly warn that equal
+  priorities on the two physical channels do not cause joining; command `$05`
+  demonstrates that they remain independent.
 - **Building the AUDCTL byte.** Each logical channel contributes AND and OR
   masks; the final control byte is everything OR'd together and then filtered
   by everything AND'd together. Explain this mask-accumulation pattern once —
@@ -920,11 +929,13 @@ just a queue and a byte pump.
   48 are one-byte "stop immediately" streams. Give the reader the memorable
   fact that Gauntlet II devotes more ROM to talking than to everything else
   combined, and quote a few phrase names from the command list.
-- **Priority and the queue.** An eight-entry queue plus one rule worth stating
-  carefully: a *higher*-priority phrase discards everything waiting but does
-  **not** interrupt what is currently being spoken. Equal priority appends;
-  lower priority is dropped. Use the urgent phrases (`$A1`–`$A6`, "Better
-  hurry!") as the concrete example of the high-priority group.
+- **Priority and the queue.** Eight physical slots provide seven usable queue
+  entries because pointer equality means empty. Full is checked before
+  priority, so even a higher-priority arrival is rejected when seven phrases
+  wait. If room exists, a *higher*-priority phrase discards everything waiting
+  but does **not** interrupt what is currently being spoken. Equal priority
+  appends; lower priority is dropped. Use the urgent phrases (`$A1`–`$A6`,
+  "Better hurry!") as the concrete example of the high-priority group.
 - **The streaming state machine.** Four states — idle, kickoff, streaming,
   drain — driven by the four service calls per interrupt from Chapter 4. On
   kickoff the CPU sends the chip's "speak external" command; while streaming it

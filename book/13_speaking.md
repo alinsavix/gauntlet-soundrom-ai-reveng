@@ -95,20 +95,27 @@ the recording booth.
 A phrase can arrive while another is speaking, and the rule is worth stating
 precisely because it is easy to guess wrong.
 
-An eight-entry queue holds phrases waiting to be spoken. When a new command
-arrives and the chip is idle, it starts at once. When the chip is busy, the new
-phrase's priority is compared against the priority of the phrase **currently
-speaking**:
+The queue occupies eight physical bytes, but it can hold only seven waiting
+phrases. Its read and write positions have no separate full flag, so equality
+has to mean empty and one slot must remain unused. When a new command arrives
+and the chip is idle, it starts at once. When the chip is busy, the queue first
+checks whether all seven usable places are occupied. A full queue rejects the
+new phrase immediately, before looking at its priority. If there is room, the
+new phrase's priority is compared against the priority of the phrase
+**currently speaking**:
 
 | New phrase's priority | What happens |
 |---|---|
 | Lower | Rejected outright |
-| Equal | Appended to the queue, if there is room |
+| Equal | Appended to the queue |
 | Higher | Everything waiting in the queue is discarded, then the new phrase is appended |
 
-The important word is *waiting*. A higher-priority phrase throws away the backlog
-and puts itself at the front of it. It does not cut off the phrase in progress.
-Whatever is being said finishes being said, and the new phrase follows it.
+The important word is *waiting*. Provided the ring was not already full, a
+higher-priority phrase throws away the backlog and puts itself at the front of
+it. It does not cut off the phrase in progress. Whatever is being said finishes
+being said, and the new phrase follows it. The full-before-priority ordering
+means that even a higher-priority arrival is dropped when seven phrases are
+already waiting; it does not get the chance to flush them.
 
 That behaviour is what makes the game sound coherent rather than frantic. Nearly
 everything the ROM says is priority zero, so phrases queue up in the order the
@@ -274,8 +281,9 @@ by recording a second set. Thirty kilobytes was expensive.
 - LPC stores a description of a vocal tract per 25 ms frame rather than a
   waveform, which buys about a fortyfold saving and gives every character the same
   synthetic throat.
-- An eight-entry queue holds waiting phrases. Higher priority discards the
-  backlog; nothing interrupts the phrase already being spoken.
+- Eight physical queue bytes hold at most seven waiting phrases. Full is tested
+  before priority; otherwise higher priority discards the backlog, and nothing
+  interrupts the phrase already being spoken.
 - Four states drive the streaming, advanced by four service calls per interrupt,
   each acting only when the chip says it is ready.
 - Seventeen zero bytes at the end of every phrase keep the chip's sixteen-byte

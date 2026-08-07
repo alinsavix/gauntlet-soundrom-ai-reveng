@@ -175,14 +175,16 @@ The most likely reading is a tool emitting an end marker after every stream
 whether the stream needed one or not, but that is a guess about a build process
 nobody has a record of.
 
-**What `$DB` means.** Command `$06` asks "which sound ROM are you?" and the
-interrupt answers with the fixed byte `$DB`. The game-ROM side now settles its
-role: only the operator self-test ever sends `$06`, and it checks merely that
-*some* byte answered before a timeout, never that the byte was `$DB`
-([Appendix B](B_command_list.md#how-the-game-rom-uses-them)). So `$DB` is a
-constant identity stamp that nothing validates. What it was meant to encode — a
-revision, a board type, or just "Gauntlet II sound" — is now moot, since no
-consumer inspects it.
+**What `$DB` means.** Command `$06` makes the interrupt load the literal `$DB`
+and send it back. The value happens to equal 219, the first byte outside the
+normal command range, but it is hardcoded rather than derived from that range.
+The game-ROM side settles the command's practical role: only the operator
+self-test sends `$06`, and it checks merely that *some* byte answered before a
+timeout, never that the byte was `$DB`
+([Appendix B](B_command_list.md#how-the-game-rom-uses-them)). The response is a
+liveness ping in this game. Whether `$DB` once meant a revision, a board type,
+the command bound, or something else remains unknown because no consumer
+inspects it.
 
 **About 300 bytes of unused ROM.** Four regions have no consumer anywhere: two
 bytes at `$8447` reading `$94 $FF`, a single `$FF` at `$FECD` just past the end of

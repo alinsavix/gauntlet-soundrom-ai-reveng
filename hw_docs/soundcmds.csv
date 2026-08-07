@@ -5,7 +5,7 @@
 "0x3	",UNK,Status query: read coin/LED state ($44) -> main CPU [NMI handler 0]
 "0x4	",MUSIC,Music Chip Test
 "0x5	",SFX,Effects Chip Test
-"0x6	",UNK,Status query: echo $DB sentinel -> main CPU [NMI handler 1]
+"0x6	",UNK,Operator-test ping: fixed $DB reply -> main CPU [NMI handler 1]
 "0x7	",UNK,Status query: read error_flags ($02) -> main CPU + arm watchdog [NMI handler 2]
 "0x8	",SPEECH,Speech Chip Test
 "0x9	",SFX,"Warrior Joins In   				"

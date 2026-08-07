@@ -359,7 +359,7 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 | Address | Name | Size | Purpose |
 |---------|------|------|---------|
 | 0x4B6B | envelope_process_freq | 171B | Frequency envelope: 24-bit pitch modulation via envelope shape tables |
-| 0x4D02 | pokey_channel_mix | 250B | Mix two channel groups, select highest-priority output per physical channel |
+| 0x4D02 | pokey_channel_mix | 250B | Process one physical pair and arbitrate status-bit-selected independent/joined lanes |
 | 0x4DFC | pokey_update_registers | 77B | Orchestrate POKEY channel processing (2 pairs x mix + write) |
 | 0x4E1B | pokey_write_registers | 77B | Write computed values to physical POKEY AUDFx/AUDCx/AUDCTL registers |
 
@@ -391,7 +391,7 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 | Address | Name | Purpose |
 |---------|------|---------|
 | 0x5894 | sound_status_update | Stream speech data to TMS5220 (0x1820), manage speech queue at 0x0832-0x083B |
-| 0x59E2 | speech_queue_enqueue | Priority-based circular queue enqueue for speech/sound commands. Uses $0832/$0833 read/write indices, $0834-$083B buffer, $35 priority. Called via JMP from `music_speech_handler`. |
+| 0x59E2 | speech_queue_enqueue | Priority-based enqueue into an eight-slot/seven-item speech ring. Full is rejected before priority comparison. Uses $0832/$0833 read/write indices, $0834-$083B buffer, $35 priority. Called via JMP from `music_speech_handler`. |
 | 0x8381 | control_register_update | Coin counter LED controller (190 bytes, 0x8381-0x843E). Two paths: (1) When bit 4 of $1030 is clear: maps coin inputs to LED state via $44 using inline masks. (2) When bit 4 is set: 4-channel attack/decay envelope processor using $36-$39 accumulators, $3E-$41 envelope states, $42 frame counter. Writes combined outputs to $1034 and $1035. Inline data table at 0x83A4-0x83AB. |
 
 ### 3.3 Data Tables in ROM
@@ -401,11 +401,11 @@ Accessed via indirect addressing through zero-page pointer (0x08-0x09 = 0x1800).
 | Address | Name | Size | Format | Purpose |
 |---------|------|------|--------|---------|
 | 0x4633 | handler_addr_table | **30B** | 16-bit LE addr-1 pairs (15 entries, no sentinel) | Handler type -> function address (RTS dispatch trick: stored value = target - 1). The 16th entry would overlap the start of `channel_state_machine` at $4651. |
-| 0x5D0F | nmi_validation_table | 219B | 1 byte/cmd | NMI behavior. Bit 7 set (e.g., 0xFF) = store in `cmd_circular_buf`. 0x00..0x02 = immediate NMI dispatch via `nmi_dispatch_table`. Other low values = silently dropped (writes 0xDB sentinel to buffer). Only entries [3]=0, [6]=1, [7]=2 are non-0xFF. |
+| 0x5D0F | nmi_validation_table | 219B | 1 byte/cmd | NMI behavior. Bit 7 set (all configured ordinary entries use 0xFF) = store in `cmd_circular_buf`; low values index `nmi_dispatch_table`. Only entries [3]=0, [6]=1, [7]=2 are non-0xFF. |
 | 0x5DEA | cmd_type_map | 219B | 1 byte/cmd | Command number -> handler type (0x00-0x0E valid, 0xFF=no handler). Commands 3, 6, 7 map to 0xFF here but are handled by NMI directly (see nmi_validation_table). |
 | 0x5EC5 | cmd_param_table | 219B | 1 byte/cmd | Command parameter loaded into A before handler call |
 | 0x5FA0 | handler3_dispatch_table | 8B | 4 x 16-bit LE addr-1 | Handler type 3 sub-targets: $41E6, $843F, $44B8, $44A8. The last 3 entries OVERLAP `nmi_dispatch_table` at $5FA2. Only param 0 ($41E6 = `clear_sound_buffers`) is reachable in practice (cmd 0). |
-| 0x5FA2 | nmi_dispatch_table | 6B | 3 x 16-bit LE addr-1 | NMI immediate dispatch: $843F (cmd 3 = read $44 to main CPU), $44B8 (cmd 6 = echo $DB sentinel), $44A8 (cmd 7 = read $02 + arm watchdog). |
+| 0x5FA2 | nmi_dispatch_table | 6B | 3 x 16-bit LE addr-1 | NMI immediate dispatch: $843F (cmd 3 = read $44 to main CPU), $44B8 (cmd 6 = return fixed $DB; operator test accepts any reply), $44A8 (cmd 7 = read $02 + arm watchdog). |
 
 #### POKEY/YM2151 SFX Metadata Tables
 
@@ -718,8 +718,8 @@ will replay the second peak as a spurious "second sound."
 | Range | Handler Type | Category | Count |
 |-------|-------------|----------|-------|
 | 0x00 | 3 (jump dispatch) | System: stop all sounds (calls `clear_sound_buffers`) | 1 |
-| 0x01-0x02 | 0 (param shift) | System: silent mode ($13=0xF0) / noisy mode ($13=0x00) | 2 |
-| 0x03, 0x06-0x07 | (NMI direct) | **Status queries** — handled by NMI dispatch, not the main_loop dispatcher. Cmd 3: read $44 (coin/LED state). Cmd 6: echo $DB sentinel (max valid command count). Cmd 7: read $02 (error flags) + arm watchdog bits 0/2. | 3 |
+| 0x01-0x02 | 0 (param shift) | System: raise filter to $F0 (speech/POKEY/most YM suppressed; theme and coins survive) / clear filter to $00 | 2 |
+| 0x03, 0x06-0x07 | (NMI direct) | **Status queries** — handled by NMI dispatch, not the main_loop dispatcher. Cmd 3: read $44 (coin/LED state). Cmd 6: return fixed $DB for the operator-test liveness ping; intended value semantics unknown. Cmd 7: read $02 (error flags) + arm watchdog bits 0/2. | 3 |
 | 0x04-0x05 | 7 (POKEY SFX) | Self-test: music chip, effects chip | 2 |
 | 0x08 | 11 (music/speech) | Self-test: speech chip | 1 |
 | 0x09-0x20 | 7 (POKEY SFX) | Sound effects | ~24 |

@@ -210,29 +210,33 @@ instructions per interval if nothing else were competing. It is not a lot. The
 main loop, which does all the work of starting and stopping sounds, gets
 whatever is left over.
 
-| Situation | Cycles used | Share of the interval |
+| Situation | Cycles used, including IRQ entry | Share of the interval |
 |---|---:|---:|
-| Silent board | about 1,570 | 21% |
-| One POKEY channel playing a steady note | about 2,920 | 39% |
-| First tick of the four-channel POKEY chip test | about 7,550 | 101% |
+| Silent board, YM2151 phase | 1,011 | 13.5% |
+| Silent board, POKEY phase | 1,155 | 15.5% |
+| One steady POKEY effect (`$44`) | 1,566–1,585 | 21.0–21.2% |
+| First decode of that POKEY effect | 2,912–2,931 | 39.0–39.3% |
+| First sweep of the four-channel POKEY chip test | 7,511–7,587 | 100.6–101.6% |
 
-The silent-board figure is the floor: interrupt entry, the four speech calls
-finding nothing to do, an empty sweep over one chip's channel lists, the coin
-filters, and exit. It never gets cheaper than that, whatever else is happening.
+The two silent-board figures are the floors for their respective alternating
+phases: interrupt entry, the four speech calls finding nothing to do, an empty
+sweep over that chip's channel lists, the coin filters, and exit. POKEY's empty
+consumer still performs nine hardware writes, so its floor is higher than the
+YM2151 phase, whose eight empty probes write nothing.
 
 The bottom row is the interesting one. Command `$05` allocates four POKEY
 channels at once, and on the very next sweep the engine has to decode all four
 of their setup instructions before any of them can make a sound. That single
-pass overruns the interval by roughly a hundred cycles. Once the four channels
-have settled into playing notes rather than configuring themselves, the cost
-drops: over the following thousand sweeps the heaviest interrupt comes in at
-about 4,840 cycles, comfortably inside the budget.
+pass overruns the interval by 44 to 120 cycles, depending on phase. Once the four
+channels have settled into playing notes rather than configuring themselves,
+the cost drops: over the following thousand sweeps the heaviest interrupt
+observed comes in at 4,838 cycles, comfortably inside the budget.
 
 The overrun is survivable, and the mechanism that saves it lives in the
 hardware. The IRQ line is held asserted rather than pulsed, so an interrupt that
 becomes due while the previous one is still running stays pending behind the
 CPU's interrupt-disable flag. The moment the current handler returns, the CPU
-takes the waiting one. The board borrows about a hundred cycles of slack for one
+takes the waiting one. The board borrows at most 120 cycles of slack for one
 tick and pays them back on the next, and no line of code in the ROM had to be
 written to make that work.
 
