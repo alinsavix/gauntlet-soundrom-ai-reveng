@@ -1,12 +1,12 @@
 # Chapter 3 — Meet the Three Sound Chips
 
-*Before this chapter: [Chapters 1](01_two_computers.md) and [2](02_tour_of_the_board.md).*
+*Before this chapter: [Chapters 1](01_two_computers.md) and [2](02_tour_of_the_sound_hardware.md).*
 
 Stand in front of a Gauntlet II cabinet with your eyes shut and you can sort the
 noises into families without knowing anything about the hardware. The arrow has
 a dry electronic *pfft* to it. The theme song is warm and slightly metallic, like
 a cheap organ played through a guitar amp. The voice is unmistakable: flat,
-buzzy, and a bit adenoidal, produced by a close relative of the chip inside a
+buzzy, and a bit adenoidal, produced by a close relative of the voice chip inside a
 Speak &amp; Spell. Three families, three chips. This chapter is about what makes
 each one sound the way it does.
 
@@ -25,8 +25,8 @@ input down to a 64 kHz or 15 kHz base rate, and two of the four channels can be
 switched to run straight off the full 1.79 MHz instead. Each of Gauntlet II's
 seven POKEY effects asks for the fast clock, which buys finer pitch steps; the
 effects chip test asks for nothing and runs off the 64 kHz default.
-[Chapter 11](11_driving_the_pokey.md) has the details, including the reason the
-request is not quite as useful as it looks.
+[Chapter 11](11_driving_the_pokey.md) has the details, including the reason the request is not quite as
+useful as it looks.
 
 The counting arrangement explains the chip's whole personality. A *smaller*
 number in the counter means the output flips more often, which means a *higher*
@@ -63,17 +63,17 @@ handful of settings covers everything from a musical bass note to an explosion,
 which is why POKEY-driven Atari games have such a recognizable sonic vocabulary.
 
 Two extras matter for Gauntlet II. The first is that adjacent channels can be
-**joined** into a single 16-bit counter. Eight bits of pitch resolution is coarse,
+**joined** into a single 16-bit counter. <!-- AGENT: fix this next sentence or maybe
+this whole paragraph. It's pretty unclear, and I'm not sure it's even good english
+(what the heck is that "badly" in there?) -->Eight bits of pitch resolution is coarse,
 badly so in the low register where consecutive counter values are far apart in
-frequency; sixteen bits fixes that at the cost of a channel.
-[Chapter 11](11_driving_the_pokey.md) shows the ROM choosing joined mode
-automatically.
+frequency; sixteen bits fixes that at the cost of a channel. [Chapter 11](11_driving_the_pokey.md) 
+shows the ROM choosing joined mode automatically.
 
 The second extra has nothing to do with sound. Reading address `$180A` returns
 eight bits pulled off the top of the 17-bit polynomial counter, which gives the
-program a free hardware random number generator.
-[Chapter 9](09_sequence_language_opcodes.md) shows the sound engine reading it to
-decide which of sixteen variations of a noise to play.
+program a free hardware random number generator. [Chapter 9](09_sequence_language_opcodes.md) shows the sound
+engine reading it to decide which of sixteen variations of a noise to play.
 
 ## YM2151: one wave bending another
 
@@ -92,19 +92,11 @@ being able to track the individual wobbles. What you hear instead is a change in
 *timbre*: the tone sprouts harmonics and turns bright, hollow, buzzy, or bell-like
 depending on the wobbling oscillator's frequency and how hard it pushes.
 
-That is frequency modulation. The oscillator doing the pushing is the
+This is called *frequency modulation*. The oscillator doing the pushing is the
 **modulator**; the one being pushed and heard is the **carrier**. Two numbers, the
 modulator's frequency ratio and its strength, give you a huge range of timbres,
 and both are cheap to compute in hardware. That is why FM took over arcade and
 home music hardware in the mid 1980s.
-
-```mermaid
-flowchart LR
-    M["Modulator<br/>bends the pitch"] --> C["Carrier<br/>what you hear"] --> Out["Output"]
-```
-
-*The smallest useful FM patch. The modulator is never heard directly; it is heard
-as the harmonic colour of the carrier.*
 
 The YM2151 gives you four oscillators per voice, called **operators**, and eight
 prewired ways of connecting them, called **algorithms**. Algorithm 0 stacks all
@@ -239,9 +231,9 @@ fit in a ROM that also has to hold the program.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x46 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --music-wav 0x0D --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --sfx-wav 0x46
+> uv run gauntlet_disasm.py --music-wav 0x0D
+> uv run gauntlet_disasm.py --speech-wav 0x5A
 > ```
 >
 > Three files land in the current directory: `sfx_0x46.wav` (Fireball, 1.672

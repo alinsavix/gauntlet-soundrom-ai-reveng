@@ -17,24 +17,24 @@ YMFM core for exporting speech, sound effects, and music as WAV files. Type-7
 WAV export executes the actual 6502 sound-ROM scheduler and sequence engine.
 
 Usage:
-    uv run gauntlet_disasm.py soundrom.bin --cmd 0x0D
-    uv run gauntlet_disasm.py soundrom.bin --list
-    uv run gauntlet_disasm.py soundrom.bin --all
-    uv run gauntlet_disasm.py soundrom.bin --addr 0x7234
-    uv run gauntlet_disasm.py soundrom.bin --range 0x09-0x0C
-    uv run gauntlet_disasm.py soundrom.bin --score 0x3B
-    uv run gauntlet_disasm.py soundrom.bin --midi 0x3B
-    uv run gauntlet_disasm.py soundrom.bin --midi 0x3B --midi-out theme.mid
-    uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A
-    uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --out needs_food.wav
-    uv run gauntlet_disasm.py soundrom.bin --speech-all
-    uv run gauntlet_disasm.py soundrom.bin --speech-all --out-dir my_speech/
-    uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x0D
-    uv run gauntlet_disasm.py soundrom.bin --sfx-all
-    uv run gauntlet_disasm.py soundrom.bin --music-wav 0x3B
-    uv run gauntlet_disasm.py soundrom.bin --music-all
-    uv run gauntlet_disasm.py soundrom.bin --render-wav 0x0D
-    uv run gauntlet_disasm.py soundrom.bin --render-all
+    uv run gauntlet_disasm.py --cmd 0x0D
+    uv run gauntlet_disasm.py --list
+    uv run gauntlet_disasm.py --all
+    uv run gauntlet_disasm.py --addr 0x7234
+    uv run gauntlet_disasm.py --range 0x09-0x0C
+    uv run gauntlet_disasm.py --score 0x3B
+    uv run gauntlet_disasm.py --midi 0x3B
+    uv run gauntlet_disasm.py --midi 0x3B --midi-out theme.mid
+    uv run gauntlet_disasm.py --speech-wav 0x5A
+    uv run gauntlet_disasm.py --speech-wav 0x5A --out needs_food.wav
+    uv run gauntlet_disasm.py --speech-all
+    uv run gauntlet_disasm.py --speech-all --out-dir my_speech/
+    uv run gauntlet_disasm.py --sfx-wav 0x0D
+    uv run gauntlet_disasm.py --sfx-all
+    uv run gauntlet_disasm.py --music-wav 0x3B
+    uv run gauntlet_disasm.py --music-all
+    uv run gauntlet_disasm.py --render-wav 0x0D
+    uv run gauntlet_disasm.py --render-all
 """
 
 import argparse
@@ -5374,20 +5374,34 @@ def parse_int(s):
         raise argparse.ArgumentTypeError(f"Invalid number: {s}")
 
 
-def find_csv(rom_path):
-    """Auto-detect soundcmds.csv near the ROM file."""
-    rom_dir = os.path.dirname(os.path.abspath(rom_path))
-    cwd = os.getcwd()
-    candidates = [
-        os.path.join(rom_dir, "soundcmds.csv"),
-        os.path.join(cwd, "soundcmds.csv"),
-        os.path.join(rom_dir, "docs", "soundcmds.csv"),
-        os.path.join(cwd, "docs", "soundcmds.csv"),
-    ]
-    for c in candidates:
-        if os.path.exists(c):
-            return c
+def resolve_sound_names_csv(csv_path=None, script_path=None):
+    """Resolve an explicit CSV or the soundcmds.csv beside this script."""
+    if csv_path:
+        candidate = os.path.abspath(csv_path)
+    else:
+        script_path = script_path or __file__
+        candidate = os.path.join(
+            os.path.dirname(os.path.abspath(script_path)), "soundcmds.csv")
+
+    if os.path.isfile(candidate):
+        return candidate
+
+    if csv_path:
+        detail = f"specified sound command CSV not found: {candidate}"
+    else:
+        detail = f"default sound command CSV not found beside script: {candidate}"
+    print(f"Warning: {detail}; command descriptions will be unavailable.",
+          file=sys.stderr)
     return None
+
+
+def resolve_rom_path(rom_path=None, script_path=None):
+    """Resolve an explicit ROM or the soundrom.bin beside this script."""
+    if rom_path:
+        return os.path.abspath(rom_path)
+    script_path = script_path or __file__
+    return os.path.join(
+        os.path.dirname(os.path.abspath(script_path)), "soundrom.bin")
 
 
 def main():
@@ -5396,26 +5410,29 @@ def main():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""\
 Examples:
-  %(prog)s soundrom.bin --cmd 0x0D        # Disassemble "Food Eaten"
-  %(prog)s soundrom.bin --cmd 13          # Same command (decimal)
-  %(prog)s soundrom.bin --addr 0x7983     # Raw address disassembly
-  %(prog)s soundrom.bin --list            # All 219 commands summary
-  %(prog)s soundrom.bin --all             # Disassemble everything
-  %(prog)s soundrom.bin --range 0x09-0x0C # Range of commands
-  %(prog)s soundrom.bin --score 0x3B     # Score/tracker view
-  %(prog)s soundrom.bin --midi 0x3B      # Export as MIDI file
-  %(prog)s soundrom.bin --midi 0x3B --midi-out theme.mid
-  %(prog)s soundrom.bin --speech-wav 0x5A # Synthesize speech to WAV
-  %(prog)s soundrom.bin --speech-all      # Export all speech as WAVs
-  %(prog)s soundrom.bin --sfx-wav 0x0D    # Render POKEY SFX to WAV
-  %(prog)s soundrom.bin --sfx-all         # Render all POKEY SFX to WAV
-  %(prog)s soundrom.bin --music-wav 0x3B  # Render YM2151 music to WAV
-  %(prog)s soundrom.bin --music-all       # Render all music to WAV
-  %(prog)s soundrom.bin --render-wav 0x0D # Auto-detect and render to WAV
-  %(prog)s soundrom.bin --render-all      # Render all commands to WAV
+  %(prog)s --cmd 0x0D        # Disassemble "Food Eaten"
+  %(prog)s --cmd 13          # Same command (decimal)
+  %(prog)s --addr 0x7983     # Raw address disassembly
+  %(prog)s --list            # All 219 commands summary
+  %(prog)s --all             # Disassemble everything
+  %(prog)s --range 0x09-0x0C # Range of commands
+  %(prog)s --score 0x3B      # Score/tracker view
+  %(prog)s --midi 0x3B       # Export as MIDI file
+  %(prog)s --midi 0x3B --midi-out theme.mid
+  %(prog)s --speech-wav 0x5A # Synthesize speech to WAV
+  %(prog)s --speech-all      # Export all speech as WAVs
+  %(prog)s --sfx-wav 0x0D    # Render POKEY SFX to WAV
+  %(prog)s --sfx-all         # Render all POKEY SFX to WAV
+  %(prog)s --music-wav 0x3B  # Render YM2151 music to WAV
+  %(prog)s --music-all       # Render all music to WAV
+  %(prog)s --render-wav 0x0D # Auto-detect and render to WAV
+  %(prog)s --render-all      # Render all commands to WAV
+  %(prog)s other.bin --list  # Use a ROM at an explicit path
 """)
 
-    parser.add_argument("rom", help="Path to soundrom.bin (48KB)")
+    parser.add_argument("rom", nargs="?",
+                        help="path to a 48KB sound ROM (default: soundrom.bin "
+                             "beside this script)")
     parser.add_argument("--cmd", type=parse_int, metavar="N",
                         help="Disassemble command N (hex or decimal)")
     parser.add_argument("--addr", type=parse_int, metavar="ADDR",
@@ -5463,7 +5480,7 @@ Examples:
                         help="maximum type-7 render length, including loops "
                              "(default: 30)")
     parser.add_argument("--csv", metavar="FILE",
-                        help="Path to soundcmds.csv (auto-detected if omitted)")
+                        help="override the soundcmds.csv beside this script")
 
     args = parser.parse_args()
     if args.sample_rate <= 0:
@@ -5472,13 +5489,14 @@ Examples:
         parser.error("--max-seconds must be positive")
 
     # Load ROM
-    if not os.path.exists(args.rom):
-        print(f"Error: ROM file not found: {args.rom}", file=sys.stderr)
+    rom_path = resolve_rom_path(args.rom)
+    if not os.path.exists(rom_path):
+        print(f"Error: ROM file not found: {rom_path}", file=sys.stderr)
         sys.exit(1)
-    rom = GauntletROM(args.rom)
+    rom = GauntletROM(rom_path)
 
     # Load sound names
-    csv_path = args.csv if args.csv else find_csv(args.rom)
+    csv_path = resolve_sound_names_csv(args.csv)
     names = load_sound_names(csv_path)
 
     # ── Execute action ────────────────────────────────────────────────────

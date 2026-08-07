@@ -17,7 +17,7 @@ interesting.
 
 ## The boot handshake
 
-Before the sound board does anything else useful, it writes five fixed values,
+Before the sound subsystem does anything else useful, it writes five fixed values,
 in a fixed order, every time it powers up.
 
 | Order | Value | Address |
@@ -122,7 +122,7 @@ it. The support table it reads is six bytes at `$6559`, all of them zero, so typ
 
 Two explanations fit. These may be leftovers from development, written and then
 routed around when the game's sound design turned out simpler than expected. Or
-this sound board and this program may have been intended to serve more than one
+this sound subsystem and this program may have been intended to serve more than one
 game, with another title's command table selecting the features Gauntlet II does
 not use. Distinguishing between those requires a second ROM. One image cannot tell
 you what a different image would have done with the same code.

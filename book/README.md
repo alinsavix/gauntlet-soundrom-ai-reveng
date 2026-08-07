@@ -1,9 +1,9 @@
 # How Gauntlet II Makes Noise
 
 Eat a plate of food in Gauntlet II and the game writes one byte into a
-pigeonhole. Everything else is done by a second computer, on its own board, with
-its own processor, its own memory, and three sound chips that work in three
-completely different ways.
+pigeonhole. Everything else is done by a second computer built into the same
+large circuit board as the rest of the game, with its own processor, its own
+memory, and three sound chips that work in three completely different ways.
 
 This book is about that second computer. It explains the hardware, the program
 that runs on it, the small custom language every sound in the game is written in,
@@ -56,7 +56,7 @@ you can dip into at any point.
 | | |
 |---|---|
 | **[1. Two Computers in One Cabinet](01_two_computers.md)** | Why the sound needs its own processor, the one-byte conversation between the two, and how to get set up to follow along |
-| **[2. A Tour of the Sound Board](02_tour_of_the_board.md)** | 65,536 numbered boxes, some of which are chips rather than memory |
+| **[2. A Tour of the Sound Hardware](02_tour_of_the_sound_hardware.md)** | The 6502 address map and the hardware registers mixed in with RAM and ROM |
 | **[3. Meet the Three Sound Chips](03_three_sound_chips.md)** | POKEY, YM2151, and TMS5220, and the surprising way the work is divided between them |
 | **[4. The Heartbeat](04_heartbeat.md)** | The interrupt borrowed from the video circuitry, and where the 8.3-millisecond tick comes from |
 
@@ -123,7 +123,7 @@ SHA-1, and the one command that checks it are in
 Once `soundrom.bin` is in the repository root, the tool needs nothing installed:
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --list --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --list
 ```
 
 That form works on Windows, macOS, and Linux, and every box in the book is

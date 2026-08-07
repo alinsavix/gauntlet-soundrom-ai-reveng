@@ -316,8 +316,8 @@ to full volume in two sweeps and stops dead.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x44 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x44 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x44
+> uv run gauntlet_disasm.py --sfx-wav 0x44
 > ```
 >
 > The first prints the eight instructions above. The second reports `41 IRQ

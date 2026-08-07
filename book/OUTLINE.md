@@ -138,7 +138,7 @@ engineering process are discussed, and there the hedging is the point.
 | `docs/01_hardware.md` … `docs/10_known_issues.md` | **Canonical.** Every factual claim in the book must be supported here. |
 | `docs/generated/*.csv` | Row-level data: exact command lists, chains, speech metadata, tables. Best source for appendices. |
 | `hw_docs/POKEY.md`, `hw_docs/YM2151.md`, `hw_docs/operation.txt` | Chip behaviour and board wiring, from datasheets and schematics. |
-| `hw_docs/soundcmds.csv` | Human names for sounds ("Elf Dies", "WELCOME TO THE TREASURE ROOM."). Note: has stray tabs/quotes; clean them up when quoting. |
+| `soundcmds.csv` | Human names for sounds ("Elf Dies", "WELCOME TO THE TREASURE ROOM."). Note: has stray tabs/quotes; clean them up when quoting. |
 | `mame_refs/`, `ymfm/` | How the chips actually behave, when you need to explain *why* a register does what it does. |
 | `gauntlet_disasm.py` | Ground truth for the "Try it yourself" boxes. Run commands before printing them. |
 | `README.md` (repo root) | Project backstory, ROM part numbers/checksums, the $50 anecdote — material for Chapter 1 and Chapter 16. |
@@ -169,7 +169,7 @@ disagree, flag it in a `<!-- TODO -->` comment rather than guessing.
   | Term | Means |
   |---|---|
   | **main CPU** | The 68010 running the game itself |
-  | **sound CPU** | The 6502 on the sound board |
+  | **sound CPU** | The 6502 in the sound subsystem on the main circuit board |
   | **command** | One of the 219 byte values the main CPU can send |
   | **handler type** | Which of the 15 kinds of job a command is |
   | **record** | One row of the type-7 sound description tables |
@@ -224,7 +224,7 @@ Mandatory practical notes to state **once**, in Chapter 1, and then rely on:
   Run it from the repo root:
 
   ```bash
-  uv run gauntlet_disasm.py soundrom.bin --list
+  uv run gauntlet_disasm.py --list
   ```
 
   This same plain form works on Windows, macOS, and Linux alike; every later
@@ -258,7 +258,7 @@ reason to guess at output.
 book/
   README.md                  ← table of contents + "how to read this book"
   01_two_computers.md
-  02_tour_of_the_board.md
+  02_tour_of_the_sound_hardware.md
   03_three_sound_chips.md
   04_heartbeat.md
   05_waking_up.md
@@ -327,13 +327,15 @@ computer — and gets the reader set up to follow along.
   the game cannot spare the attention: sound needs servicing hundreds of times
   per second, forever, while the game is busy moving monsters. So Atari gave
   the sound its own 6502, its own RAM, its own ROM, and its own three sound
-  chips, and connected the two computers by a single one-byte mailbox.
+  chips, and connected the two computers by a single one-byte mailbox. State
+  explicitly that this is a largely independent subsystem on the same large
+  circuit board as the rest of the game, not a separate sound board.
 - **The one-byte conversation.** The entire vocabulary between the two
   computers is 219 command numbers, plus a handful of status bytes coming back.
   When you eat food in Gauntlet II, the game writes one byte — and everything
   else in this book is what happens next. Introduce `$0D` ("Food Eaten") as the
   running toy example.
-- **The three ways this board makes sound**, one sentence each: POKEY for
+- **The three ways this subsystem makes sound**, one sentence each: POKEY for
   simple electronic tones and noise, YM2151 for FM synthesis, TMS5220 for
   speech. Note up front that the obvious guess ("POKEY does effects, YM does
   music") turns out to be wrong, and the book will show why — a hook for
@@ -351,22 +353,22 @@ computer — and gets the reader set up to follow along.
 > subsystems.
 
 *Sources: repo `README.md`, `hw_docs/operation.txt`, `docs/01_hardware.md`,
-`docs/08_command_reference.md`, `hw_docs/soundcmds.csv`.*
+`docs/08_command_reference.md`, `soundcmds.csv`.*
 
 ---
 
-## Chapter 2 — A Tour of the Sound Board
+## Chapter 2 — A Tour of the Sound Hardware
 
 *Before this chapter: 1.*
 
 What the sound CPU can see and touch. This chapter teaches memory-mapped I/O,
 which everything later depends on.
 
-- **The 6502's world is one flat list of 65,536 numbered boxes.** Teach the
-  address space from scratch: reading and writing a number to a box. Then the
-  key idea — **some of those boxes are not memory at all.** Writing to box
-  `$1800` doesn't store anything; it changes the pitch of a POKEY tone. This is
-  memory-mapped I/O, and it is how the CPU controls every chip on the board.
+- **The 6502 has a 16-bit address space containing RAM, ROM, and hardware
+  registers.** Assume the reader already understands memory addresses and focus
+  on the mapping: writing to `$1800` changes the pitch of a POKEY tone rather
+  than storing a byte in RAM. This is memory-mapped I/O, and it is how the CPU
+  controls every sound chip.
 - **The map.** A single labelled diagram plus a table: RAM `$0000`–`$0FFF`,
   the hardware window `$1000`–`$1035` and `$1800`–`$1830`, a large unused hole,
   and 48 KB of ROM filling `$4000`–`$FFFF` — code *and* every note, instrument,
@@ -376,13 +378,13 @@ which everything later depends on.
   `$1010` is where an incoming command appears, `$1000` is where a reply goes
   out, `$1030` is a set of flag bits answering "is there a command waiting?",
   "did my last reply get picked up?", "is the speech chip ready?", "is the
-  operator holding the self-test switch?".
+  self-test switch set to its test position?".
 - **The volume knobs the software controls.** Writing to `$1020` sets three
   independent volume levels — speech, effects, music — packed into one byte
   (3 bits, 2 bits, 3 bits). Show the bit layout as a labelled diagram. This is
   a genuine analog mixer being driven digitally.
-- **The odd jobs.** The same board also drives the two mechanical coin counters
-  and reads the coin switches. It is worth saying plainly that the sound CPU is
+- **The odd jobs.** The same sound subsystem also drives the two mechanical
+  coin counters and reads the coin switches. It is worth saying plainly that the sound CPU is
   the machine's coin accountant as well as its orchestra; Chapter 4 explains
   why that ended up here.
 - **RAM: 4 KB of scratch paper.** Preview only, not detail — the zero page as
@@ -458,13 +460,13 @@ is measured in the units defined here.
 
 - **What an interrupt is.** For a reader who has never met one: a hardware
   signal that makes the CPU drop what it is doing, run a fixed routine, and
-  resume exactly where it left off. Introduce the two the sound board uses and
+  resume exactly where it left off. Introduce the two the sound CPU uses and
   keep them straight for the rest of the book: **IRQ**, the regular metronome,
   and **NMI**, "the main CPU just said something".
 - **The metronome comes from the video circuitry.** The IRQ is derived from the
   screen's scanline counter, firing four times per frame — about 240 times a
-  second. Make the point that the sound board's sense of time is borrowed from
-  the picture: this is why the music is locked to the video rate.
+  second. Make the point that the sound subsystem's sense of time is borrowed
+  from the picture: this is why the music is locked to the video rate.
 - **Alternating sweeps, and where "8.3 ms" comes from.** Each interrupt updates
   *one* chip, alternating: odd ticks sweep the four POKEY channels, even ticks
   sweep the eight YM2151 channels. So each chip is fully refreshed about 120
@@ -477,7 +479,7 @@ is measured in the units defined here.
   *attempts*: the chip refuses when its buffer is full.
 - **What else rides on the interrupt.** The same routine debounces the coin
   switches, steps the mechanical coin-counter pulses, and clears the watchdog
-  heartbeat bits that let the main CPU tell whether the sound board is alive.
+  heartbeat bits that let the main CPU tell whether the sound subsystem is alive.
   Explain the coin-counter pulse shaping (a solenoid needs a stretched pulse,
   not a flick) and the two-mode split between self-test and normal operation.
 - **The budget question.** Roughly 7,500 CPU cycles fit in one interval, and a
@@ -507,10 +509,10 @@ own health.
   until a status pattern at `$1030` says the rest of the board has settled.
   Only then does the real initialization begin. Good place to explain reset
   vectors generally.
-- **Two very different boot paths.** If the operator is not holding the
-  self-test switch, boot is fast: clear RAM, set up, go. If self-test is
-  active, the board runs a full diagnostic first. Show this as a small
-  flowchart.
+- **Two very different boot paths.** The maintained self-test switch is mounted
+  inside the cabinet; it is not a button the operator holds. In its normal
+  position, boot is fast: clear RAM, set up, go. In its test position, the board
+  runs a full diagnostic first. Show this as a small flowchart.
 - **The RAM test: walking a single one.** Explain the walking-bit technique in
   plain language — write a value with exactly one bit set, read it back, rotate
   the bit, repeat, then repeat with everything inverted. This catches stuck
@@ -1045,7 +1047,7 @@ called out.
 
 *Sources: everything; especially `docs/generated/type7_chain_catalog.csv`,
 `docs/generated/type7_sequence_catalog.csv`,
-`docs/generated/type11_speech_catalog.csv`, `hw_docs/soundcmds.csv`.*
+`docs/generated/type11_speech_catalog.csv`, `soundcmds.csv`.*
 
 ---
 
@@ -1149,7 +1151,7 @@ All 219 commands as one sortable table: number, in-game meaning, handler type
 in plain language, which chip, and chain length or phrase text.
 
 Build from `docs/generated/command_catalog.csv` joined with
-`hw_docs/soundcmds.csv`. **Clean the legacy CSV's stray tabs and quotation
+`soundcmds.csv`. **Clean the legacy CSV's stray tabs and quotation
 errors** when transcribing; do not change any numeric IDs. Where the legacy CSV
 says "Not Used", distinguish gameplay from operator-test use. In particular,
 `$D7` is used by `show_level_start_screen`, and `$D6,$D8,$D9,$DA` are selectable

@@ -17,7 +17,7 @@ The type-7 handler receives one parameter byte. That byte selects a row in a
 table of 62 entries, and the row holds a **record** number.
 
 A record is one row of a four-column table stored in ROM. The columns are stored
-as separate arrays, for the reason [Chapter 2](02_tour_of_the_board.md)
+as separate arrays, for the reason [Chapter 2](02_tour_of_the_sound_hardware.md)
 gave, but they read as a table:
 
 | Column | Meaning |
@@ -314,8 +314,8 @@ the next two chapters.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x3B --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x2A --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x3B
+> uv run gauntlet_disasm.py --cmd 0x2A
 > ```
 >
 > The theme prints eight blocks headed `Channel 1/8` through `Channel 8/8`, with

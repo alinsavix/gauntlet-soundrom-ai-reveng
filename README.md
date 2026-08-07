@@ -33,7 +33,7 @@ It is also historical; the book and `docs/` supersede claims in that report.
 [MEMMAP.md](MEMMAP.md) is the compact, maintained map of the address space and
 major ROM regions; `docs/` carries the detailed evidence and generated catalogs.
 
-And finally, Claude generated (actually _offered_ to generate!) a python script that can dump all of the data associated with each different sound. It seems to work pretty well, and I had it add a couple of bonus feature (the `--score` flag, and the ability to generate MIDI files for the music tracks). That was created as [gauntlet_disasm.py](gauntlet_disasm.py). Run it with `uv run gauntlet_disasm.py soundrom.bin --list`; its inline metadata installs NumPy automatically. Current YM2151 WAV rendering also compiles the bundled YMFM source with a local C++14 compiler.
+And finally, Claude generated (actually _offered_ to generate!) a python script that can dump all of the data associated with each different sound. It seems to work pretty well, and I had it add a couple of bonus feature (the `--score` flag, and the ability to generate MIDI files for the music tracks). That was created as [gauntlet_disasm.py](gauntlet_disasm.py). Run it with `uv run gauntlet_disasm.py --list`; its inline metadata installs NumPy automatically. Current YM2151 WAV rendering also compiles the bundled YMFM source with a local C++14 compiler.
 
 ## Finally
 

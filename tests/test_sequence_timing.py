@@ -3,8 +3,53 @@ import os
 import struct
 import tempfile
 import unittest
+from contextlib import redirect_stderr
+from io import StringIO
 
 import gauntlet_disasm as gd
+
+
+class SoundNameCsvTests(unittest.TestCase):
+    def test_default_csv_is_resolved_beside_script(self):
+        with tempfile.TemporaryDirectory() as directory:
+            script_path = os.path.join(directory, "gauntlet_disasm.py")
+            csv_path = os.path.join(directory, "soundcmds.csv")
+            with open(csv_path, "w", encoding="utf-8") as csv_file:
+                csv_file.write("cmd,subsystem,description\n")
+
+            self.assertEqual(
+                gd.resolve_sound_names_csv(script_path=script_path), csv_path)
+
+    def test_missing_default_csv_emits_warning(self):
+        with tempfile.TemporaryDirectory() as directory:
+            stderr = StringIO()
+            with redirect_stderr(stderr):
+                result = gd.resolve_sound_names_csv(
+                    script_path=os.path.join(directory, "gauntlet_disasm.py"))
+
+            self.assertIsNone(result)
+            self.assertIn("Warning: default sound command CSV not found",
+                          stderr.getvalue())
+
+    def test_explicit_csv_overrides_default(self):
+        with tempfile.TemporaryDirectory() as directory:
+            csv_path = os.path.join(directory, "custom.csv")
+            with open(csv_path, "w", encoding="utf-8") as csv_file:
+                csv_file.write("cmd,subsystem,description\n")
+
+            self.assertEqual(gd.resolve_sound_names_csv(csv_path), csv_path)
+
+
+class RomPathTests(unittest.TestCase):
+    def test_default_rom_is_resolved_beside_script(self):
+        script_path = os.path.join("somewhere", "gauntlet_disasm.py")
+        expected = os.path.abspath(os.path.join("somewhere", "soundrom.bin"))
+        self.assertEqual(
+            gd.resolve_rom_path(script_path=script_path), expected)
+
+    def test_explicit_rom_overrides_default(self):
+        self.assertEqual(
+            gd.resolve_rom_path("custom.bin"), os.path.abspath("custom.bin"))
 
 
 class FakeROM:

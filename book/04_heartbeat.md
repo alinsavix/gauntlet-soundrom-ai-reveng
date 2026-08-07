@@ -6,7 +6,7 @@
 Play the Gauntlet II theme and listen to the bass line. It is perfectly steady.
 It stays steady while four players run around, while a horde spawns, while the
 game slows down under load. It stays steady because nothing in the game program
-has anything to do with keeping it steady. The sound board has its own clock,
+has anything to do with keeping it steady. The sound subsystem has its own clock,
 and that clock is the subject of this chapter. Every statement about time in the
 remaining chapters is measured in the unit defined here.
 
@@ -32,7 +32,7 @@ must not assume anything about what it interrupted. And the handler runs on
 borrowed time: whatever it does, it has to be finished before the next signal
 arrives.
 
-The 6502 has two such wires, and the sound board uses both for different
+The 6502 has two such wires, and the sound subsystem uses both for different
 purposes. Keeping them straight is worth doing once, now.
 
 | Signal | Comes from | Means |
@@ -50,7 +50,7 @@ in [Chapter 7](07_command_to_channel.md), which needs it.
 
 The N in NMI stands for non-maskable, and it means what it says: that flag has
 no effect on NMI at all. A command from the main CPU gets through no matter what
-the sound board is in the middle of. That is a strong guarantee and it comes
+the sound subsystem is in the middle of. That is a strong guarantee and it comes
 with a matching obligation, which is that the NMI handler has to be safe to run
 at literally any instruction boundary in the program. Chapter 6 shows how the
 ROM discharges that obligation, and the answer is to make the NMI handler do
@@ -58,12 +58,12 @@ almost nothing.
 
 ## The metronome comes from the picture
 
-The sound board does not have its own oscillator for timing. It borrows one from
+The sound subsystem does not have its own oscillator for timing. It borrows one from
 the video hardware.
 
 A CRT draws the screen one horizontal line at a time. Somewhere in the game
 hardware is a counter that tracks which scanline is being drawn right now, and
-one of the bits of that counter is wired to the sound board's IRQ pin. That bit
+one of the bits of that counter is wired to the sound CPU's IRQ pin. That bit
 changes state four times per frame, at scanlines 32, 96, 160, and 224.
 
 Gauntlet's video timing produces 59.9227476 frames per second, so the sound
@@ -185,19 +185,19 @@ coin produces an energized pulse of about 67 ms followed by a guaranteed 58 ms o
 rest before the state reaches idle and another pulse can start. The mechanism gets
 a push long enough to respond to, and two pushes can never run together into one.
 
-**The watchdog.** The main CPU has no direct way to see whether the sound board
-is alive. What it has is command `$07`, which asks the sound board to report its
+**The watchdog.** The main CPU has no direct way to see whether the sound subsystem
+is alive. What it has is command `$07`, which asks the sound subsystem to report its
 error flags. Answering that command also *arms* two bits in the flag byte. The
 main loop clears one of them and the interrupt routine clears the other. If the
-sound board is healthy, both bits are back to zero long before the game asks
+sound subsystem is healthy, both bits are back to zero long before the game asks
 again. If the main loop has crashed, or if interrupts have somehow been left
 disabled, the next `$07` comes back with the corresponding bit still set and the
 game knows precisely which half has died. [Chapter 5](05_waking_up.md) has the
 full flag byte.
 
-This is why the coin counting lives on the sound board rather than with the game
+This is why the coin counting lives in the sound subsystem rather than with the game
 code. Debouncing a switch and stretching a solenoid pulse both need a steady,
-known interval to count in. The sound board already had one.
+known interval to count in. The sound subsystem already had one.
 
 ## The budget question
 
@@ -243,7 +243,7 @@ written to make that work.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x46 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --sfx-wav 0x46
 > ```
 >
 > The tool executes the real 6502 code and counts interrupts as it goes. It
@@ -259,7 +259,7 @@ written to make that work.
 
 - An interrupt makes the CPU drop what it is doing, run a fixed routine, and
   resume with nothing disturbed.
-- The sound board's IRQ comes from the video scanline counter and fires about 240
+- The sound CPU's IRQ comes from the video scanline counter and fires about 240
   times a second.
 - Each interrupt sweeps one chip, alternating, so each chip is refreshed about
   120 times a second: one **tick**, 8.344 ms.

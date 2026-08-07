@@ -933,7 +933,7 @@ def main():
     parser.add_argument("--ym-voice-record-csv")
     parser.add_argument("--type7-residual-csv")
     parser.add_argument("--region-summary-csv")
-    parser.add_argument("--names-csv", default="docs/soundcmds.csv")
+    parser.add_argument("--names-csv", default="soundcmds.csv")
     args = parser.parse_args()
 
     rom = gd.GauntletROM(args.rom)

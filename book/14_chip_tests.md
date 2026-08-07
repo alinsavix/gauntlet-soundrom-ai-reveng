@@ -3,10 +3,11 @@
 *Before this chapter: [Chapters 1](01_two_computers.md) to
 [13](13_speaking.md).*
 
-Inside the cabinet, next to the coin door, there is a switch. Hold it and the
-board stops being a game and starts being a diagnostic instrument. Among other
-things it will play you three sounds, one per chip, designed so that a technician
-with no equipment beyond their ears can tell which part of the board has died.
+Inside the cabinet there is a non-momentary self-test switch. Set it to its test
+position and restart the cabinet, and the board stops being a game and starts
+being a diagnostic instrument. Among other things it will play you three sounds,
+one per chip, designed so that a technician with no equipment beyond their ears
+can tell which part of the board has died.
 
 Those three sounds are the best teaching material in the ROM, because they were
 written to be obvious. Everything the previous seven chapters described is in
@@ -321,9 +322,9 @@ different design brief from anything else in the ROM.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x04 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --score 0x04 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --music-wav 0x04 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x04
+> uv run gauntlet_disasm.py --score 0x04
+> uv run gauntlet_disasm.py --music-wav 0x04
 > ```
 >
 > The score view is the clearest picture in the whole tool. Eight columns, one per
@@ -333,8 +334,8 @@ different design brief from anything else in the ROM.
 > the tool's 30-second ceiling, because channel 8 never finishes.
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x05 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x05 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x05
+> uv run gauntlet_disasm.py --sfx-wav 0x05
 > ```
 >
 > Look for `SET_SEQ_PTR` at the end of channels 1 and 2 and notice that both jump
@@ -342,7 +343,7 @@ different design brief from anything else in the ROM.
 > `32367 register writes` and also runs to the ceiling.
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x08 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --speech-wav 0x08
 > ```
 >
 > `LPC data: $873D (247 bytes)` and `1.38s`. Compare that address with the speech

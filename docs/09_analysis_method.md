@@ -131,7 +131,7 @@ python3 timing_clock_audit.py soundrom.bin \
 Using the bundled workspace Python (or another environment with NumPy). The
 interactive disassembler can instead provision its own NumPy dependency from
 PEP 723 inline metadata, for example
-`uv run gauntlet_disasm.py soundrom.bin --list`:
+`uv run gauntlet_disasm.py --list`:
 
 ```sh
 python3 rom_table_audit.py soundrom.bin \
@@ -241,7 +241,7 @@ python3 gauntlet_disasm.py soundrom.bin --sfx-wav 0x44 \
   --max-seconds 2 --out /tmp/pokey.wav
 python3 gauntlet_disasm.py soundrom.bin --music-wav 0x09 \
   --max-seconds 3 --out /tmp/ym2151.wav
-uv run gauntlet_disasm.py soundrom.bin --cmd 0x04
+uv run gauntlet_disasm.py --cmd 0x04
 ```
 
 Command `$04` must show eight YM2151 records beginning at offset 0. Command

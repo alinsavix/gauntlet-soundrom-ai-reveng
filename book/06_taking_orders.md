@@ -5,7 +5,7 @@
 
 The game program's entire contribution to the food blip is one store
 instruction. It writes `$0D` to a hardware address and carries on moving
-monsters. Somewhere in the next few microseconds the sound board has to notice
+monsters. Somewhere in the next few microseconds the sound subsystem has to notice
 the byte, work out that it names a sound rather than a question, and get it into
 a queue, all without disturbing the note it is already in the middle of playing.
 This chapter follows one byte from the moment it lands to the moment the right
@@ -13,11 +13,11 @@ routine picks it up.
 
 ## How a command arrives
 
-The main CPU writes to a single address. The sound board's hardware does two
+The main CPU writes to a single address. The sound subsystem's hardware does two
 things with that write, at the same instant: it captures the byte in a latch that
 the sound CPU can read at `$1010`, and it pulls the sound CPU's NMI line.
 
-That pairing is the whole protocol on the sound-board side. The byte is already
+That pairing is the whole protocol on the sound-subsystem side. The byte is already
 safe in the latch before the sound CPU has even begun to react, so there is no
 window in which the signal arrives and the data has not. There is no length to
 agree on and ordinary sound commands receive no individual acknowledgement.
@@ -233,7 +233,7 @@ uses it.
 ## The mixer and the global filter
 
 Four commands set the three analog volume levels from
-[Chapter 2](02_tour_of_the_board.md). Handler type 13 at `$4619` splits the
+[Chapter 2](02_tour_of_the_sound_hardware.md). Handler type 13 at `$4619` splits the
 parameter into two RAM shadows: `$28 = parameter & $E0` holds the speech field,
 while `$29 = parameter & $1F` holds the effects and music fields. When speech is
 idle, the handler writes `$29` to `$1020`, deliberately leaving speech muted.
@@ -297,9 +297,9 @@ all candidates pass again.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x03 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x0D --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x5A --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x03
+> uv run gauntlet_disasm.py --cmd 0x0D
+> uv run gauntlet_disasm.py --cmd 0x5A
 > ```
 >
 > Three commands, three different fates. `$03` reports `Type 255

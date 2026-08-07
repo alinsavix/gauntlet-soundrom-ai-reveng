@@ -3,14 +3,14 @@
 *Before this chapter: [Chapters 1](01_two_computers.md) to
 [4](04_heartbeat.md).*
 
-Hold the self-test switch inside the coin door and power the cabinet on. Instead
-of the attract mode you get a diagnostic screen, and the sound board offers a
-technician three noises on request: a rising staircase of eight notes from the
-music chip, a four-part electronic churn from the effects chip, and a spoken
-phrase. Those exist so that a fault can be *heard*. Before any of them can play,
-the board has to test its own memory, verify its own program, and build every
-data structure the rest of this book relies on. This chapter is the first moment
-of the machine's life.
+Set the non-momentary self-test switch mounted inside the cabinet to its test
+position, then power the cabinet on. Instead of the attract mode you get a
+diagnostic screen, and the sound subsystem offers a technician three noises on
+request: a rising staircase of eight notes from the music chip, a four-part
+electronic churn from the effects chip, and a spoken phrase. Those exist so that
+a fault can be *heard*. Before any of them can play, the board has to test its
+own memory, verify its own program, and build every data structure the rest of
+this book relies on. This chapter is the first moment of the machine's life.
 
 ## The first instruction is a refusal
 
@@ -40,8 +40,8 @@ carries the offset that lands it back on itself, so once taken it can never be
 untaken. There is no loop back to the `lda`, so the status byte is never read a
 second time.
 
-So the very first thing the sound board does is check that the two mailbox flags
-from [Chapter 2](02_tour_of_the_board.md) read exactly as expected, and if they
+So the very first thing the sound subsystem does is check that the two mailbox flags
+from [Chapter 2](02_tour_of_the_sound_hardware.md) read exactly as expected, and if they
 do not, it stops dead and stays stopped. A board that fails this check is silent
 and gives no diagnostic. Everything that follows in this chapter happens only
 after that one comparison has passed.
@@ -59,7 +59,7 @@ From here the two paths diverge sharply.
 
 ```mermaid
 flowchart TD
-    Start["Reset gate passes"] --> Test{"Self-test switch<br/>being held?"}
+    Start["Reset gate passes"] --> Test{"Switch set to<br/>self-test?"}
     Test -->|no| Fast["Clear the 256 bytes<br/>of zero page"]
     Test -->|yes| RAM["Walking-bit test<br/>over all 4 KB of RAM"]
     RAM --> Fatal{"Failure in the<br/>first two pages?"}
@@ -167,7 +167,7 @@ readiness after 255 attempts, which
 Bits 0 and 2 are the interesting pair. Together with one command, they form a
 watchdog.
 
-When the main CPU sends command `$07`, the sound board immediately replies with
+When the main CPU sends command `$07`, the sound subsystem immediately replies with
 the current contents of this byte, and then sets bits 0 and 2. From that moment
 two independent pieces of code are racing to clear them: the main loop clears
 bit 0 at the top of every pass, and the interrupt routine clears bit 2 on every
@@ -276,7 +276,7 @@ that split.
 > ```
 >
 > Three lines come out: `0x4000 0xff`, `0x8000 0xff`, `0xc000 0xff`. You have
-> just run the same test the sound board runs on every self-test boot, forty
+> just run the same test the sound subsystem runs on every self-test boot, forty
 > years later, on a different machine, in a different language. If any of the
 > three prints something other than `0xff`, your ROM image is not the one this
 > book describes, and the SHA-1 check from Chapter 1 will tell you where it went
@@ -286,10 +286,10 @@ that split.
 
 - A 6502 starts by reading a two-byte reset vector from the top of the address
   space.
-- The sound board checks two status bits once, and stops permanently if they are
+- The sound subsystem checks two status bits once, and stops permanently if they are
   wrong.
-- Normal boot skips every diagnostic; holding the self-test switch runs all of
-  them.
+- Normal boot skips every diagnostic; setting the self-test switch to its test
+  position before power-on runs all of them.
 - The walking-bit RAM test writes each of eight bit positions and its complement,
   which catches stuck bits and shorted lines that a simple write-and-read-back
   misses, and it leaves RAM cleared as a side effect.

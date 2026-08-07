@@ -458,7 +458,7 @@ a 1.79 MHz processor, so that losing a voice costs you nothing but silence.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --midi 0x3B --midi-out theme.mid --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --midi 0x3B --midi-out theme.mid
 > ```
 >
 > That reports `Channels: 8 | Notes: 185 | Est. play time: 24.4s` and writes
@@ -467,7 +467,7 @@ a 1.79 MHz processor, so that losing a voice costs you nothing but silence.
 > the bottom, track 6 has two notes in the whole piece.
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --score 0x3B --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --score 0x3B
 > ```
 >
 > The score view shows the same thing as text, with time down the left. Look at the
@@ -475,9 +475,9 @@ a 1.79 MHz processor, so that losing a voice costs you nothing but silence.
 > seconds while the other seven hold a chord: that is the six-byte ritardando.
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --music-wav 0x3B --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --music-wav 0x0D --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --music-wav 0x3B
+> uv run gauntlet_disasm.py --music-wav 0x0D
+> uv run gauntlet_disasm.py --speech-wav 0x5A
 > ```
 >
 > Three renders, three backends. The theme reports `64753 register writes` over
@@ -523,5 +523,5 @@ labels, and [Chapter 17](17_open_questions.md) lists what is still missing.
   model behind the MIDI caveat.
 - [`docs/04_subsystems.md`](../docs/04_subsystems.md) — allocation, preemption,
   and the fade handler.
-- [`hw_docs/soundcmds.csv`](../hw_docs/soundcmds.csv) — the in-game name of every
+- [`soundcmds.csv`](../soundcmds.csv) — the in-game name of every
   command quoted here.

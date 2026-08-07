@@ -7,7 +7,7 @@ have met interrupts or fixed-point arithmetic before.
 
 ---
 
-**6502.** The eight-bit processor on the sound board. It has one accumulator, two
+**6502.** The eight-bit processor in the sound subsystem. It has one accumulator, two
 index registers, a 256-byte stack at a fixed address, and no multiply
 instruction. [Chapter 1](01_two_computers.md).
 
@@ -18,7 +18,7 @@ calls it the **main CPU** and never discusses its program.
 **Active low.** A hardware signal whose meaningful state is a zero bit rather than
 a one. The self-test switch and the speech chip's ready line are both active low,
 so the interesting condition is the bit being clear.
-[Chapter 2](02_tour_of_the_board.md).
+[Chapter 2](02_tour_of_the_sound_hardware.md).
 
 **Algorithm.** On the YM2151, one of eight fixed wiring patterns connecting the
 four operators of a channel. The algorithm decides which operators modulate which
@@ -57,7 +57,7 @@ one and eight records long, and each record becomes one **part**.
 the self-test screen: command `$04` for the YM2151, `$05` for the POKEY, and `$08`
 for the speech chip. [Chapter 14](14_chip_tests.md).
 
-**Command.** One of the 219 byte values the main CPU can send to the sound board.
+**Command.** One of the 219 byte values the main CPU can send to the sound subsystem.
 A command names a sound, a phrase, or a control action, and carries no other
 information. [Chapter 1](01_two_computers.md).
 
@@ -128,7 +128,7 @@ the older name survives. [Chapter 12](12_driving_the_ym2151.md).
 fixed routine, and then resume exactly where it was, with no register or flag
 disturbed. [Chapter 4](04_heartbeat.md).
 
-**IRQ.** The sound board's regular interrupt, derived from the video circuitry and
+**IRQ.** The sound CPU's regular interrupt, derived from the video circuitry and
 arriving about 240 times a second. It can be held off temporarily by a processor
 flag. [Chapter 4](04_heartbeat.md).
 
@@ -170,7 +170,7 @@ everyone's permissions. [Chapter 11](11_driving_the_pokey.md).
 
 **Memory-mapped I/O.** Wiring a chip so that certain addresses select its
 registers, which makes controlling hardware indistinguishable from reading and
-writing memory. [Chapter 2](02_tour_of_the_board.md).
+writing memory. [Chapter 2](02_tour_of_the_sound_hardware.md).
 
 **MIDI offset.** The relationship between this ROM's note numbering and MIDI's:
 MIDI note = ROM note + 11, so ROM note 49 is middle C.
@@ -180,7 +180,7 @@ MIDI note = ROM note + 11, so ROM note 49 is middle C.
 than the chip's output. Attenuating a modulator changes timbre.
 [Chapter 3](03_three_sound_chips.md).
 
-**NMI.** The non-maskable interrupt, raised on the sound board whenever the main
+**NMI.** The non-maskable interrupt, raised on the sound CPU whenever the main
 CPU writes a command. It cannot be deferred, so its handler must be safe to run at
 any instruction boundary. [Chapter 4](04_heartbeat.md).
 
@@ -241,9 +241,9 @@ NMI. [Chapter 5](05_waking_up.md).
 around, letting a producer and a consumer run at different speeds without either
 waiting. [Chapter 6](06_taking_orders.md).
 
-**Self-test.** The diagnostic mode entered by holding a switch inside the coin
-door at power-on. It runs a full RAM test and three ROM checksums before booting.
-[Chapter 5](05_waking_up.md).
+**Self-test.** The diagnostic mode entered by setting the cabinet's internal,
+non-momentary self-test switch to its test position before power-on. It runs a
+full RAM test and three ROM checksums before booting. [Chapter 5](05_waking_up.md).
 
 **Sequence.** The bytecode "sheet music" a record points at: a stream of notes,
 rests, and opcodes interpreted one instruction at a time by a routine inside the
@@ -316,4 +316,4 @@ Gauntlet II's sound. [Chapter 3](03_three_sound_chips.md).
 
 **Zero page.** The first 256 bytes of a 6502's address space. Instructions that
 address them are one byte shorter and one cycle faster, so they serve as the
-processor's extended register set. [Chapter 2](02_tour_of_the_board.md).
+processor's extended register set. [Chapter 2](02_tour_of_the_sound_hardware.md).

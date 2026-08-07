@@ -346,8 +346,8 @@ and loops forever so a technician can leave it running.
 > a C++ compiler installed. Everything else in the book runs without one.
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x3D --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --music-wav 0x3D --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x3D
+> uv run gauntlet_disasm.py --music-wav 0x3D
 > ```
 >
 > The first prints eight channels. Every one begins with `SET_VOICE`, and five of

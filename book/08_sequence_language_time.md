@@ -266,8 +266,8 @@ first surprise.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x42 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --score 0x42 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x42
+> uv run gauntlet_disasm.py --score 0x42
 > ```
 >
 > The first command prints the level-opening fanfare as five streams of

@@ -6,8 +6,9 @@ complete reference.
 ## Getting set up
 
 **The ROM is not in this repository.** The code is still Atari's, so you have to
-supply it. The sound board carries two EPROMs; concatenate them, first one first,
-to get the 48 KB image everything here calls `soundrom.bin`.
+supply it. The sound section of the main board carries two EPROMs; concatenate
+them, first one first, to get the 48 KB image everything here calls
+`soundrom.bin`.
 
 | Part number | Board location | Size | SHA-1 |
 |---|---|---|---|
@@ -46,7 +47,7 @@ fetches NumPy the first time you run it and never asks again. It needs Python 3.
 or later.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --list
+uv run gauntlet_disasm.py --list
 ```
 
 That exact form works on Windows, macOS, and Linux. Every command in this book is
@@ -58,15 +59,17 @@ a C++14 compiler on your path. The tool looks for `clang++`, then `g++`, then
 `c++`, builds once, and reuses the result. Everything else in this appendix runs
 without a compiler.
 
-**Names are optional but worth having.** The human descriptions ("Food Eaten",
-"NEEDS FOOD, BADLY.") live in a separate file that the tool will use if you point
-at it. Its automatic search does not look in `hw_docs/`, so pass the path:
+**Names are optional but included.** The human descriptions ("Food Eaten",
+"NEEDS FOOD, BADLY.") live in `soundcmds.csv` beside the script, and the tool
+loads that file automatically:
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --list --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --list
 ```
 
-Without it every command still resolves; the description column is just blank.
+If the file is missing, the tool warns and still resolves every command; only
+the description column is unavailable. `--csv FILE` selects a different command
+list explicitly.
 
 ---
 
@@ -79,7 +82,7 @@ parameter, sequence pointer, chain length, subsystem, and description. Start
 here.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --list --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --list
 ```
 
 ```
@@ -95,7 +98,7 @@ type-7 sound it prints a header with the priority and record offset, then one
 block per channel in the chain, with every instruction decoded and annotated.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --cmd 0x0D --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --cmd 0x0D
 ```
 
 ```
@@ -135,7 +138,7 @@ tables. Useful for following a jump target or looking at something nothing point
 at.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --addr 0x80DA
+uv run gauntlet_disasm.py --addr 0x80DA
 ```
 
 ```
@@ -160,7 +163,7 @@ state from which to infer that raw address's timing rule.
 Disassemble a run of commands in one go.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --range 0x43-0x49 --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --range 0x43-0x49
 ```
 
 ### `--all`
@@ -173,7 +176,7 @@ Lay a sound's channels out side by side against a time axis, tracker-style. This
 is the view that makes an arrangement legible.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --score 0x42 --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --score 0x42
 ```
 
 ```
@@ -198,7 +201,7 @@ Write a sound out as a Standard MIDI File, one track per channel. The default
 output name is `command_0xNN.mid`.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --midi 0x3B --midi-out theme.mid --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --midi 0x3B --midi-out theme.mid
 ```
 
 ```
@@ -219,7 +222,7 @@ Synthesize a spoken phrase through the tool's port of MAME's TMS5220 model.
 8 kHz output. No compiler needed.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --speech-wav 0x5A
 ```
 
 ```
@@ -240,7 +243,7 @@ executes the ROM's own reset, dispatcher, allocator, and interrupt service, and
 captures the register writes the 6502 actually performs.
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x47 --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --sfx-wav 0x47
 ```
 
 ```
@@ -259,7 +262,7 @@ The same thing on the other chip, with the register writes fed to the bundled
 YMFM core. **This one needs the C++14 compiler.**
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --music-wav 0x0D --csv hw_docs/soundcmds.csv
+uv run gauntlet_disasm.py --music-wav 0x0D
 ```
 
 ```
@@ -296,7 +299,7 @@ of their kind. Each has a default output directory, overridable with `--out-dir`
 | `--sample-rate HZ` | WAV rate for POKEY and YM2151 output. Default 44,100. Speech is always 8,000 |
 | `--max-seconds S` | Cap on type-7 render length, including loops. Default 30. Raise it for long music, lower it to sample a looping sound quickly |
 | `--initial-duration-rule RULE` | Starting timing rule for a raw `--addr` disassembly: `table` (default) or `pokey` |
-| `--csv FILE` | Path to the sound command list. Use `hw_docs/soundcmds.csv` |
+| `--csv FILE` | Override the `soundcmds.csv` beside the script with another command list |
 
 ---
 

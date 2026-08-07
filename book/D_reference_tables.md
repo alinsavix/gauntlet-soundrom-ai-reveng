@@ -10,7 +10,7 @@ which chapter explains what it is for.
 The sound CPU's complete address space, in address order. The sparse I/O holes
 are shown explicitly; the three sixteen-byte mailbox/mixer blocks are mirrors
 because the hardware does not decode their low four address bits.
-[Chapter 2](02_tour_of_the_board.md).
+[Chapter 2](02_tour_of_the_sound_hardware.md).
 
 | Range | Size | Contents |
 |---|---:|---|
@@ -62,7 +62,7 @@ contexts, so the shortfall has no audible consequence.
 ## D.2 The hardware window at `$1000`
 
 Several of these addresses do unrelated things depending on the direction of the
-access. [Chapter 2](02_tour_of_the_board.md). For the set of *values* the sound
+access. [Chapter 2](02_tour_of_the_sound_hardware.md). For the set of *values* the sound
 CPU sends back through `$1000`, see
 [Appendix B, Replies to the main CPU](B_command_list.md#replies-to-the-main-cpu).
 
@@ -86,12 +86,12 @@ Board status bits read at `$1030`:
 | 7 | A command is waiting at `$1010` |
 | 6 | The last reply has not been collected |
 | 5 | The speech chip is *not* ready |
-| 4 | The self-test switch is *not* held |
+| 4 | The self-test switch is in its normal position |
 
 ## D.3 The mixer byte at `$1020`
 
 One store sets three analog volume levels. Speech and music get eight steps each;
-effects get four. [Chapter 2](02_tour_of_the_board.md).
+effects get four. [Chapter 2](02_tour_of_the_sound_hardware.md).
 
 | Bit | 7 | 6 | 5 | 4 | 3 | 2 | 1 | 0 |
 |---|---|---|---|---|---|---|---|---|
@@ -115,7 +115,7 @@ by failures during the boot diagnostics and stay latched once set.
 | 0 | Main-loop heartbeat: armed by command `$07`, cleared by the main loop |
 
 The game program watches only the low three bits — the two heartbeats and the
-YM2151-stuck flag. Its per-frame watchdog reboots the sound board if any of them
+YM2151-stuck flag. Its per-frame watchdog reboots the sound subsystem if any of them
 is set, and ignores the five latched self-test bits above them
 ([Appendix B](B_command_list.md#how-the-game-rom-uses-them)).
 
@@ -123,7 +123,7 @@ is set, and ignores the five latched self-test bits above them
 
 File offset 0 is CPU address `$4000`, so subtract `$4000` from any address in this
 book to find it in `soundrom.bin`.
-[Chapter 2](02_tour_of_the_board.md).
+[Chapter 2](02_tour_of_the_sound_hardware.md).
 
 | Range | Contents |
 |---|---|

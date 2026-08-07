@@ -279,9 +279,9 @@ that go unused are not stubs; they are finished, working code with no callers.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x1C --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x2C --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --cmd 0x2E --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --cmd 0x1C
+> uv run gauntlet_disasm.py --cmd 0x2C
+> uv run gauntlet_disasm.py --cmd 0x2E
 > ```
 >
 > Three sounds, three kinds of control flow. `$1C` shows `PUSH_SEQ_EXT $02` at

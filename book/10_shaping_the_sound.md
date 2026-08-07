@@ -261,7 +261,7 @@ wrong ones would alter the timbre rather than the loudness.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --sfx-wav 0x47 --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --sfx-wav 0x47
 > ```
 >
 > That writes `sfx_0x47.wav`, 1.204 seconds of audio built from 237 POKEY

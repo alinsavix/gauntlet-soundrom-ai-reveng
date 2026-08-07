@@ -4,7 +4,7 @@ All 219 command values the main CPU can send, in order. The reverse
 direction — the handful of bytes the sound CPU sends *back* — is tabulated at
 the end, under [Replies to the main CPU](#replies-to-the-main-cpu).
 
-**Command** is the byte written to the sound board's mailbox.
+**Command** is the byte written to the sound subsystem's mailbox.
 [Chapter 1](01_two_computers.md) explains the `$` notation and
 [Chapter 6](06_taking_orders.md) explains how the byte becomes an action.
 
@@ -307,7 +307,7 @@ play the game sends only two of these commands and reads their replies:
   playing" is wrong; it is the coin poll.)
 - **`$07`, when idle or when worried.** The game masks the low three bits of the
   reply — the three heartbeat and health bits of [D.4](D_reference_tables.md) —
-  and reboots the sound board if any is set. The same command is the watchdog's
+  and reboots the sound subsystem if any is set. The same command is the watchdog's
   probe: a board that stops answering `$07` is reset.
 
 `$FF` is the byte the game waits for after it reboots the board; receiving it
@@ -367,7 +367,7 @@ where `$1000`–`$100F` really was sixteen distinct registers.
 - [`docs/generated/type11_speech_catalog.csv`](../docs/generated/type11_speech_catalog.csv)
   — the 141 phrases with pointers, lengths, frame counts, clock flags, and
   priorities.
-- [`hw_docs/soundcmds.csv`](../hw_docs/soundcmds.csv) — the surviving human-written
+- [`soundcmds.csv`](../soundcmds.csv) — the surviving human-written
   command list this table's descriptions come from.
 - [`docs/08_command_reference.md`](../docs/08_command_reference.md) — the command
   space and handler distribution.

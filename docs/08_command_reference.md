@@ -127,6 +127,6 @@ from the shipped ROMs.
 
 ## Command names
 
-Human descriptions come from `docs/soundcmds.csv` and game knowledge. They are
+Human descriptions come from the repository's `soundcmds.csv` and game knowledge. They are
 annotations, not evidence for handler mechanics. Spelling and quotation errors
 in the legacy CSV should eventually be normalized without changing numeric IDs.

@@ -2,47 +2,60 @@
 
 *Before this chapter: nothing.*
 
-Your Elf walks over a plate of food. The plate vanishes, the health counter
-climbs, and a short falling blip plays. The program that moved the Elf did not
-make that blip. It wrote a single number into a one-byte pigeonhole and went
-straight back to worrying about ghosts and grunts. Something else picked the
-number up. That something else is a whole second computer, sitting on its own
-board inside the cabinet, and this book is about what it does with that number.
+Your elf walks over to (and thankfully does not shoot) a food. The food vanishes,
+the health counter climbs, and then the elf can be heard gobbling up the food.
+The program that moved the elf did not make that sound. It wrote a single number
+into a one-byte pigeonhole and went straight back to worrying about ghosts and demons.
+Something else picked the number up. That something else is a whole second computer, built
+into the same large circuit board as the rest of the game, and this book is about what it does
+with that number.
 
 ## Why the sound needs its own computer
 
-Gauntlet II runs on a Motorola 68010. In 1986 that was a serious processor, and
+Gauntlet II runs on a Motorola 68010. In 1986 that was a serious processor, but
 it has a lot to get through: four players, dozens of monsters, generators
-spawning more of them, collision detection, scrolling, and a scoreboard, all
-sixty times a second.
+continually spawning more of them, collision detection, scrolling, and a
+scoreboard, all sixty times a second.
 
 Sound will not fit into that schedule. A tone is not a thing you start and then
 forget about. It is a stream of small adjustments: nudge this volume down a
 step, move that pitch up, release that note, start the next one, hand the speech
-chip its next byte. Do those adjustments late and the music stumbles audibly. A
+chip its next byte. Do those adjustments late and the sound stumbles audibly. A
 processor that is halfway through untangling four players and a horde of
 demons cannot promise to be anywhere at a particular microsecond.
 
-Atari's answer was to stop asking. The sound lives on its own board with its own
-MOS 6502 processor, its own 4 KB of RAM, its own 48 KB of ROM, and its own three
-sound chips. That board has exactly one job, so it can afford to be
-interrupted about 240 times a second, forever, and never miss an appointment.
-[Chapter 4](04_heartbeat.md) is about that heartbeat.
+Atari's answer was to stop asking. The sound subsystem has its own MOS 6502
+processor (the same family as is used in the Apple ][ and the Commodore 64!), with
+its own 4 KB of RAM, its own 48 KB of ROM, and a trio of sound chips at its command.
+These parts occupy one largely self-contained section of the game's main circuit board,
+rather than a separate sound board. This second computer runs almost entirely
+independently, so it can afford to be interrupted about 240 times a second, forever,
+and never miss an appointment. [Chapter 4](04_heartbeat.md) is about that heartbeat.
 
 The two computers are joined by something much smaller than you might expect.
 
 ## The one-byte conversation
 
-The entire vocabulary between the game and its sound board is a set of numbers
-from 0 to 218. The main CPU submits one of them to a fixed address. At the
+The entire vocabulary between the game and its sound subsystem is a set of
+numbers from 0 to 218, each number representing a different sound, bit of
+music, speech, or a command to control the sound in some way (e.g. silencing
+it). The main CPU submits this number (a single byte) to a mailbox address that
+bridges between the main game's hardware and the sound hardware. At the
 hardware boundary each accepted command is still only one byte: there is no
-packet, no length field, and no separate parameter alongside the number.
+packet, no length field, and no extra parameters alongside.
 
-The game does not blindly write into a busy mailbox. Its sender checks the
-hardware's full flag; ordinary gameplay sounds that are not accepted at once
-go into a small game-side queue and are tried again on later frames. Once a
-command crosses the mailbox there is no per-sound acknowledgement, although a
-few status and boot commands deliberately return bytes in the other direction.
+There is still a bit of a careful dance, though. The game does not blindly write into
+a busy mailbox -- it checks to make sure the sound hardware's queue isn't full (more on
+this in chapter X <!-- AGENT: put the right link there -->), and if it is,
+adds the sound command to a small buffer on the game's side of the mailbox. Commands
+in that buffer will be retried each frame, hoping that some of the playing sounds on the
+sound hardware's side will have finished, allowing new commands to be processed.
+
+After a command crosses from the game hardware to the sound hardware, the game
+code forgets that the sound ever existed, and leaves the sound hardware to actually
+generate the sound. There is no per-command acknowledgement, or feedback from
+the sound hardware at all, with a few exceptions (see chapter Y <!-- AGENT: replace
+the chapter number appropriately -->).
 
 ```mermaid
 flowchart LR
@@ -56,20 +69,23 @@ flowchart LR
     TMS --> Amp
 ```
 
+<!-- AGENT: this graph seems like it needs to show the buffer full check, and the command
+buffers on both sides of the mailbox -->
 *Every sound in Gauntlet II starts as one byte crossing the boundary in the
 middle of this picture. Everything to the right of the mailbox is the subject of
 this book.*
 
-Traffic in the other direction is thinner still. The sound board can hand back
-single status bytes: what is the coin door doing, are you still alive, and, in
-the operator self-test, can the sound CPU answer a ping.
+Traffic in the other direction is thinner still. When the sound subsystem *does* need to
+send an acknowledgement or information back to the game hardware, it hands
+back single status bytes: what is the coin door doing, are you still alive, and, in
+the operator self-test, etc. And that response is, again, a single byte in size.
 
 Our worked example throughout the book is command 13, which the sound command
-list in this repository calls **Food Eaten**. From here on it is written `$0D`.
-The dollar sign is the notation used in 6502 assembly language for a hexadecimal number,
-and `$0D` means the same thing as `0x0D` in C or Python. Hexadecimal shows up
-constantly in this material because the interesting boundaries in a ROM fall on
-round hexadecimal numbers rather than round decimal ones.
+list in this repository calls **Food Eaten**. From here on it is written `$0D`. The dollar sign is
+the notation used in 6502 assembly language for a hexadecimal number, and `$0D`
+means the same thing as `0x0D` in C or Python. Hexadecimal shows up constantly in
+this material because the interesting boundaries in a ROM fall on round hexadecimal
+numbers rather than round decimal ones.
 
 So: eat food, and the game writes `$0D`. What happens between that write and the
 blip coming out of the speaker takes fourteen more chapters to describe
@@ -84,8 +100,8 @@ the rest of the book is a consequence of it.
 The byte says which sound. It does not say how loud, or how long, or on which
 chip voice, or at what pitch, or what should happen if something is already
 playing there. The game does not know any of those things and has no way to
-express them. Every one of those decisions has to be made on the sound board,
-from information already baked into the ROM.
+express them. Every one of those decisions has to be made by the sound subsystem,
+from information already baked into the sound subsystem's ROMs.
 
 That constraint shapes the entire design:
 
@@ -107,7 +123,7 @@ is why a single program drives every noise the game makes.
 
 ## Three ways to make a noise
 
-The board has three sound chips, and none of them work alike.
+The sound subsystem has three sound chips, and none of them work alike.
 
 | Chip | What it does |
 |---|---|
@@ -136,10 +152,11 @@ that has nothing to do with sound at all.
 
 Everything in this book can be checked against the actual sound ROM, and the
 tooling in this repository will do the checking for you. The ROM itself is not
-included here, because the code is still Atari's. You will need to supply it.
+included here, because the code is still copyrighted by Atari. You will need to supply
+it yourself if you want to use the tools to examine it yourself.
 
-The sound board carries two EPROMs. Concatenate them, first one first, to get
-the 48 KB image the rest of the book calls `soundrom.bin`:
+The sound section of the main board carries two EPROMs. Concatenate them, first
+one first, to get the 48 KB image the rest of the book calls `soundrom.bin`:
 
 | Part number | Board location | Size | SHA-1 |
 |---|---|---|---|
@@ -165,45 +182,39 @@ self-contained Python script, and `uv` installs its one dependency (NumPy) for
 you the first time you run it, so this is all the setup there is:
 
 ```bash
-uv run gauntlet_disasm.py soundrom.bin --list
+uv run gauntlet_disasm.py --list
 ```
 
 That exact form works on Windows, macOS, and Linux, and every "Try it yourself"
-box in this book is written to be pasted verbatim. One optional extra is worth
-knowing about now: the human names for the sounds ("Food Eaten", "NEEDS FOOD,
-BADLY.") live in a separate file that the tool will use if you point at it.
+box in this book is written to be pasted verbatim. Human names such as "Food
+Eaten" and "NEEDS FOOD, BADLY." come from `soundcmds.csv`, which sits beside the
+script and is loaded automatically. If that file is missing, the tool warns and
+continues with the description column blank. `--csv FILE` can still select a
+different command list explicitly.
 
-```bash
-uv run gauntlet_disasm.py soundrom.bin --list --csv hw_docs/soundcmds.csv
-```
-
-Without that flag the listing still shows every command and its internals, with
-the description column left blank.
-
-The 48 KB image is the whole of the sound board's ROM, and the 6502 sees it at
+The 48 KB image is the whole of the sound subsystem's ROM, and the 6502 sees it at
 addresses `$4000` through `$FFFF`. Byte 0 of the file is what the CPU calls
 `$4000`. That single fact makes it possible to find anything in the file that
-this book gives an address for: subtract `$4000`. [Chapter 2](02_tour_of_the_board.md) draws the rest of the map.
+this book gives an address for: subtract `$4000`. [Chapter 2](02_tour_of_the_sound_hardware.md) draws the rest of the map.
 
 ## How to read this book
 
-The book is in four movements.
+The book is in four major sections:
 
-**The machine ([2](02_tour_of_the_board.md) to [4](04_heartbeat.md)).** What the
-sound CPU can see and touch, what the three chips do, and the interrupt that
-drives everything. [Chapter 4](04_heartbeat.md) defines the unit of time that the
-rest of the book measures in, so it is the one chapter to read slowly.
+**The machine (chapters [2](02_tour_of_the_sound_hardware.md) to [4](04_heartbeat.md)).** What the sound CPU can see and touch,
+what the three chips do, and the interrupt that drives everything.
+[Chapter 4](04_heartbeat.md) defines the unit of time that the rest of the book measures in,
+so it is the one chapter to read slowly.
 
-**Waking up and taking orders ([5](05_waking_up.md) and
-[6](06_taking_orders.md)).** Power-on, self-test, and the pipeline that turns an
-arriving byte into a decision about what to play.
+**Waking up and taking orders (chapters [5](05_waking_up.md) and [6](06_taking_orders.md)).** Power-on, self-test, and the
+pipeline that turns an arriving byte into a decision about what to play.
 
-**Making a sound ([7](07_command_to_channel.md) to [13](13_speaking.md)).** The
-heart of it. How one command becomes as many as eight simultaneous strands of
-sound, the small programming language that describes every one of them, the
-envelopes that shape it, and the last few inches into each of the three chips.
+**Making a sound (chapters [7](07_command_to_channel.md) to [13](13_speaking.md)).** The heart of it. How one command
+becomes as many as eight simultaneous strands of sound, the small
+programming language that describes every one of them, the envelopes
+that shape it, and the last few inches into each of the three chips.
 
-**Watching it happen ([14](14_chip_tests.md) and [15](15_case_studies.md)).**
+**Watching it happen (chapters [14](14_chip_tests.md) and [15](15_case_studies.md)).**
 Complete walkthroughs. The three self-test sounds first, because they were
 written to be obvious, and then three real game sounds traced end to end.
 
@@ -216,15 +227,14 @@ reference documents in [`docs/`](../docs/README.md) that record how confident ea
 what evidence supports it. Nothing in this book goes beyond what those
 documents call verified or strongly supported. That is a floor rather than a
 guarantee: a later consistency audit still found errors this book had inherited
-from its own sources, and [Chapter 16](16_how_this_was_figured_out.md) lists
-them. If a sentence here makes you suspicious, the "Going deeper" list at the end
-of each chapter points at the chapter of `docs/` that will argue the case
-properly.
+from its own sources, and [Chapter 16](16_how_this_was_figured_out.md) lists many of them. If a sentence here
+makes you suspicious, the "Going deeper" list at the end of each chapter points
+at the chapter of `docs/` that will argue the case properly.
 
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --list --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --list
 > ```
 >
 > All 219 commands scroll past, one per line, from `$00` to `$DA`. Find `$0D`
@@ -240,8 +250,8 @@ properly.
 
 - Sound in Gauntlet II runs on a second computer with its own CPU, RAM, ROM, and
   sound chips.
-- The two computers communicate through one byte at a time, chosen from 219
-  command numbers.
+- The two computers communicate through a shared mailbox address, one byte at
+  a time, chosen from 219 command numbers.
 - `$3B` is hexadecimal notation for 59, and it is how this book writes numbers
   that come out of the ROM.
 - The ROM is a single 48 KB file that the sound CPU sees at `$4000`–`$FFFF`, so
@@ -251,7 +261,7 @@ properly.
 
 ## Where this leads
 
-[Chapter 2](02_tour_of_the_board.md) takes the lid off the sound board and looks at what the 6502 can
+[Chapter 2](02_tour_of_the_sound_hardware.md) tours the sound hardware and looks at what the 6502 can
 reach: 4 KB of RAM, 48 KB of ROM, and a small window of addresses where
 writing a number does not store anything at all.
 

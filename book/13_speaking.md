@@ -7,7 +7,7 @@
 forgotten that voice. It is also, structurally, the least Gauntlet-like thing on
 the board. No sequence, no logical channel, no envelope, no tempo, no priority
 list. A speech command resolves to a pointer and a length, and after that the
-sound board's only job is to hand the chip one byte at a time until it runs out.
+sound subsystem's only job is to hand the chip one byte at a time until it runs out.
 
 ## Speech skips everything
 
@@ -254,9 +254,9 @@ by recording a second set. Thirty kilobytes was expensive.
 > **Try it yourself**
 >
 > ```bash
-> uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x5A --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --speech-wav 0xA2 --csv hw_docs/soundcmds.csv
-> uv run gauntlet_disasm.py soundrom.bin --speech-wav 0x7F --csv hw_docs/soundcmds.csv
+> uv run gauntlet_disasm.py --speech-wav 0x5A
+> uv run gauntlet_disasm.py --speech-wav 0xA2
+> uv run gauntlet_disasm.py --speech-wav 0x7F
 > ```
 >
 > The first reports `324 bytes` and writes 1.52 seconds of audio. Check the
